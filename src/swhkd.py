@@ -3,7 +3,6 @@
 import asyncio
 import getpass
 import grp
-import libevdev
 import pwd
 import signal
 import sys
