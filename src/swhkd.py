@@ -27,7 +27,6 @@ class SWHKD:
         await self.log_util.log_info('Gracefully quitting.')
         sys.exit(0)
 
-
     async def run_swhkd(self):
         groups = [g.gr_name for g in grp.getgrall() if self.user in g.gr_mem]
         gid = pwd.getpwnam(self.user).pw_gid
@@ -36,8 +35,6 @@ class SWHKD:
             if group.lower() == "input":
                 await self.log_util.log_warn("User is in input group, proceeding.")
                 break;
-
         await self.input_util.get_keyboard_devices()
-
 
 asyncio.run(SWHKD().run_swhkd())
