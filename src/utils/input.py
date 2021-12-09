@@ -2,7 +2,6 @@
 
 import glob
 import libevdev
-import asyncio
 from . log import LOG_UTILS
 
 class INPUT_UTILS:
@@ -10,6 +9,9 @@ class INPUT_UTILS:
         self.log_util=LOG_UTILS()
 
     async def check_keyboard(self,device_path) -> bool :
+        """
+        Check if the device is a keyboard.
+        """
         fd = open(device_path, 'rb')
         device = libevdev.Device(fd)
         fd.close()
@@ -21,6 +23,9 @@ class INPUT_UTILS:
             return False
 
     async def get_keyboard_devices(self):
+        """
+        Get all keyboard devices.
+        """
         devices = glob.glob('/dev/input/event*')
         keyboards = []
         for device in devices:
@@ -28,3 +33,9 @@ class INPUT_UTILS:
             if out ==True:
                 keyboards.append(device)
         return keyboards
+
+    async def get_keyboard_events(self,device_path:str) -> None:
+        with open(device_path, 'rb') as fd:
+            device = libevdev.Device(fd)
+            for event in device.events():
+                print(event)

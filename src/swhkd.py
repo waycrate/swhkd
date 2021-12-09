@@ -23,8 +23,8 @@ class SWHKD:
         self.input_util = INPUT_UTILS()
         self.user = getpass.getuser()
 
-    async def signalhandler(self,sig,frame):
-        await self.log_util.log_info('Gracefully quitting.')
+    def signalhandler(self,sig,frame):
+        print('\033[1;31mEXIT: Quitting SWHKD.\033[0m')
         sys.exit(0)
 
     async def run_swhkd(self):
@@ -35,6 +35,9 @@ class SWHKD:
             if group.lower() == "input":
                 await self.log_util.log_warn("User is in input group, proceeding.")
                 break;
-        await self.input_util.get_keyboard_devices()
+
+        keyboards = await self.input_util.get_keyboard_devices()
+        for keyboard in keyboards:
+            await self.input_util.get_keyboard_events(keyboard)
 
 asyncio.run(SWHKD().run_swhkd())
