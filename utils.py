@@ -1,3 +1,5 @@
+import time
+
 class SWHKD_UTILS():
     """ 
     Helper Functions.
@@ -10,10 +12,10 @@ class SWHKD_UTILS():
         self.COLOR_RESET="\033[0m"
 
     def log_info(self, message:str):
-        print(f"{self.COLOR_GREEN}INFO:{self.COLOR_RESET} {message}")
+        print(f"{self.COLOR_GREEN}[{time.ctime()}] INFO:{self.COLOR_RESET} {message}")
 
     def log_error(self, message:str):
-        print(f"{self.COLOR_RED}ERROR:{self.COLOR_RESET} {message}")
+        print(f"{self.COLOR_RED}[{time.ctime()}] ERROR:{self.COLOR_RESET} {message}")
 
     def log_warn(self, message:str):
-        print(f"{self.COLOR_YELLOW}WARN:{self.COLOR_RESET} {message}")
+        print(f"{self.COLOR_YELLOW}[{time.ctime()}] WARN:{self.COLOR_RESET} {message}")
