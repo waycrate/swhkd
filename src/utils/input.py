@@ -35,7 +35,12 @@ class INPUT_UTILS:
         return keyboards
 
     async def get_keyboard_events(self,device_path:str) -> None:
+        """
+        Get all device events.
+        """
         with open(device_path, 'rb') as fd:
             device = libevdev.Device(fd)
             for event in device.events():
+                if event.matches(libevdev.EV_MSC):
+                    continue
                 print(event)

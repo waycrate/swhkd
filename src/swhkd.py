@@ -23,10 +23,16 @@ class SWHKD:
         self.user = getpass.getuser()
 
     def signalhandler(self,sig,frame):
+        """
+        Signal handler for SIGINT and SIGTERM.
+        """
         print('\033[1;31mEXIT: Quitting SWHKD.\033[0m')
         sys.exit(0)
 
     async def run_swhkd(self):
+        """
+        Runner class.
+        """
         groups = [g.gr_name for g in grp.getgrall() if self.user in g.gr_mem]
         gid = pwd.getpwnam(self.user).pw_gid
         groups.append(grp.getgrgid(gid).gr_name)
