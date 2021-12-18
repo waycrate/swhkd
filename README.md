@@ -1,5 +1,5 @@
 # swhkd
-Simple Wayland HotKey Daemon
+**S**imple **W**ayland **H**ot**K**ey **D**aemon
 
 
 This project is still very new and I'm making new decisions everyday as to where I should drive this project.
@@ -11,4 +11,4 @@ Currently I have only been able to achieve the grabbing of input evdev, I don't 
 
 # Python:
 Adressing the elephant in the room, python. Python is good enough for the prototype stage of the project, once I have a clear idea and a working prototype, 
-I will port the project to go or zig.
+I will port the project to go or zig if I get time.
