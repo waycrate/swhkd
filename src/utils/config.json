@@ -1,6 +1,6 @@
 SAMPLE JSON CONFIG 
 First XDG_CONFIG_HOME/swhkd/config.json is checked
-and then ~/.config/swhkd/config.kson
+and then ~/.config/swhkd/config.json
 Delete the first 4 lines before using this file.
 [
 	{
