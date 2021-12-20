@@ -1,0 +1,14 @@
+SAMPLE JSON CONFIG 
+First XDG_CONFIG_HOME/swhkd/config.json is checked
+and then ~/.config/swhkd/config.kson
+Delete the first 4 lines before using this file.
+[
+	{
+		"combo": ["KEY_ENTER", "KEY_LEFTMETA"],
+		"action": "foot -e ranger"
+	},
+	{
+		"combo": ["KEY_ENTER", "KEY_LEFTCTRL"],
+		"action": "pcmanfm"
+	}
+]
