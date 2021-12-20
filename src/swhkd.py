@@ -47,6 +47,9 @@ class SWHKD:
 
         # Fetch events
         keyboards = await self.input_util.get_keyboard_devices()
+        if not keyboards:
+            await self.log_util.log_error("No keyboard devices found.")
+            sys.exit(1)
         for keyboard in keyboards:
             await self.input_util.get_keyboard_events(keyboard)
 
