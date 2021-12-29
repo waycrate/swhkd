@@ -26,14 +26,17 @@ class SWHKD:
         sys.exit(0)
 
     async def run_swhkd(self):
+        if os.getuid() == 0:
+            await self.log_util.log_error('Refusing to run SWHKD as root.')
+            sys.exit(1)
+
         # Permission check
         groups = [g.gr_name for g in grp.getgrall() if self.user in g.gr_mem]
         gid = pwd.getpwnam(self.user).pw_gid
         groups.append(grp.getgrgid(gid).gr_name)
-        for group in groups:
-            if group.lower() == "input":
-                await self.log_util.log_warn("User is in input group, proceeding.")
-                break;
+        if "input" not in groups:
+                await self.log_util.log_error("User is in not in input group, exiting.")
+                sys.exit(1)
 
         # Config parsing
         try:
