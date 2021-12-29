@@ -27,7 +27,7 @@ class INPUT_UTILS:
         return keyboards
 
     async def run_system_command(self,command:str) -> None:
-        os.system(f"setsid -f {command} 1>/dev/null 2>/dev/null")
+        os.system(f"setsid -f {command} 1>/dev/null 2>&1 3>&1")
 
     async def get_keyboard_events(self,device_path:str) -> None:
         with open(device_path, 'rb') as fd:
