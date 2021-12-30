@@ -1,17 +1,33 @@
 #!/usr/bin/python3
 import json
-from . log import LOG_UTILS
+import logging
 
-class CONFIG_PARSER:
+from .log import create_logger
+from pathlib import Path
+
+logger = create_logger(name=__name__, level=logging.DEBUG)
+
+
+class ConfigParser:
+    """
+    Does the configuration parsing.
+    """
+
     def __init__(self):
-        self.LOG_UTILS = LOG_UTILS()
+        pass
 
-    async def parse(self,config_file):
-        output=[]
-        with open(config_file, 'r') as file:
-            contents = json.loads(file.read())
+    async def parse(self, config_file: Path) -> list[list[str, ...]]:
+        """
+        Parses the configuration file.
+
+        :param config_file: The path to the config file.
+        :return: A list of lists of strings.
+        """
+        logger.debug(f"Loading configuration file from {config_file}")
+        contents = json.loads(config_file.read_text())
+        output = []
         for arr in contents:
-            pair=[]
+            pair = []
             for key, value in arr.items():
                 pair.append(value)
             output.append(pair)
