@@ -6,11 +6,10 @@ import os
 import pwd
 import signal
 import sys
-from pathlib import Path
 
-from utils.config import CONFIG_PARSER
-from utils.input import INPUT_UTILS
 from utils.log import LOG_UTILS
+from utils.input import INPUT_UTILS
+from utils.config import CONFIG_PARSER
 
 
 class SWHKD:
@@ -40,27 +39,14 @@ class SWHKD:
                 sys.exit(1)
 
         # Config parsing
-        paths = []
-        if os.environ.get("XDG_CONFIG_HOME") is not None:
-            paths.append(Path(os.environ.get("XDG_CONFIG_HOME")) / "swhkd/config.json")
-        paths.append(Path("~/.config/swhkd/config.json"))
-        paths.append(Path.cwd() / "config.json")
-        paths.append(Path.cwd().parent / "config.json")
-
-        config = None
-        # Try every config and break on first success
-        for path in paths:
+        try:
+            config = await self.config_parser.parse("{0}swhkd/config.json".format(os.environ.get("XDG_CONFIG_HOME")))
+        except FileNotFoundError:
             try:
-                config = await self.config_parser.parse(path)
+                config = await self.config_parser.parse("~/.config/swhkd/config.json")
             except FileNotFoundError:
-                continue
-            else:
-                break
-
-        # No config file found
-        if config is None:
-            await self.log_util.log_error("No valid configuration file found.")
-            sys.exit(1)
+                await self.log_util.log_error("Failed to parse config files.")
+                sys.exit(1)
 
         # Fetch events
         keyboards = await self.input_util.get_keyboard_devices()
