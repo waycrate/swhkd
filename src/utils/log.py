@@ -18,12 +18,23 @@ def create_logger(name: str, level: int = logging.DEBUG) -> logging.Logger:
     logger = logging.getLogger(name=name)
     logger.setLevel(level=level)
     logger.propagate = False
-    console_handler = logging.StreamHandler(stream=sys.stdout)
-    console_handler.setLevel(level=level)
+
     console_formatter = ColorfulFormatter()
-    console_handler.setFormatter(fmt=console_formatter)
-    if console_handler not in logger.handlers:
-        logger.addHandler(hdlr=console_handler)
+
+    # https://stackoverflow.com/a/16066513/10291933
+    stdout_handler = logging.StreamHandler(stream=sys.stdout)
+    stdout_handler.setLevel(level=level)
+    stdout_handler.addFilter(lambda record: record.levelno <= logging.INFO)
+    stdout_handler.setFormatter(fmt=console_formatter)
+    if stdout_handler not in logger.handlers:
+        logger.addHandler(hdlr=stdout_handler)
+
+    stderr_handler = logging.StreamHandler(stream=sys.stderr)
+    stderr_handler.setLevel(level=logging.WARNING)
+    stderr_handler.setFormatter(fmt=console_formatter)
+    if stderr_handler not in logger.handlers:
+        logger.addHandler(hdlr=stderr_handler)
+
     logger.debug(f"Created logger named {repr(name)} with level {repr(level)}")
     logger.debug(f"Handlers for {repr(name)}: {repr(logger.handlers)}")
     return logger
