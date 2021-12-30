@@ -1,4 +1,5 @@
 import logging
+import sys
 
 
 def create_logger(name: str, level: int = logging.DEBUG) -> logging.Logger:
@@ -17,10 +18,9 @@ def create_logger(name: str, level: int = logging.DEBUG) -> logging.Logger:
     logger = logging.getLogger(name=name)
     logger.setLevel(level=level)
     logger.propagate = False
-    console_handler = logging.StreamHandler()
+    console_handler = logging.StreamHandler(stream=sys.stdout)
     console_handler.setLevel(level=level)
-    console_formatter = logging.Formatter("%(asctime)s - %(name)s - "
-                                          "%(levelname)s - %(message)s")
+    console_formatter = ColorfulFormatter()
     console_handler.setFormatter(fmt=console_formatter)
     if console_handler not in logger.handlers:
         logger.addHandler(hdlr=console_handler)
@@ -28,6 +28,29 @@ def create_logger(name: str, level: int = logging.DEBUG) -> logging.Logger:
     logger.debug(f"Handlers for {repr(name)}: {repr(logger.handlers)}")
     return logger
 
+
+# https://stackoverflow.com/a/56944256/10291933
+class ColorfulFormatter(logging.Formatter):
+    red = "\033[1;31m"
+    green = "\033[1;32m"
+    yellow = "\033[1;33m"
+    blue = "\033[1;34m"
+    reset = "\033[0m"
+
+    format = "%(asctime)s - %(name)s - %(levelname)s"
+
+    formats = {
+        logging.DEBUG: blue + format + reset + " - %(message)s",
+        logging.INFO: green + format + reset + " - %(message)s",
+        logging.WARNING: yellow + format + reset + " - %(message)s",
+        logging.ERROR: red + format + reset + " - %(message)s",
+        logging.CRITICAL: red + format + reset + " - %(message)s"
+    }
+
+    def format(self, record):
+        log_fmt = self.formats.get(record.levelno)
+        formatter = logging.Formatter(log_fmt)
+        return formatter.format(record)
 
 # class LOG_UTILS():
 #     def __init__(self):
