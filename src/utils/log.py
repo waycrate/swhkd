@@ -17,7 +17,7 @@ def create_logger(name: str, level: int = logging.DEBUG) -> logging.Logger:
     logger = logging.getLogger(name=name)
     logger.setLevel(level=level)
     logger.propagate = False
-    console_handler = AsyncStreamHandler()
+    console_handler = logging.StreamHandler()
     console_handler.setLevel(level=level)
     console_formatter = logging.Formatter("%(asctime)s - %(name)s - "
                                           "%(levelname)s - %(message)s")
@@ -27,25 +27,6 @@ def create_logger(name: str, level: int = logging.DEBUG) -> logging.Logger:
     logger.debug(f"Created logger named {repr(name)} with level {repr(level)}")
     logger.debug(f"Handlers for {repr(name)}: {repr(logger.handlers)}")
     return logger
-
-
-class AsyncStreamHandler(logging.StreamHandler):
-    """
-    The same exact thing as a StreamHandler in the logging module, but the emit
-    function is defined asynchronously.
-    """
-
-    def __init__(self):
-        super().__init__()
-
-    async def emit(self, record: logging.LogRecord):
-        """
-        Does the exact same thing as a regular StreamHandler, but wrapped in an
-        asynchronous function.
-
-        :param record: The record to emit.
-        """
-        super().emit(record)
 
 
 # class LOG_UTILS():

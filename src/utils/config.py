@@ -16,7 +16,8 @@ class ConfigParser:
     def __init__(self):
         pass
 
-    async def parse(self, config_file: Path) -> list[list[str, ...]]:
+    @staticmethod
+    async def parse(config_file: Path) -> list[list[str, ...]]:
         """
         Parses the configuration file.
 
