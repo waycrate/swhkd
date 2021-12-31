@@ -1,5 +1,9 @@
 import logging
 import sys
+from concurrent.futures import ThreadPoolExecutor, Executor
+
+# https://stackoverflow.com/a/45843022/10291933
+executor = ThreadPoolExecutor(max_workers=1)
 
 
 def create_logger(name: str, level: int = logging.DEBUG) -> logging.Logger:
@@ -22,14 +26,16 @@ def create_logger(name: str, level: int = logging.DEBUG) -> logging.Logger:
     console_formatter = ColorfulFormatter()
 
     # https://stackoverflow.com/a/16066513/10291933
-    stdout_handler = logging.StreamHandler(stream=sys.stdout)
+    stdout_handler = ExecutorStreamHandler(stream=sys.stdout,
+                                           executor=executor)
     stdout_handler.setLevel(level=level)
     stdout_handler.addFilter(lambda record: record.levelno <= logging.INFO)
     stdout_handler.setFormatter(fmt=console_formatter)
     if stdout_handler not in logger.handlers:
         logger.addHandler(hdlr=stdout_handler)
 
-    stderr_handler = logging.StreamHandler(stream=sys.stderr)
+    stderr_handler = ExecutorStreamHandler(stream=sys.stderr,
+                                           executor=executor)
     stderr_handler.setLevel(level=logging.WARNING)
     stderr_handler.setFormatter(fmt=console_formatter)
     if stderr_handler not in logger.handlers:
@@ -63,19 +69,36 @@ class ColorfulFormatter(logging.Formatter):
         formatter = logging.Formatter(log_fmt)
         return formatter.format(record)
 
-# class LOG_UTILS():
-#     def __init__(self):
-#         self.COLOR_RED="\033[1;31m"
-#         self.COLOR_GREEN="\033[1;32m"
-#         self.COLOR_YELLOW="\033[1;33m"
-#         self.COLOR_BLUE="\033[1;34m"
-#         self.COLOR_RESET="\033[0m"
-#
-#     async def log_info(self, message:str):
-#         print(f"{self.COLOR_GREEN}[{time.ctime()}] INFO:{self.COLOR_RESET} {message}")
-#
-#     async def log_error(self, message:str):
-#         print(f"{self.COLOR_RED}[{time.ctime()}] ERROR:{self.COLOR_RESET} {message}", file=sys.stderr)
-#
-#     async def log_warn(self, message:str):
-#         print(f"{self.COLOR_YELLOW}[{time.ctime()}] WARN:{self.COLOR_RESET} {message}")
+
+class ExecutorStreamHandler(logging.StreamHandler):
+    def __init__(self, stream, executor: Executor):
+        """
+        A StreamHandler that sends the functions to call to a Executor.
+
+        :param stream: The stream to write to.
+        :param executor: The executor to submit to.
+        """
+        super().__init__(stream)
+        self.executor = executor
+
+    def emit(self, record: logging.LogRecord):
+        """
+        Emit a record to the executor.
+
+        :param record: The record to emit eventually. (via the executor)
+        """
+        # super().emit(record)
+        self.executor.submit(super().emit, record)
+
+    def flush(self):
+        """
+        Have the executor flush the stream.
+        """
+        # super().flush()
+        # return
+        try:
+            self.executor.submit(super().flush)
+        except RuntimeError:
+            # When the program stops we can't schedule the stream to be
+            # flushed, so we do it synchronously
+            super().flush()
