@@ -1,40 +1,49 @@
-import glob
-import libevdev
+import logging
 import os
-from . log import LOG_UTILS
+from pathlib import Path
 
-class INPUT_UTILS:
+import libevdev
+
+from .log import create_logger
+
+logger = create_logger(name=__name__, level=logging.DEBUG)
+
+
+class SWHKDHelper:
     def __init__(self):
-        self.log_util=LOG_UTILS()
+        pass
 
-    async def check_keyboard(self,device_path) -> bool :
-        with open(device_path, 'rb') as fd:
+    @staticmethod
+    async def check_keyboard(device_path: Path) -> bool:
+        with open(device_path, "rb") as fd:
             device = libevdev.Device(fd)
         if device.has(libevdev.EV_KEY.KEY_ENTER):
-            await self.log_util.log_info("Device {} is a keyboard".format(device_path))
+            logger.info(f"Device {device_path} is a keyboard")
             return True
         else:
-            await self.log_util.log_error("Device {} is not a keyboard".format(device_path))
+            logger.warning(f"Device {device_path} is not a keyboard")
             return False
 
-    async def get_keyboard_devices(self):
-        devices = glob.glob('/dev/input/event*')
+    @staticmethod
+    async def get_keyboard_devices():
+        devices = Path("/dev/input/").glob("event*")
         keyboards = []
         for device in devices:
-            out = await self.check_keyboard(device)
-            if out ==True:
+            if await SWHKDHelper.check_keyboard(device):
                 keyboards.append(device)
         return keyboards
 
-    async def run_system_command(self,command:str) -> None:
+    @staticmethod
+    async def run_system_command(command: str):
         os.system(f"setsid -f {command} 1>/dev/null 2>&1 3>&1")
 
-    async def get_keyboard_events(self,device_path:str) -> None:
-        with open(device_path, 'rb') as fd:
+    @staticmethod
+    async def get_keyboard_events(device_path: Path):
+        with device_path.open("rb") as fd:
             device = libevdev.Device(fd)
             for event in device.events():
                 if event.matches(libevdev.EV_MSC):
                     continue
-                if event.matches(libevdev.EV_SYN.SYN_REPORT):
+                elif event.matches(libevdev.EV_SYN.SYN_REPORT):
                     continue
-                await self.log_util.log_info(event)
+                logger.debug(event)
