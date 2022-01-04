@@ -13,7 +13,7 @@ pub fn main() {
     }
 }
 
-pub fn check_keyboard(input_path: String) -> bool {
+fn check_keyboard(input_path: String) -> bool {
     let device = Device::open(&input_path).expect("Failed to open device.");
     if device
         .supported_keys()
