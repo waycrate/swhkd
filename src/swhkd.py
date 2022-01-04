@@ -31,17 +31,17 @@ class SWHKD:
         sys.exit(0)
 
     async def run_swhkd(self):
-        if os.getuid() == 0:
-            logger.critical("Refusing to run SWHKD as root")
-            sys.exit(1)
+        # if os.getuid() == 0:
+            # logger.critical("Refusing to run SWHKD as root")
+            # sys.exit(1)
 
         # Permission check
-        groups = [g.gr_name for g in grp.getgrall() if self.user in g.gr_mem]
-        gid = pwd.getpwnam(self.user).pw_gid
-        groups.append(grp.getgrgid(gid).gr_name)
-        if "input" not in groups:
-            logger.error("User is in not in input group, exiting.")
-            sys.exit(1)
+        # groups = [g.gr_name for g in grp.getgrall() if self.user in g.gr_mem]
+        # gid = pwd.getpwnam(self.user).pw_gid
+        # groups.append(grp.getgrgid(gid).gr_name)
+        # if "input" not in groups:
+            # logger.error("User is in not in input group, exiting.")
+            # sys.exit(1)
 
         # Config parsing
         config_paths = [
@@ -77,7 +77,7 @@ class SWHKD:
         if config is None:
             logger.critical(f"No configuration files found! "
                             f"(checked {len(config_paths)} location(s))")
-            sys.exit(1)
+            # sys.exit(1)
 
         # Fetch events
         keyboards = await self.input_util.get_keyboard_devices()
