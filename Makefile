@@ -26,7 +26,6 @@ check:
 
 clean:
 	@cargo clean
-	@rm ./bin/*
 
 setup:
 	@mkdir bin
