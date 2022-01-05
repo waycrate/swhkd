@@ -2,14 +2,16 @@ all: build
 
 build:
 	@cargo build --release --target=x86_64-unknown-linux-musl
+	@cp ./target/x86_64-unknown-linux-musl/release/swhkd ./bin/swhkd
 
 glibc:
 	@cargo clean
 	@cargo build --release
+	@cp ./target/release/swhkd ./bin/swhkd
 
 install:
 	@mkdir -p /usr/local/bin
-	@cp ./target/x86_64-unknown-linux-musl/release/swhkd /usr/local/bin/swhkd
+	@mv ./bin/swhkd /usr/local/bin/swhkd
 	@chmod +x /usr/local/bin/swhkd
 
 uninstall:
@@ -24,6 +26,7 @@ check:
 
 clean:
 	@cargo clean
+	@rm ./bin/*
 
 setup:
 	@rustup install stable
