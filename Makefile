@@ -29,6 +29,7 @@ clean:
 	@rm ./bin/*
 
 setup:
+	@mkdir bin
 	@rustup install stable
 	@rustup default stable
 	@rustup target add x86_64-unknown-linux-musl
