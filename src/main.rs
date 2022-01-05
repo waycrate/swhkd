@@ -1,11 +1,31 @@
+use clap::{arg, App};
 use evdev::Device;
 use evdev::Key;
 use glob::glob;
 use nix::unistd;
+use std::env;
+use std::path::Path;
 use std::process::exit;
 
 pub fn main() {
-    std::env::set_var("RUST_LOG", "trace");
+    /* Clap builder for flag handling */
+    let args = App::new("swhkd")
+        .version(env!("CARGO_PKG_VERSION"))
+        .author("Shinyzenith <aakashsensharma@gmail.com>")
+        .about("Simple Wayland HotKey Daemon")
+        .arg(
+            arg!(-c --config <CONFIG_FILE_PATH>)
+                .required(false)
+                .help("Set a custom config file path"),
+        )
+        .arg(arg!(-d - -debug).required(false).help("Enable debug mode"))
+        .get_matches();
+
+    /* Set log level to debug if flag is present */
+    if args.is_present("debug") {
+        env::set_var("RUST_LOG", "swhkd=trace");
+    }
+
     env_logger::init();
     log::trace!("Logger initialized.");
 
@@ -14,11 +34,34 @@ pub fn main() {
         exit(1);
     }
 
-    /* Check if invoking user is in input group or not */
+    /* Check if invoking user is in input group */
     if user_in_input_group() == false {
         log::error!("Invoking user is NOT in input group.");
         exit(1);
     }
+
+    /* Get appropriate config file path */
+    let mut config_file_path = String::new();
+    if args.is_present("config") {
+        config_file_path = args.value_of("config").unwrap().to_string();
+        if Path::new(&config_file_path).exists() == false {
+            log::error!("\"{}\" path doesn't exist", config_file_path);
+            exit(1);
+        }
+    } else {
+        match env::var("XDG_CONFIG_HOME") {
+            Ok(val) => {
+                config_file_path.push_str(&val);
+                config_file_path.push_str("swhkd/swhkdrc");
+                log::debug!("XDG_CONFIG_HOME exists: {}", val);
+            }
+            Err(_) => {
+                log::error!("XDG_CONFIG_HOME has not been set.");
+                config_file_path.push_str("~/.config/swhkd/swhkdrc")
+            }
+        }
+    }
+    log::debug!("Using config file path: {}", config_file_path);
 
     log::trace!("Attempting to find all keyboard file descriptors.");
     for entry in glob("/dev/input/event*").expect("Failed to read /dev/input/event*.") {
@@ -32,7 +75,7 @@ pub fn main() {
 }
 
 pub fn user_in_input_group() -> bool {
-    log::trace!("Checking if invoking user is in input group or not.");
+    log::trace!("Checking if invoking user is in input group.");
     let groups = unistd::getgroups();
     for (_, groups) in groups.iter().enumerate() {
         for group in groups {
