@@ -18,7 +18,7 @@ A clear and concise description of what you expected to happen.
 
 **Version Information:**
  - Distribution Information ( run `uname -a` )
- - swhkd version ( `swhkd -v` ) 
+ - swhkd version ( `swhkd -V` )
 
 **Additional information:**
 Anything else you'd like us to know ?
