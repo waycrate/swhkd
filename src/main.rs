@@ -29,14 +29,7 @@ pub fn main() {
     env_logger::init();
     log::trace!("Logger initialized.");
 
-    if unistd::Uid::current().is_root() {
-        log::error!("Refusing to run swhkd as root.");
-        exit(1);
-    }
-
-    /* Check if invoking user is in input group */
-    if user_in_input_group() == false {
-        log::error!("Invoking user is NOT in input group.");
+    if permission_check() == false {
         exit(1);
     }
 
@@ -74,7 +67,12 @@ pub fn main() {
     }
 }
 
-pub fn user_in_input_group() -> bool {
+pub fn permission_check() -> bool {
+    if unistd::Uid::current().is_root() {
+        log::error!("Refusing to run swhkd as root.");
+        return false;
+    }
+
     log::trace!("Checking if invoking user is in input group.");
     let groups = unistd::getgroups();
     for (_, groups) in groups.iter().enumerate() {
@@ -86,6 +84,7 @@ pub fn user_in_input_group() -> bool {
             }
         }
     }
+    log::error!("Invoking user is NOT in input group.");
     return false;
 }
 
