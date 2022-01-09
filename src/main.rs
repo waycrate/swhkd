@@ -34,27 +34,34 @@ pub fn main() {
     }
 
     /* Get appropriate config file path */
-    let mut config_file_path = String::new();
+    let config_file_path: std::path::PathBuf;
     if args.is_present("config") {
-        config_file_path = args.value_of("config").unwrap().to_string();
-        if Path::new(&config_file_path).exists() == false {
-            log::error!("\"{}\" path doesn't exist", config_file_path);
+        config_file_path = Path::new(args.value_of("config").unwrap()).to_path_buf();
+        if config_file_path.exists() == false {
+            log::error!("{:#?} path doesn't exist", config_file_path);
             exit(1);
         }
     } else {
         match env::var("XDG_CONFIG_HOME") {
             Ok(val) => {
-                config_file_path.push_str(&val);
-                config_file_path.push_str("swhkd/swhkdrc");
-                log::debug!("XDG_CONFIG_HOME exists: {}", val);
+                config_file_path = Path::new(&val).join("swhkd/swhkdrc");
+                log::debug!("XDG_CONFIG_HOME exists: {:#?}", val);
             }
             Err(_) => {
                 log::error!("XDG_CONFIG_HOME has not been set.");
-                config_file_path.push_str("~/.config/swhkd/swhkdrc")
+                match env::var("HOME") {
+                    Ok(val) => {
+                        config_file_path = Path::new(&val).join(".config/swhkd/swhkdrc");
+                    }
+                    Err(_) => {
+                        log::error!("HOME env var has not been set");
+                        exit(1);
+                    }
+                }
             }
         }
     }
-    log::debug!("Using config file path: {}", config_file_path);
+    log::debug!("Using config file path: {:#?}", config_file_path);
 
     log::trace!("Attempting to find all keyboard file descriptors.");
     for entry in glob("/dev/input/event*").expect("Failed to read /dev/input/event*.") {
