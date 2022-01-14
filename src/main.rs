@@ -11,7 +11,7 @@ pub fn main() {
     /* Clap builder for flag handling */
     let args = App::new("swhkd")
         .version(env!("CARGO_PKG_VERSION"))
-        .author("Shinyzenith <aakashsensharma@gmail.com>")
+        .author(env!("CARGO_PKG_AUTHORS"))
         .about("Simple Wayland HotKey Daemon")
         .arg(
             arg!(-c --config <CONFIG_FILE_PATH>)
@@ -106,11 +106,7 @@ pub fn check_keyboard(input_path: String) -> bool {
     }
 
     /* Check for the presence of enter key. */
-    if device
-        .unwrap()
-        .supported_keys()
-        .map_or(false, |keys| keys.contains(Key::KEY_ENTER))
-    {
+    if device.unwrap().supported_keys().map_or(false, |keys| keys.contains(Key::KEY_ENTER)) {
         log::debug!("{} is a keyboard.", input_path);
         return true;
     } else {
