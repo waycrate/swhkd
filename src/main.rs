@@ -29,7 +29,7 @@ pub fn main() {
     env_logger::init();
     log::trace!("Logger initialized.");
 
-    if permission_check() == false {
+    if !permission_check() {
         exit(1);
     }
 
@@ -37,7 +37,7 @@ pub fn main() {
     let config_file_path: std::path::PathBuf;
     if args.is_present("config") {
         config_file_path = Path::new(args.value_of("config").unwrap()).to_path_buf();
-        if config_file_path.exists() == false {
+        if !config_file_path.exists() {
             log::error!("{:#?} path doesn't exist", config_file_path);
             exit(1);
         }
