@@ -1,6 +1,5 @@
 use clap::{arg, App};
-use evdev::Device;
-use evdev::Key;
+use evdev::{Device, Key};
 use glob::glob;
 use nix::unistd;
 use std::env;

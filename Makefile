@@ -26,7 +26,6 @@ run:
 check:
 	@cargo test
 	@cargo fmt -- --check
-	@cargo clippy --release
 	@cargo check --target=x86_64-unknown-linux-musl
 
 clean:
