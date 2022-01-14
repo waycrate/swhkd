@@ -1,27 +1,32 @@
+BUILDFLAGS := --release
+TARGET_DIR := /usr/local/bin
+
 all: build
 
 build:
-	@cargo build --release --target=x86_64-unknown-linux-musl
+	@cargo build ${BUILDFLAGS} --target=x86_64-unknown-linux-musl
 	@cp ./target/x86_64-unknown-linux-musl/release/swhkd ./bin/swhkd
 
 glibc:
 	@cargo clean
-	@cargo build --release
+	@cargo build ${BUILDFLAGS}
 	@cp ./target/release/swhkd ./bin/swhkd
 
 install:
-	@mkdir -p /usr/local/bin
-	@mv ./bin/swhkd /usr/local/bin/swhkd
-	@chmod +x /usr/local/bin/swhkd
+	@mkdir -p ${TARGET_DIR}
+	@mv ./bin/swhkd ${TARGET_DIR}
+	@chmod +x ${TARGET_DIR}/swhkd
 
 uninstall:
-	@rm /usr/local/bin/swhkd
+	@rm ${TARGET_DIR}/swhkd
 
 run:
 	@cargo run --target=x86_64-unknown-linux-musl
 
 check:
-	@cargo fmt
+	@cargo test
+	@cargo fmt -- --check
+	@cargo clippy --release
 	@cargo check --target=x86_64-unknown-linux-musl
 
 clean:
