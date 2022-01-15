@@ -1,6 +1,5 @@
 use clap::{arg, App};
 use evdev::{Device, Key};
-use glob::glob;
 use nix::unistd;
 use std::env;
 use std::path::Path;
@@ -63,13 +62,8 @@ pub fn main() {
     log::debug!("Using config file path: {:#?}", config_file_path);
 
     log::trace!("Attempting to find all keyboard file descriptors.");
-    for entry in glob("/dev/input/event*").expect("Failed to read /dev/input/event*.") {
-        match entry {
-            Ok(path) => {
-                check_keyboard(path.into_os_string().into_string().unwrap());
-            }
-            Err(error) => log::error!("Unexpected error occured: {}", error),
-        }
+    for (_, device) in evdev::enumerate().enumerate() {
+        check_keyboard(device);
     }
 }
 
@@ -79,7 +73,6 @@ pub fn permission_check() -> bool {
         return false;
     }
 
-    log::trace!("Checking if invoking user is in input group.");
     let groups = unistd::getgroups();
     for (_, groups) in groups.iter().enumerate() {
         for group in groups {
@@ -94,22 +87,21 @@ pub fn permission_check() -> bool {
     return false;
 }
 
-pub fn check_keyboard(input_path: String) -> bool {
-    /* Try to open the device fd. */
-    let device = Device::open(&input_path);
-    match &device {
-        Ok(_) => (),
-        Err(error) => {
-            log::error!("Failed to open device {}: {}", input_path, error);
-        }
-    }
-
+pub fn check_keyboard(device: Device) -> bool {
     /* Check for the presence of enter key. */
-    if device.unwrap().supported_keys().map_or(false, |keys| keys.contains(Key::KEY_ENTER)) {
-        log::debug!("{} is a keyboard.", input_path);
+    if device.supported_keys().map_or(false, |keys| keys.contains(Key::KEY_ENTER)) {
+        log::debug!(
+            "{} ({}) is a keyboard.",
+            device.name().unwrap(),
+            device.physical_path().unwrap()
+        );
         return true;
     } else {
-        log::debug!("{} is not a keyboard.", input_path);
+        log::trace!(
+            "{} ({}) is not a keyboard.",
+            device.name().unwrap(),
+            device.physical_path().unwrap()
+        );
         return false;
     }
 }

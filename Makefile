@@ -25,7 +25,7 @@ run:
 
 check:
 	@cargo test
-	@cargo fmt -- --check
+	@cargo fmt
 	@cargo check --target=x86_64-unknown-linux-musl
 
 clean:
