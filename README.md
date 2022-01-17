@@ -3,7 +3,7 @@
 
 This project is still a WIP.
 
-# Dependencies
+# Dependencies:
 + Any polkit authentication agent.
 
 # Compiling:
@@ -15,7 +15,7 @@ This project is still a WIP.
 	+ `make glibc` for a glibc compile.
 + `sudo make install`
 
-# Running
+# Running:
 `pkexec swhkd`
 
 # Support server:
