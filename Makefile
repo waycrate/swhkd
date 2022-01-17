@@ -17,6 +17,8 @@ glibc:
 install:
 	@mkdir -p $(TARGET_DIR)
 	@mkdir -p $(POLKIT_DIR)
+	@mkdir -p /etc/$(BINARY)
+	@touch /etc/$(BINARY)/$(BINARY)rc
 	@cp ./bin/$(BINARY) $(TARGET_DIR)
 	@cp ./$(POLKIT_RULE) $(POLKIT_DIR)/$(POLKIT_RULE)
 	@chmod +x $(TARGET_DIR)/$(BINARY)
