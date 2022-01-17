@@ -1,23 +1,29 @@
+BINARY := swhkd
 BUILDFLAGS := --release
+POLKIT_DIR := /etc/polkit-1/rules.d
+POLKIT_RULE := swhkd.rules
 TARGET_DIR := /usr/local/bin
 
 all: build
 
 build:
 	@cargo build $(BUILDFLAGS) --target=x86_64-unknown-linux-musl
-	@cp ./target/x86_64-unknown-linux-musl/release/swhkd ./bin/swhkd
+	@cp ./target/x86_64-unknown-linux-musl/release/$(BINARY) ./bin/$(BINARY)
 
 glibc:
 	@cargo build $(BUILDFLAGS)
-	@cp ./target/release/swhkd ./bin/swhkd
+	@cp ./target/release/$(BINARY) ./bin/$(BINARY)
 
 install:
 	@mkdir -p $(TARGET_DIR)
-	@mv ./bin/swhkd $(TARGET_DIR)
-	@chmod +x $(TARGET_DIR)/swhkd
+	@mkdir -p $(POLKIT_DIR)
+	@cp ./bin/$(BINARY) $(TARGET_DIR)
+	@cp ./$(POLKIT_RULE) $(POLKIT_DIR)/$(POLKIT_RULE)
+	@chmod +x $(TARGET_DIR)/$(BINARY)
 
 uninstall:
-	@rm $(TARGET_DIR)/swhkd
+	@rm $(TARGET_DIR)/$(BINARY)
+	@rm $(POLKIT_DIR)/$(POLKIT_RULE)
 
 run:
 	@cargo run --target=x86_64-unknown-linux-musl
