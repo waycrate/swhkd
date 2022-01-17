@@ -3,8 +3,12 @@ BUILDFLAGS := --release
 POLKIT_DIR := /etc/polkit-1/rules.d
 POLKIT_RULE := swhkd.rules
 TARGET_DIR := /usr/local/bin
+DEPENDENCIES = rustup
 
 all: build
+
+CHECK := $(foreach exec,$(DEPENDENCIES),\
+	$(if $(shell which $(exec)),some string,$(error "No $(exec) in PATH")))
 
 build:
 	@cargo build $(BUILDFLAGS) --target=x86_64-unknown-linux-musl
