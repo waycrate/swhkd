@@ -6,20 +6,7 @@ use std::path::Path;
 use std::process::exit;
 
 pub fn main() {
-    /* Clap builder for flag handling */
-    let args = App::new("swhkd")
-        .version(env!("CARGO_PKG_VERSION"))
-        .author(env!("CARGO_PKG_AUTHORS"))
-        .about("Simple Wayland HotKey Daemon")
-        .arg(
-            arg!(-c --config <CONFIG_FILE_PATH>)
-                .required(false)
-                .help("Set a custom config file path"),
-        )
-        .arg(arg!(-d - -debug).required(false).help("Enable debug mode"))
-        .get_matches();
-
-    /* Set log level to debug if flag is present */
+    let args = set_flags().get_matches();
     if args.is_present("debug") {
         env::set_var("RUST_LOG", "swhkd=trace");
     }
@@ -40,24 +27,7 @@ pub fn main() {
             exit(1);
         }
     } else {
-        match env::var("XDG_CONFIG_HOME") {
-            Ok(val) => {
-                config_file_path = Path::new(&val).join("swhkd/swhkdrc");
-                log::debug!("XDG_CONFIG_HOME exists: {:#?}", val);
-            }
-            Err(_) => {
-                log::error!("XDG_CONFIG_HOME has not been set.");
-                match env::var("HOME") {
-                    Ok(val) => {
-                        config_file_path = Path::new(&val).join(".config/swhkd/swhkdrc");
-                    }
-                    Err(_) => {
-                        log::error!("HOME env var has not been set");
-                        exit(1);
-                    }
-                }
-            }
-        }
+        config_file_path = check_config_xdg();
     }
     log::debug!("Using config file path: {:#?}", config_file_path);
 
@@ -77,11 +47,6 @@ pub fn main() {
 }
 
 pub fn permission_check() -> bool {
-    if unistd::Uid::current().is_root() {
-        log::error!("Refusing to run swhkd as root.");
-        return false;
-    }
-
     let groups = unistd::getgroups();
     for (_, groups) in groups.iter().enumerate() {
         for group in groups {
@@ -92,8 +57,14 @@ pub fn permission_check() -> bool {
             }
         }
     }
-    log::error!("Invoking user is NOT in input group.");
-    return false;
+
+    if unistd::Uid::current().is_root() {
+        log::warn!("Running swhkd as root!!!");
+        return true;
+    } else {
+        log::error!("Invoking user is NOT in input group.");
+        return false;
+    }
 }
 
 pub fn check_keyboard(device: &Device) -> bool {
@@ -112,5 +83,43 @@ pub fn check_keyboard(device: &Device) -> bool {
             device.physical_path().unwrap()
         );
         return false;
+    }
+}
+
+pub fn set_flags() -> App<'static> {
+    let app = App::new("swhkd")
+        .version(env!("CARGO_PKG_VERSION"))
+        .author(env!("CARGO_PKG_AUTHORS"))
+        .about("Simple Wayland HotKey Daemon")
+        .arg(
+            arg!(-c --config <CONFIG_FILE_PATH>)
+                .required(false)
+                .help("Set a custom config file path"),
+        )
+        .arg(arg!(-d - -debug).required(false).help("Enable debug mode"));
+    return app;
+}
+
+pub fn check_config_xdg() -> std::path::PathBuf {
+    let config_file_path: std::path::PathBuf;
+    match env::var("XDG_CONFIG_HOME") {
+        Ok(val) => {
+            config_file_path = Path::new(&val).join("swhkd/swhkdrc");
+            log::debug!("XDG_CONFIG_HOME exists: {:#?}", val);
+            return config_file_path;
+        }
+        Err(_) => {
+            log::error!("XDG_CONFIG_HOME has not been set.");
+            match env::var("HOME") {
+                Ok(val) => {
+                    config_file_path = Path::new(&val).join(".config/swhkd/swhkdrc");
+                    return config_file_path;
+                }
+                Err(_) => {
+                    log::error!("HOME env var has not been set");
+                    exit(1);
+                }
+            }
+        }
     }
 }
