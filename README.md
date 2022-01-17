@@ -7,7 +7,6 @@ This project is still a WIP.
 + Any polkit authentication agent.
 
 # Compiling:
-
 + `git clone https://github.com/shinyzenith/swhkd`
 + `git checkout rust-rewrite`
 + `make setup`
@@ -17,9 +16,11 @@ This project is still a WIP.
 + `sudo make install`
 
 # Running
-
 `pkexec swhkd`
 
+# Support server:
+https://discord.gg/KKZRDYrRYW
 
 # Contributors:
 <img src="https://contrib.rocks/image?repo=shinyzenith/swhkd" />
+
