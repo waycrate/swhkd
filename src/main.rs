@@ -117,9 +117,10 @@ pub fn check_config_xdg() -> std::path::PathBuf {
             log::warn!(
                 "Note: Due to the design of the application, the invoking user is always root."
             );
-            log::warn!("Note: You can set a custom config file with the -c option.");
-            log::warn!("Note: Adding your user to the input group could solve this. However that's a massive security flaw and basically defeats the purpose of using wayland.");
-            log::warn!("Note: The following issue may be addressed in the future, but it is certainly not a priority right now.");
+            log::warn!("You can set a custom config file with the -c option.");
+            log::warn!("Adding your user to the input group could solve this.");
+            log::warn!("However that's a massive security flaw and basically defeats the purpose of using wayland.");
+            log::warn!("The following issue may be addressed in the future, but it is certainly not a priority right now.");
         }
     }
     return config_file_path;
