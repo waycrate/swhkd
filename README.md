@@ -8,7 +8,6 @@ This project is still a WIP.
 
 # Compiling:
 + `git clone https://github.com/shinyzenith/swhkd`
-+ `git checkout rust-rewrite`
 + `make setup`
 + `make clean`
 	+ `make` for a musl compile.
