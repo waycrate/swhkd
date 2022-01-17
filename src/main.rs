@@ -7,6 +7,8 @@ use std::process::exit;
 
 pub fn main() {
     let args = set_flags().get_matches();
+    env::set_var("RUST_LOG", "swhkd=warn");
+
     if args.is_present("debug") {
         env::set_var("RUST_LOG", "swhkd=trace");
     }
@@ -22,14 +24,15 @@ pub fn main() {
     let config_file_path: std::path::PathBuf;
     if args.is_present("config") {
         config_file_path = Path::new(args.value_of("config").unwrap()).to_path_buf();
-        if !config_file_path.exists() {
-            log::error!("{:#?} path doesn't exist", config_file_path);
-            exit(1);
-        }
     } else {
         config_file_path = check_config_xdg();
     }
     log::debug!("Using config file path: {:#?}", config_file_path);
+
+    if !config_file_path.exists() {
+        log::error!("{:#?} doesn't exist", config_file_path);
+        exit(1);
+    }
 
     log::trace!("Attempting to find all keyboard file descriptors.");
     let mut keyboard_devices: Vec<Device> = Vec::new();
@@ -110,16 +113,14 @@ pub fn check_config_xdg() -> std::path::PathBuf {
         }
         Err(_) => {
             log::error!("XDG_CONFIG_HOME has not been set.");
-            match env::var("HOME") {
-                Ok(val) => {
-                    config_file_path = Path::new(&val).join(".config/swhkd/swhkdrc");
-                    return config_file_path;
-                }
-                Err(_) => {
-                    log::error!("HOME env var has not been set");
-                    exit(1);
-                }
-            }
+            config_file_path = Path::new("/etc/swhkd/swhkdrc").to_path_buf();
+            log::warn!(
+                "Note: Due to the design of the application, the invoking user is always root."
+            );
+            log::warn!("Note: You can set a custom config file with the -c option.");
+            log::warn!("Note: Adding your user to the input group could solve this. However that's a massive security flaw and basically defeats the purpose of using wayland.");
+            log::warn!("Note: The following issue may be addressed in the future, but it is certainly not a priority right now.");
         }
     }
+    return config_file_path;
 }
