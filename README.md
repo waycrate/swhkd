@@ -14,3 +14,7 @@ This project isn't complete yet, compiling it will lead to a unsuable binary whi
 	+ `make` for a musl compile.
 	+ `make glibc` for a glibc compile.
 + `sudo make install`
+
+# Running
+
+`pkexec swhkd`
