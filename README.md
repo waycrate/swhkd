@@ -18,3 +18,7 @@ This project isn't complete yet, compiling it will lead to a unsuable binary whi
 # Running
 
 `pkexec swhkd`
+
+
+# Dependencies
++ Any polkit authentication agent.
