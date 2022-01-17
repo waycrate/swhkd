@@ -1,9 +1,10 @@
 # swhkd
 **S**imple **W**ayland **H**ot**K**ey **D**aemon
 
-# NOTE
+This project is still a WIP.
 
-This project isn't complete yet.
+# Dependencies
++ Any polkit authentication agent.
 
 # Compiling:
 
@@ -20,5 +21,5 @@ This project isn't complete yet.
 `pkexec swhkd`
 
 
-# Dependencies
-+ Any polkit authentication agent.
+# Contributors:
+<img src="https://contrib.rocks/image?repo=shinyzenith/swhkd" />
