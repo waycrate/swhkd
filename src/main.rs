@@ -62,9 +62,18 @@ pub fn main() {
     log::debug!("Using config file path: {:#?}", config_file_path);
 
     log::trace!("Attempting to find all keyboard file descriptors.");
+    let mut keyboard_devices: Vec<Device> = Vec::new();
     for (_, device) in evdev::enumerate().enumerate() {
-        check_keyboard(device);
+        if check_keyboard(&device) == true {
+            keyboard_devices.push(device);
+        }
     }
+
+    if keyboard_devices.len() == 0 {
+        log::error!("No valid keyboard device was detected!");
+        exit(1);
+    }
+    log::debug!("{} Keyboard device(s) detected.", keyboard_devices.len());
 }
 
 pub fn permission_check() -> bool {
@@ -87,7 +96,7 @@ pub fn permission_check() -> bool {
     return false;
 }
 
-pub fn check_keyboard(device: Device) -> bool {
+pub fn check_keyboard(device: &Device) -> bool {
     /* Check for the presence of enter key. */
     if device.supported_keys().map_or(false, |keys| keys.contains(Key::KEY_ENTER)) {
         log::debug!(
