@@ -1,0 +1,16 @@
+[package]
+name = "Simple-Wayland-HotKey-Daemon"
+version = "0.1.0"
+edition = "2021"
+authors = ["Shinyzenith <aakashsensharma@gmail.com>"]
+
+[dependencies]
+evdev = "0.11.3"
+log = "0.4.0"
+env_logger = "0.8.4"
+nix = "0.23.1"
+clap = "3.0.4"
+
+[[bin]]
+name = "swhkd"
+path = "src/main.rs"

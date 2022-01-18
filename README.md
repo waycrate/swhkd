@@ -1,14 +1,25 @@
 # swhkd
 **S**imple **W**ayland **H**ot**K**ey **D**aemon
 
-This project is still very new and I'm making new decisions everyday as to where I should drive this project.
-I'm using libevdev which makes swhkd display protocol indepdent, but we'll keep the current name because I'm too lazy to find a new name.
+This project is still a WIP.
 
-Config file parsing doesn't exist yet, but that should change with 1.0.0 version release.
+# Dependencies:
++ Any polkit authentication agent.
 
-# Python:
-Adressing the elephant in the room, Python. It is good enough for the prototype stage of the project. 
-Rust rewrite is currently in the rust-rewrite branch.
+# Compiling:
++ `git clone https://github.com/shinyzenith/swhkd`
++ `make setup`
++ `make clean`
+	+ `make` for a musl compile.
+	+ `make glibc` for a glibc compile.
++ `sudo make install`
+
+# Running:
+`pkexec swhkd`
+
+# Support server:
+https://discord.gg/KKZRDYrRYW
 
 # Contributors:
 <img src="https://contrib.rocks/image?repo=shinyzenith/swhkd" />
+
