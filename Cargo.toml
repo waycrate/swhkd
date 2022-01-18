@@ -13,4 +13,8 @@ clap = "3.0.4"
 
 [[bin]]
 name = "swhkd"
-path = "src/main.rs"
+path = "src/daemon.rs"
+
+[[bin]]
+name = "swhkc"
+path = "src/client.rs"
