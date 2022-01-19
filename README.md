@@ -5,11 +5,12 @@ This project is still a WIP.
 
 # Dependencies:
 
-## Runtime
-+ Any polkit authentication agent.
+## Runtime:
++ Policy Kit Daemon ( polkit )
 
-## Compile time 
-+ Read `dependencies.txt`
+## Compile time:
++ `rustup`
++ `make`
 
 
 # Compiling:
