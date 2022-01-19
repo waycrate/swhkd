@@ -1,3 +1,5 @@
+<p align="center"><img src="https://raw.githubusercontent.com/Shinyzenith/swhkd/master/assets/swhkd.png" alt="swhkd logo"</p>
+
 # swhkd
 **S**imple **W**ayland **H**ot**K**ey **D**aemon
 
