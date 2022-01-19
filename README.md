@@ -4,7 +4,13 @@
 This project is still a WIP.
 
 # Dependencies:
+
+## Runtime
 + Any polkit authentication agent.
+
+## Compile time 
++ Read `dependencies.txt`
+
 
 # Compiling:
 + `git clone https://github.com/shinyzenith/swhkd`
