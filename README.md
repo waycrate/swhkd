@@ -4,7 +4,14 @@
 This project is still a WIP.
 
 # Dependencies:
-+ Any polkit authentication agent.
+
+## Runtime:
++ Policy Kit Daemon ( polkit )
+
+## Compile time:
++ `rustup`
++ `make`
+
 
 # Compiling:
 + `git clone https://github.com/shinyzenith/swhkd`
