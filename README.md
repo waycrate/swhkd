@@ -20,6 +20,7 @@ It is also a drop-in replacement for sxhkd, meaning, your sxhkd config file is a
 
 Because swhkd can be used anywhere, the same swhkd config can be used across Xorg or Wayland desktops, and you can even use swhkd in a tty.
 
+**Note: The project isn't complete yet.**
 # Dependencies:
 
 ## Runtime:
