@@ -50,7 +50,7 @@ pub fn main() -> Result<(), Box<dyn Error>> {
     //TODO: IMPLEMENT KEYBOARD EVENT GRAB
 
     let mut conn = LocalSocketStream::connect("/tmp/swhkd.sock")?;
-    conn.write_all(b"foot")?;
+    conn.write_all(args.value_of("shell").unwrap().as_bytes())?;
     Ok(())
 }
 
@@ -104,7 +104,12 @@ pub fn set_flags() -> App<'static> {
                 .required(false)
                 .help("Set a custom config file path"),
         )
-        .arg(arg!(-d - -debug).required(false).help("Enable debug mode"));
+        .arg(arg!(-d - -debug).required(false).help("Enable debug mode"))
+        .arg(
+            arg!(-s - -shell <SHELL_COMMAND>)
+                .required(true)
+                .help("Shell command to run on success"),
+        );
     return app;
 }
 
