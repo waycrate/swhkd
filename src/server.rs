@@ -50,7 +50,9 @@ fn main() -> Result<(), Box<dyn Error>> {
     if Path::new(&sockfile).exists() {
         log::trace!("Sockfile exists, attempting to remove it.");
         match fs::remove_file(&sockfile) {
-            Ok(_) => {}
+            Ok(_) => {
+                log::debug!("Removed old socket file");
+            }
             Err(e) => {
                 log::error!("Error removeing the socket file!: {}", e);
                 exit(1);
