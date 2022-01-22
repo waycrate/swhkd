@@ -1,11 +1,10 @@
 use clap::{arg, App};
 use evdev::{Device, Key};
+use interprocess::local_socket::LocalSocketStream;
 use nix::unistd;
-use std::env;
-use std::path::Path;
-use std::process::exit;
+use std::{env, error::Error, io::prelude::*, path::Path, process::exit};
 
-pub fn main() {
+pub fn main() -> Result<(), Box<dyn Error>> {
     let args = set_flags().get_matches();
     env::set_var("RUST_LOG", "swhkd=warn");
 
@@ -47,6 +46,12 @@ pub fn main() {
         exit(1);
     }
     log::debug!("{} Keyboard device(s) detected.", keyboard_devices.len());
+
+    //TODO: IMPLEMENT KEYBOARD EVENT GRAB
+
+    let mut conn = LocalSocketStream::connect("/tmp/swhkd.sock")?;
+    conn.write_all(b"foot")?;
+    Ok(())
 }
 
 pub fn permission_check() -> bool {
