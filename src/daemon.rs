@@ -19,7 +19,6 @@ pub fn main() {
         exit(1);
     }
 
-    /* Get appropriate config file path */
     let config_file_path: std::path::PathBuf;
     if args.is_present("config") {
         config_file_path = Path::new(args.value_of("config").unwrap()).to_path_buf();
@@ -90,7 +89,6 @@ pub fn permission_check() -> bool {
 }
 
 pub fn check_keyboard(device: &Device) -> bool {
-    /* Check for the presence of enter key. */
     if device.supported_keys().map_or(false, |keys| keys.contains(Key::KEY_ENTER)) {
         log::debug!("{} is a keyboard.", device.name().unwrap(),);
         return true;
