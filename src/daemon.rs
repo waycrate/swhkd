@@ -92,18 +92,10 @@ pub fn permission_check() -> bool {
 pub fn check_keyboard(device: &Device) -> bool {
     /* Check for the presence of enter key. */
     if device.supported_keys().map_or(false, |keys| keys.contains(Key::KEY_ENTER)) {
-        log::debug!(
-            "{} ({}) is a keyboard.",
-            device.name().unwrap(),
-            device.physical_path().unwrap(),
-        );
+        log::debug!("{} is a keyboard.", device.name().unwrap(),);
         return true;
     } else {
-        log::trace!(
-            "{} ({}) is not a keyboard.",
-            device.name().unwrap(),
-            device.physical_path().unwrap()
-        );
+        log::trace!("{} is not a keyboard.", device.name().unwrap(),);
         return false;
     }
 }
