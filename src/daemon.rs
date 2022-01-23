@@ -2,9 +2,9 @@ use clap::{arg, App};
 use evdev::{Device, Key};
 use interprocess::local_socket::LocalSocketStream;
 use nix::unistd;
-use std::{env, error::Error, io::prelude::*, path::Path, process::exit};
+use std::{env, io::prelude::*, path::Path, process::exit};
 
-pub fn main() -> Result<(), Box<dyn Error>> {
+pub fn main() {
     let args = set_flags().get_matches();
     env::set_var("RUST_LOG", "swhkd=warn");
 
@@ -49,9 +49,23 @@ pub fn main() -> Result<(), Box<dyn Error>> {
 
     //TODO: IMPLEMENT KEYBOARD EVENT GRAB
 
-    let mut conn = LocalSocketStream::connect("/tmp/swhkd.sock")?;
-    conn.write_all(args.value_of("shell").unwrap().as_bytes())?;
-    Ok(())
+    let mut conn = match LocalSocketStream::connect("/tmp/swhkd.sock"){
+        Ok(conn) => {conn},
+        Err(e) => {
+            log::error!("Unable to connect to hotkey server, is swhks running??");
+            log::error!("Error: {}", e);
+            exit(1);
+        }
+    };
+
+    match conn.write_all(args.value_of("shell").unwrap().as_bytes()){
+       Ok(_) => {},
+       Err(e) => {
+           log::error!("Unable to send command to hotkey server, is swhks running??");
+           log::error!("Error: {}", e);
+           exit(1);
+       }
+    };
 }
 
 pub fn permission_check() -> bool {
@@ -81,7 +95,7 @@ pub fn check_keyboard(device: &Device) -> bool {
         log::debug!(
             "{} ({}) is a keyboard.",
             device.name().unwrap(),
-            device.physical_path().unwrap()
+            device.physical_path().unwrap(),
         );
         return true;
     } else {

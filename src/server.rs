@@ -1,7 +1,6 @@
 use interprocess::local_socket::{LocalSocketListener, LocalSocketStream};
 use std::{
     env,
-    error::Error,
     fs,
     io::{self, prelude::*, BufReader},
     path::Path,
@@ -9,7 +8,7 @@ use std::{
 };
 use sysinfo::{ProcessExt, System, SystemExt};
 
-fn main() -> Result<(), Box<dyn Error>> {
+fn main() {
     env::set_var("RUST_LOG", "swhks=trace");
     env_logger::init();
 
@@ -46,7 +45,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 log::debug!("Removed old socket file");
             }
             Err(e) => {
-                log::error!("Error removeing the socket file!: {}", e);
+                log::error!("Error removing the socket file!: {}", e);
                 exit(1);
             }
         };
@@ -81,13 +80,26 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
     }
 
-    let listener = LocalSocketListener::bind(sockfile)?;
+    let listener = match LocalSocketListener::bind(sockfile.clone()){
+       Ok(listener) => {listener},
+       Err(e) => {
+           log::error!("Failed to connect to {}", sockfile);
+           log::error!("Error: {}",e);
+           exit(1);
+       }
+    };
     for conn in listener.incoming().filter_map(handle_error) {
         let mut conn = BufReader::new(conn);
         let mut buffer = String::new();
-        conn.read_line(&mut buffer)?;
+        match conn.read_line(&mut buffer){
+            Ok(_) => {},
+            Err(e) => {
+               log::error!("Failed to read incoming command from client.");
+               log::error!("Error: {}", e);
+               exit(1);
+            }
+        };
         log::debug!("Recieved command : {}", buffer);
         run_system_command(&buffer);
     }
-    Ok(())
 }
