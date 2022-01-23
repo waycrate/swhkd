@@ -12,6 +12,10 @@ Because swhkd can be used anywhere, the same swhkd config can be used across Xor
 
 **Note: The project isn't complete yet.**
 
-# Running:
+# RUNNING
 
 `pkexec swhkd`
+
+# SEE ALSO
+
+swhkc(1)
