@@ -41,7 +41,6 @@ run:
 	@cargo run --target=x86_64-unknown-linux-musl
 
 check:
-	@cargo test
 	@cargo fmt
 	@cargo check --target=x86_64-unknown-linux-musl
 
