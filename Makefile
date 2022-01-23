@@ -1,5 +1,7 @@
 DAEMON_BINARY := swhkd
 CLIENT_BINARY := swhkc
+DAEMON_MAN_PAGE := swhkd.1
+CLIENT_MAN_PAGE := swhkc.1
 BUILDFLAGS := --release
 POLKIT_DIR := /etc/polkit-1/rules.d
 POLKIT_RULE := swhkd.rules
@@ -31,11 +33,17 @@ install:
 	@cp ./$(POLKIT_RULE) $(POLKIT_DIR)/$(POLKIT_RULE)
 	@chmod +x $(TARGET_DIR)/$(DAEMON_BINARY)
 	@chmod +x $(TARGET_DIR)/$(CLIENT_BINARY)
+	@cp ./docs/man/$(DAEMON_MAN_PAGE) /usr/local/man/man1/$(DAEMON_MAN_PAGE)
+	@cp ./docs/man/$(CLIENT_MAN_PAGE) /usr/local/man/man1/$(CLIENT_MAN_PAGE)
+	@chmod 755 /usr/local/man/man1/$(DAEMON_MAN_PAGE)
+	@chmod 755 /usr/local/man/man1/$(CLIENT_MAN_PAGE)
 
 uninstall:
 	@rm $(TARGET_DIR)/$(CLIENT_BINARY)
 	@rm $(TARGET_DIR)/$(DAEMON_BINARY)
 	@rm $(POLKIT_DIR)/$(POLKIT_RULE)
+	@rm /usr/local/man/man1/$(DAEMON_MAN_PAGE)
+	@rm /usr/local/man/man1/$(CLIENT_MAN_PAGE)
 
 run:
 	@cargo run --target=x86_64-unknown-linux-musl
