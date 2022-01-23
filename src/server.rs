@@ -1,4 +1,3 @@
-use clap::{arg, App};
 use interprocess::local_socket::{LocalSocketListener, LocalSocketStream};
 use std::{
     env,
@@ -11,13 +10,7 @@ use std::{
 use sysinfo::{ProcessExt, System, SystemExt};
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let args = set_flags().get_matches();
-    env::set_var("RUST_LOG", "swhks=warn");
-
-    if args.is_present("debug") {
-        env::set_var("RUST_LOG", "swhks=trace");
-    }
-
+    env::set_var("RUST_LOG", "swhks=trace");
     env_logger::init();
 
     let pidfile: String = String::from("/tmp/swhkc.pid");
@@ -94,17 +87,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         let mut conn = BufReader::new(conn);
         let mut buffer = String::new();
         conn.read_line(&mut buffer)?;
-        log::debug!("Recieved command {}", buffer);
+        log::debug!("Recieved command : {}", buffer);
         run_system_command(&buffer);
     }
     Ok(())
-}
-
-pub fn set_flags() -> App<'static> {
-    let app = App::new("swhks")
-        .version(env!("CARGO_PKG_VERSION"))
-        .author(env!("CARGO_PKG_AUTHORS"))
-        .about("Simple Wayland HotKey Server")
-        .arg(arg!(-d - -debug).required(false).help("Enable debug mode"));
-    return app;
 }
