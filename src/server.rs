@@ -1,7 +1,6 @@
 use interprocess::local_socket::{LocalSocketListener, LocalSocketStream};
 use std::{
-    env,
-    fs,
+    env, fs,
     io::{self, prelude::*, BufReader},
     path::Path,
     process::{exit, id, Command, Stdio},
@@ -80,23 +79,23 @@ fn main() {
         }
     }
 
-    let listener = match LocalSocketListener::bind(sockfile.clone()){
-       Ok(listener) => {listener},
-       Err(e) => {
-           log::error!("Failed to connect to {}", sockfile);
-           log::error!("Error: {}",e);
-           exit(1);
-       }
+    let listener = match LocalSocketListener::bind(sockfile.clone()) {
+        Ok(listener) => listener,
+        Err(e) => {
+            log::error!("Failed to connect to {}", sockfile);
+            log::error!("Error: {}", e);
+            exit(1);
+        }
     };
     for conn in listener.incoming().filter_map(handle_error) {
         let mut conn = BufReader::new(conn);
         let mut buffer = String::new();
-        match conn.read_line(&mut buffer){
-            Ok(_) => {},
+        match conn.read_line(&mut buffer) {
+            Ok(_) => {}
             Err(e) => {
-               log::error!("Failed to read incoming command from client.");
-               log::error!("Error: {}", e);
-               exit(1);
+                log::error!("Failed to read incoming command from client.");
+                log::error!("Error: {}", e);
+                exit(1);
             }
         };
         log::debug!("Recieved command : {}", buffer);

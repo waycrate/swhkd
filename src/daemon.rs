@@ -49,8 +49,8 @@ pub fn main() {
 
     //TODO: IMPLEMENT KEYBOARD EVENT GRAB
 
-    let mut conn = match LocalSocketStream::connect("/tmp/swhkd.sock"){
-        Ok(conn) => {conn},
+    let mut conn = match LocalSocketStream::connect("/tmp/swhkd.sock") {
+        Ok(conn) => conn,
         Err(e) => {
             log::error!("Unable to connect to hotkey server, is swhks running??");
             log::error!("Error: {}", e);
@@ -58,13 +58,13 @@ pub fn main() {
         }
     };
 
-    match conn.write_all(args.value_of("shell").unwrap().as_bytes()){
-       Ok(_) => {},
-       Err(e) => {
-           log::error!("Unable to send command to hotkey server, is swhks running??");
-           log::error!("Error: {}", e);
-           exit(1);
-       }
+    match conn.write_all(args.value_of("shell").unwrap().as_bytes()) {
+        Ok(_) => {}
+        Err(e) => {
+            log::error!("Unable to send command to hotkey server, is swhks running??");
+            log::error!("Error: {}", e);
+            exit(1);
+        }
     };
 }
 
