@@ -13,6 +13,7 @@
 </p>
 
 ## SWHKD
+
 **S**imple **W**ayland **H**ot**K**ey **D**aemon
 
 swhkd is a display protocol-independent hotkey daemon made in Rust. swhkd uses an easy-to-use configuration system inspired by sxhkd so you can easily add or remove hotkeys.
@@ -27,15 +28,15 @@ Because swhkd can be used anywhere, the same swhkd config can be used across Xor
 
 See [INSTALL.md](./docs/INSTALL.md) for installing swhkd.
 
-# Running:
+## Running:
 
 `pkexec swhkd`
 
-# Support server:
+## Support server:
 
 https://discord.gg/KKZRDYrRYW
 
-# Contributors:
+## Contributors:
 
 <a href="https://github.com/Shinyzenith/swhkd/graphs/contributors">
   <img src="https://contrib.rocks/image?repo=Shinyzenith/swhkd" />
