@@ -22,25 +22,8 @@ It is also a drop-in replacement for sxhkd, meaning, your sxhkd config file is a
 Because swhkd can be used anywhere, the same swhkd config can be used across Xorg or Wayland desktops, and you can even use swhkd in a tty.
 
 **Note: The project isn't complete yet.**
-# Dependencies:
 
-## Runtime:
-
--   Policy Kit Daemon ( polkit )
-
-## Compile time:
-
--   `rustup`
--   `make`
-
-# Compiling:
-
--   `git clone https://github.com/shinyzenith/swhkd`
--   `make setup`
--   `make clean`
-    -   `make` for a musl compile.
-    -   `make glibc` for a glibc compile.
--   `sudo make install`
+See [INSTALL.md](./docs/INSTALL.md) for installing swhkd.
 
 # Running:
 
