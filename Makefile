@@ -37,9 +37,6 @@ uninstall:
 	@rm $(TARGET_DIR)/$(DAEMON_BINARY)
 	@rm $(POLKIT_DIR)/$(POLKIT_RULE)
 
-run:
-	@cargo run --target=x86_64-unknown-linux-musl
-
 check:
 	@cargo fmt
 	@cargo check --target=x86_64-unknown-linux-musl
@@ -53,4 +50,4 @@ setup:
 	@rustup default stable
 	@rustup target add x86_64-unknown-linux-musl
 
-.PHONY: check clean setup all run install build glibc
+.PHONY: check clean setup all install build glibc
