@@ -26,7 +26,7 @@ Because swhkd can be used anywhere, the same swhkd config can be used across Xor
 
 # Installation
 
-See [./doc/INSTALL.md](INSTALL.md) for installing swhkd.
+See [INSTALL.md](./docs/INSTALL.md) for installing swhkd.
 
 # Running:
 
