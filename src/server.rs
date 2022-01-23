@@ -31,8 +31,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         sys.refresh_all();
         for (pid, process) in sys.processes() {
             if pid.to_string() == swhkd_pid {
-                if process.exe() == Path::new("/usr/local/bin/swhks") {
-                    // this is the test hunk
+                if process.exe() == env::current_exe().unwrap() {
                     log::error!("Server is already running!");
                     exit(1);
                 }
