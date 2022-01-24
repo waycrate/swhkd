@@ -6,12 +6,9 @@ BUILDFLAGS := --release
 POLKIT_DIR := /etc/polkit-1/rules.d
 POLKIT_RULE := swhkd.rules
 TARGET_DIR := /usr/local/bin
-DEPENDENCIES = rustup
+MANPAGE_DIR := /usr/local/share/man/man1
 
 all: build
-
-CHECK := $(foreach exec,$(DEPENDENCIES),\
-	$(if $(shell which $(exec)),some string,$(error "No $(exec) in PATH")))
 
 build:
 	@cargo build $(BUILDFLAGS) --target=x86_64-unknown-linux-musl
@@ -33,17 +30,18 @@ install:
 	@cp ./$(POLKIT_RULE) $(POLKIT_DIR)/$(POLKIT_RULE)
 	@chmod +x $(TARGET_DIR)/$(DAEMON_BINARY)
 	@chmod +x $(TARGET_DIR)/$(SERVER_BINARY)
-	@cp ./docs/man/$(DAEMON_MAN_PAGE) /usr/local/share/man/man1/$(DAEMON_MAN_PAGE)
-	@cp ./docs/man/$(SERVER_MAN_PAGE) /usr/local/share/man/man1/$(SERVER_MAN_PAGE)
-	@chmod 755 /usr/local/share/man/man1/$(DAEMON_MAN_PAGE)
-	@chmod 755 /usr/local/share/man/man1/$(SERVER_MAN_PAGE)
+	@mkdir $(MANPAGE_DIR)
+	@cp ./docs/man/$(DAEMON_MAN_PAGE) $(MANPAGE_DIR)$(DAEMON_MAN_PAGE)
+	@cp ./docs/man/$(SERVER_MAN_PAGE) $(MANPAGE_DIR)$(SERVER_MAN_PAGE)
+	@chmod 755 $(MANPAGE_DIR)$(DAEMON_MAN_PAGE)
+	@chmod 755 $(MANPAGE_DIR)$(SERVER_MAN_PAGE)
 
 uninstall:
 	@rm $(TARGET_DIR)/$(SERVER_BINARY)
 	@rm $(TARGET_DIR)/$(DAEMON_BINARY)
 	@rm $(POLKIT_DIR)/$(POLKIT_RULE)
-	@rm /usr/local/share/man/man1/$(DAEMON_MAN_PAGE)
-	@rm /usr/local/share/man/man1/$(SERVER_MAN_PAGE)
+	@rm $(MANPAGE_DIR)$(DAEMON_MAN_PAGE)
+	@rm $(MANPAGE_DIR)$(SERVER_MAN_PAGE)
 
 check:
 	@cargo fmt
