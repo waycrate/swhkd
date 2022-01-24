@@ -1,5 +1,5 @@
 <p align=center>
-  <img src="./assets/swhkd.png" alt=SWHKD width=60%>
+  <img src="./docs/assets/swhkd.png" alt=SWHKD width=60%>
   
   <p align=center>A next-generation hotkey daemon for Wayland/X11 written in Rust.</p>
   
