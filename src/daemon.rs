@@ -76,10 +76,10 @@ pub fn permission_check() -> bool {
                 if group.unwrap().unwrap().name == "input" {
                     log::error!("Note: INVOKING USER IS IN INPUT GROUP!!!!");
                     log::error!("THIS IS A HUGE SECURITY RISK!!!!");
-                    log::error!("Consider using `pkexec swhkd ...`");
                 }
             }
         }
+        log::error!("Consider using `pkexec swhkd ...`");
         return false; // If user is in input group, warn them and then exit regardless.
     } else {
         log::warn!("Running swhkd as root!");
