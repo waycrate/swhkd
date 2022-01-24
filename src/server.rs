@@ -45,6 +45,7 @@ fn main() {
             }
             Err(e) => {
                 log::error!("Error removing the socket file!: {}", e);
+                log::error!("You can manually remove the socket file: {}", sockfile);
                 exit(1);
             }
         };
