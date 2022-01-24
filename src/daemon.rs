@@ -14,10 +14,7 @@ pub fn main() {
 
     env_logger::init();
     log::trace!("Logger initialized.");
-
-    if !permission_check() {
-        exit(1);
-    }
+    permission_check();
 
     let config_file_path: std::path::PathBuf;
     if args.is_present("config") {
@@ -67,7 +64,7 @@ pub fn main() {
     };
 }
 
-pub fn permission_check() -> bool {
+pub fn permission_check() {
     if unistd::Uid::current().is_root() == false {
         let groups = unistd::getgroups();
         for (_, groups) in groups.iter().enumerate() {
@@ -80,10 +77,9 @@ pub fn permission_check() -> bool {
             }
         }
         log::error!("Consider using `pkexec swhkd ...`");
-        return false; // If user is in input group, warn them and then exit regardless.
+        exit(1);
     } else {
         log::warn!("Running swhkd as root!");
-        return true;
     }
 }
 
