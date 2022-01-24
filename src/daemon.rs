@@ -77,11 +77,10 @@ pub fn permission_check() -> bool {
                     log::error!("Note: INVOKING USER IS IN INPUT GROUP!!!!");
                     log::error!("THIS IS A HUGE SECURITY RISK!!!!");
                     log::error!("Consider using `pkexec swhkd ...`");
-                    return false;
                 }
             }
         }
-        return false; // If user is in input group, warn them and exit. Else, they obviously don't have /dev/input/event*  access, so we return false.
+        return false; // If user is in input group, warn them and then exit regardless.
     } else {
         log::warn!("Running swhkd as root!");
         return true;
