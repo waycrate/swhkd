@@ -68,23 +68,23 @@ pub fn main() {
 }
 
 pub fn permission_check() -> bool {
-    let groups = unistd::getgroups();
-    for (_, groups) in groups.iter().enumerate() {
-        for group in groups {
-            let group = unistd::Group::from_gid(*group);
-            if group.unwrap().unwrap().name == "input" {
-                log::debug!("Invoking user is in input group.");
-                return true;
+    if unistd::Uid::current().is_root() == false {
+        let groups = unistd::getgroups();
+        for (_, groups) in groups.iter().enumerate() {
+            for group in groups {
+                let group = unistd::Group::from_gid(*group);
+                if group.unwrap().unwrap().name == "input" {
+                    log::error!("Note: INVOKING USER IS IN INPUT GROUP!!!!");
+                    log::error!("THIS IS A HUGE SECURITY RISK!!!!");
+                    log::error!("Consider using `pkexec swhkd ...`");
+                    return false;
+                }
             }
         }
-    }
-
-    if unistd::Uid::current().is_root() {
-        log::warn!("Running swhkd as root!!!");
-        return true;
+        return false; // If user is in input group, warn them and exit. Else, they obviously don't have /dev/input/event*  access, so we return false.
     } else {
-        log::error!("Invoking user is NOT in input group.");
-        return false;
+        log::warn!("Running swhkd as root!");
+        return true;
     }
 }
 
