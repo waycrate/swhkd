@@ -7,6 +7,9 @@ use std::{
 };
 use sysinfo::{ProcessExt, System, SystemExt};
 
+// Necessary so we can test the config file
+mod config;
+
 fn main() {
     env::set_var("RUST_LOG", "swhks=trace");
     env_logger::init();
