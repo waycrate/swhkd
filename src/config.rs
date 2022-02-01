@@ -12,7 +12,6 @@ pub enum Error {
 }
 
 #[derive(Debug)]
-#[derive(PartialEq)]
 pub enum ParseError {
     UnknownSymbol(u32),
     MissingCommand(u32),
