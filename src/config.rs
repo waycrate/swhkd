@@ -51,7 +51,6 @@ pub fn parse_config(path: path::PathBuf) -> Result<Vec<Keybind>, Error> {
 
     file.read_to_string(&mut contents)?;
 
-    // Parse file line-by-line
     let key_to_evdev_key: HashMap<&str, evdev::Key> = HashMap::from([
         ("q", evdev::Key::KEY_Q), ("w", evdev::Key::KEY_W),
         ("e", evdev::Key::KEY_E), ("r", evdev::Key::KEY_R),
@@ -82,15 +81,17 @@ pub fn parse_config(path: path::PathBuf) -> Result<Vec<Keybind>, Error> {
 
     let mut lines_to_skip: u32 = 0;
 
+    // Parse file line-by-line
     for i in 0..lines.len() {
         if lines_to_skip > 0 {
             lines_to_skip -= 1;
             continue;
         }
 
-        // Ignore comments starting with # and blank lines
-        if lines[i].trim().starts_with("#") ||
-           lines[i].trim().is_empty() {
+        // Ignore blank lines and comments starting with #
+        if lines[i].trim().is_empty() ||
+           lines[i].trim().starts_with("#")
+           {
             continue;
         }
 
@@ -119,8 +120,11 @@ pub fn parse_config(path: path::PathBuf) -> Result<Vec<Keybind>, Error> {
             // Skip trying to parse the next line (command)
             // because we already dealt with it
             lines_to_skip += 1;
+
         } else {
-            return Err(Error::InvalidConfig( ParseError::UnknownSymbol(i.try_into().unwrap())));
+            return Err(
+                Error::InvalidConfig(
+                    ParseError::UnknownSymbol(i.try_into().unwrap())));
         }
     }
 
