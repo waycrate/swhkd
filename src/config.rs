@@ -46,9 +46,7 @@ pub fn parse_config(path: path::PathBuf) -> Result<Vec<Keybind>, Error> {
 
     // Find file
     let mut file = File::open(path)?;
-
     let mut contents = String::new();
-
     file.read_to_string(&mut contents)?;
 
     let key_to_evdev_key: HashMap<&str, evdev::Key> = HashMap::from([
