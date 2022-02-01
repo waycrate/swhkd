@@ -112,6 +112,11 @@ pub fn parse_config(path: path::PathBuf) -> Result<Vec<Keybind>, Error> {
             key_presses.push(*key_press);
 
             //// Find the command
+            if lines[i + 1].trim().is_empty() {
+                return Err(Error::InvalidConfig(
+                        ParseError::MissingCommand(i.try_into().unwrap())));
+            }
+
             let command = lines[i + 1].trim();
 
             // Push a new keybind to the keybinds vector
@@ -383,7 +388,7 @@ c ")?;
 k
     xbacklight -inc 10 -fps 30 -time 200
 
-minus
+w
 
                     ")?;
 
