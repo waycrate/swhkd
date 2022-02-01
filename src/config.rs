@@ -8,7 +8,13 @@ use std::collections::HashMap;
 pub enum Error {
     ConfigNotFound,
     Io(std::io::Error),
-    InvalidConfig
+    InvalidConfig(ParseError)
+}
+
+#[derive(Debug)]
+pub enum ParseError {
+    UnknownSymbol(u32),
+    MissingCommand(u32),
 }
 
 impl From<std::io::Error> for Error {
@@ -46,6 +52,7 @@ pub fn parse_config(path: path::PathBuf) -> Result<Vec<Keybind>, Error> {
     file.read_to_string(&mut contents)?;
 
     // Parse file line-by-line
+    // TODO: Add more keys
     let key_to_evdev_key: HashMap<&str, evdev::Key> = HashMap::from([
         ("q", evdev::Key::KEY_Q),
         ("w", evdev::Key::KEY_W),
@@ -63,6 +70,7 @@ pub fn parse_config(path: path::PathBuf) -> Result<Vec<Keybind>, Error> {
     let lines: Vec<&str> = contents.split("\n").collect();
 
     for i in 0..lines.len() {
+        // TODO: Process multiple key presses with ' + '
         let mut key_presses: Vec<evdev::Key> = Vec::new();
 
         if key_to_evdev_key.contains_key(lines[i].trim()) {
@@ -295,4 +303,262 @@ p
 
         Ok(())
     }
+
+    #[test]
+    fn test_invalid_keybinding() -> std::io::Result<()> {
+        let setup = TestPath::new("/tmp/swhkd-test-file7");
+        let mut f = File::create(setup.path())?;
+        f.write_all(b"
+p
+    xbacklight -inc 10 -fps 30 -time 200
+
+pesto
+    xterm
+                    ")?;
+
+        assert!(parse_config(setup.path()).is_err());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_eofed_keybinding() -> std::io::Result<()> {
+        let setup = TestPath::new("/tmp/swhkd-test-file8");
+        let mut f = File::create(setup.path())?;
+        f.write_all(b"
+k
+    xbacklight -inc 10 -fps 30 -time 200
+
+c
+                    ")?;
+
+        assert!(parse_config(setup.path()).is_err());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_no_command() -> std::io::Result<()> {
+        let setup = TestPath::new("/tmp/swhkd-test-file9");
+        let mut f = File::create(setup.path())?;
+        f.write_all(b"
+k
+    xbacklight -inc 10 -fps 30 -time 200
+
+minus
+
+                    ")?;
+
+        assert!(parse_config(setup.path()).is_err());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_all_alphanumeric() -> std::io::Result<()> {
+        let setup = TestPath::new("/tmp/swhkd-test-file10");
+        let mut f = File::create(setup.path())?;
+
+        let symbols: [&str; 36] = ["a", "b", "c", "d", "e", "f", "g",
+        "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r",
+        "s", "t", "u", "v", "w", "x", "y", "z", "0", "1", "2",
+        "3", "4", "5", "6", "7", "8", "9"];
+
+        let keysyms: [evdev::Key; 36] = [
+            evdev::Key::KEY_A, evdev::Key::KEY_B, evdev::Key::KEY_C,
+            evdev::Key::KEY_D, evdev::Key::KEY_E, evdev::Key::KEY_F,
+            evdev::Key::KEY_G, evdev::Key::KEY_H, evdev::Key::KEY_I,
+            evdev::Key::KEY_J, evdev::Key::KEY_K, evdev::Key::KEY_L,
+            evdev::Key::KEY_M, evdev::Key::KEY_N, evdev::Key::KEY_O,
+            evdev::Key::KEY_P, evdev::Key::KEY_Q, evdev::Key::KEY_R,
+            evdev::Key::KEY_S, evdev::Key::KEY_T, evdev::Key::KEY_U,
+            evdev::Key::KEY_V, evdev::Key::KEY_W, evdev::Key::KEY_X,
+            evdev::Key::KEY_Y, evdev::Key::KEY_Z, evdev::Key::KEY_0,
+            evdev::Key::KEY_1, evdev::Key::KEY_2, evdev::Key::KEY_3,
+            evdev::Key::KEY_4, evdev::Key::KEY_5, evdev::Key::KEY_6,
+            evdev::Key::KEY_7, evdev::Key::KEY_8, evdev::Key::KEY_9,
+        ];
+
+        for symbol in &symbols {
+            f.write_all(format!("{}\n    st\n", symbol).as_bytes())?;
+        }
+
+        let parse_result = parse_config(setup.path());
+
+        assert!(parse_result.is_ok());
+
+        let actual_keybinds = parse_result.unwrap();
+
+        assert_eq!(actual_keybinds.len(), 36);
+
+        for i in 0..actual_keybinds.len() {
+            assert_eq!(actual_keybinds[i].pressed_keys.len(), 1);
+            assert_eq!(actual_keybinds[i].pressed_keys[0], keysyms[i]);
+            assert_eq!(actual_keybinds[i].command, "st");
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_nonsensical_file() -> std::io::Result<()> {
+        let setup = TestPath::new("/tmp/swhkd-test-file11");
+        let mut f = File::create(setup.path())?;
+        f.write_all(b"
+WE WISH YOU A MERRY RUSTMAS
+
+                    ")?;
+
+        assert!(parse_config(setup.path()).is_err());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_valid_keybind_but_commented_command() -> std::io::Result<()> {
+        let setup = TestPath::new("/tmp/swhkd-test-file12");
+        let mut f = File::create(setup.path())?;
+        f.write_all(b"
+5
+    takeshot --now --verbose
+
+p
+    #commented out command
+                    ")?;
+
+        assert!(parse_config(setup.path()).is_err());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_real_config_snippet() -> std::io::Result<()> {
+        let setup = TestPath::new("/tmp/swhkd-test-file13");
+        let mut f = File::create(setup.path())?;
+        f.write_all(b"
+# reloads sxhkd configuration:
+super + Escape
+    pkill -USR1 -x sxhkd ; sxhkd &
+
+# Launch Terminal
+super + Return
+    alacritty -t \"Terminal\" -e \"$HOME/.config/sxhkd/new_tmux_terminal.sh\"
+
+# terminal emulator (no tmux)
+super + shift + Return
+    alacritty -t \"Terminal\"
+
+# terminal emulator (new tmux session)
+alt + Return
+    alacritty -t \"Terminal\" -e \"tmux\"
+
+ctrl + 0
+    play-song.sh
+
+super + minus
+    play-song.sh album
+                    ")?;
+
+        let expected_result: Vec<Keybind> = vec![
+            Keybind::new(
+                vec![evdev::Key::KEY_LEFTMETA,
+                     evdev::Key::KEY_ESC],
+                     String::from("pkill -USR1 -x sxhkd ; sxhkd &")),
+            Keybind::new(
+                vec![evdev::Key::KEY_LEFTMETA,
+                     evdev::Key::KEY_ENTER],
+                     String::from("alacritty -t \"Terminal\" -e \"$HOME/.config/sxhkd/new_tmux_terminal.sh\"")),
+            Keybind::new(
+                vec![evdev::Key::KEY_LEFTMETA,
+                     evdev::Key::KEY_LEFTSHIFT,
+                     evdev::Key::KEY_ENTER],
+                     String::from("alacritty -t \"Terminal\"")),
+            Keybind::new(
+                vec![evdev::Key::KEY_LEFTALT,
+                     evdev::Key::KEY_ENTER],
+                     String::from("alacritty -t \"Terminal\" -e \"tmux\"")),
+            Keybind::new(
+                vec![evdev::Key::KEY_LEFTCTRL,
+                     evdev::Key::KEY_0],
+                     String::from("play-song.sh")),
+            Keybind::new(
+                vec![evdev::Key::KEY_LEFTMETA,
+                     evdev::Key::KEY_MINUS],
+                     String::from("play-song.sh album")),
+        ];
+
+        let real_result = parse_config(setup.path());
+
+        assert!(real_result.is_ok());
+
+        let real_result = real_result.unwrap();
+
+        assert_eq!(real_result.len(), expected_result.len());
+
+        for i in 0..real_result.len() {
+            assert_eq!(real_result[i].pressed_keys,
+                       expected_result[i].pressed_keys);
+            assert_eq!(real_result[i].command,
+                       expected_result[i].command);
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_multiline_command() -> std::io::Result<()> {
+        let setup = TestPath::new("/tmp/swhkd-test-file14");
+        let mut f = File::create(setup.path())?;
+        f.write_all(b"
+k
+    mpc ls | dmenu | \\
+    sed -i 's/foo/bar/g'
+                    ")?;
+
+        let expected_keybind = Keybind::new(
+            vec![evdev::Key::KEY_K],
+            String::from("mpc ls | dmenu | sed -i 's/foo/bar/g'")
+                                           );
+
+        let real_keybind = parse_config(setup.path());
+
+        assert!(real_keybind.is_ok());
+
+        let real_keybind = real_keybind.unwrap();
+
+        assert_eq!(real_keybind.len(), 1);
+
+        assert_eq!(real_keybind[0].pressed_keys, expected_keybind.pressed_keys);
+        assert_eq!(real_keybind[0].command, expected_keybind.command);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_commented_out_keybind() -> std::io::Result<()> {
+        let setup = TestPath::new("/tmp/swhkd-test-file15");
+        let mut f = File::create(setup.path())?;
+        f.write_all(b"
+#w
+    gimp
+                    ")?;
+
+        assert!(parse_config(setup.path()).is_err());
+
+        Ok(())
+    }
+
+    // Bracket expansion example:
+    // `super + ctrl + {h,j,k,l}`
+    // `    bspc node -p {westh,south,north,west}`
+    #[ignore]
+    fn test_bracket_expansion() -> std::io::Result<()> {Ok(())}
+
+    // `super + {1-9}`
+    // `    bspc desktop -f '^{1-9}'`
+    #[ignore]
+    fn test_bracket_expansion_numbers() -> std::io::Result<()> {Ok(())}
+
+    #[ignore]
+    fn test_unclosed_bracket_in_binding() -> std::io::Result<()> {Ok(())}
 }
