@@ -64,6 +64,36 @@ pub fn parse_config(path: path::PathBuf) -> Result<Vec<Keybind>, Error> {
         ("i", evdev::Key::KEY_I),
         ("o", evdev::Key::KEY_O),
         ("p", evdev::Key::KEY_P),
+
+        ("a", evdev::Key::KEY_A),
+        ("s", evdev::Key::KEY_S),
+        ("d", evdev::Key::KEY_D),
+        ("f", evdev::Key::KEY_F),
+        ("g", evdev::Key::KEY_G),
+        ("h", evdev::Key::KEY_H),
+        ("j", evdev::Key::KEY_J),
+        ("k", evdev::Key::KEY_K),
+        ("l", evdev::Key::KEY_L),
+
+        ("z", evdev::Key::KEY_Z),
+        ("x", evdev::Key::KEY_X),
+        ("c", evdev::Key::KEY_C),
+        ("v", evdev::Key::KEY_V),
+        ("b", evdev::Key::KEY_B),
+        ("n", evdev::Key::KEY_N),
+        ("m", evdev::Key::KEY_M),
+
+        ("1", evdev::Key::KEY_1),
+        ("2", evdev::Key::KEY_2),
+        ("3", evdev::Key::KEY_3),
+        ("4", evdev::Key::KEY_4),
+        ("5", evdev::Key::KEY_5),
+        ("6", evdev::Key::KEY_6),
+        ("7", evdev::Key::KEY_7),
+        ("8", evdev::Key::KEY_8),
+        ("9", evdev::Key::KEY_9),
+        ("0", evdev::Key::KEY_0),
+
     ]);
 
     let mut keybinds: Vec<Keybind> = Vec::new();
