@@ -12,6 +12,7 @@ pub enum Error {
 }
 
 #[derive(Debug)]
+#[derive(PartialEq)]
 pub enum ParseError {
     UnknownSymbol(u32),
     MissingCommand(u32),
@@ -95,6 +96,11 @@ pub fn parse_config(path: path::PathBuf) -> Result<Vec<Keybind>, Error> {
             continue;
         }
 
+        // We need to get the real line number for errors
+        // because arrays in Rust are zero-index while lines
+        // in a file are of course counted from 1
+        let real_line_no: u32 = (i + 1).try_into().unwrap();
+
         let mut key_presses: Vec<evdev::Key> = Vec::new();
 
         if key_to_evdev_key.contains_key(lines[i].trim()) {
@@ -103,7 +109,7 @@ pub fn parse_config(path: path::PathBuf) -> Result<Vec<Keybind>, Error> {
             // it's impossible for there to be a command
             if i >= lines.len() - 1 {
                 return Err(Error::InvalidConfig(
-                        ParseError::MissingCommand(i.try_into().unwrap())));
+                        ParseError::MissingCommand(real_line_no)));
             }
 
             // Translate keypress into evdev key
@@ -114,7 +120,7 @@ pub fn parse_config(path: path::PathBuf) -> Result<Vec<Keybind>, Error> {
             //// Find the command
             if lines[i + 1].trim().is_empty() {
                 return Err(Error::InvalidConfig(
-                        ParseError::MissingCommand(i.try_into().unwrap())));
+                        ParseError::MissingCommand(real_line_no)));
             }
 
             let command = lines[i + 1].trim();
@@ -127,9 +133,8 @@ pub fn parse_config(path: path::PathBuf) -> Result<Vec<Keybind>, Error> {
             lines_to_skip += 1;
 
         } else {
-            return Err(
-                Error::InvalidConfig(
-                    ParseError::UnknownSymbol(i.try_into().unwrap())));
+            return Err(Error::InvalidConfig(
+                    ParseError::UnknownSymbol(real_line_no)));
         }
     }
 
@@ -360,9 +365,30 @@ pesto
     xterm
                     ")?;
 
-        assert!(parse_config(setup.path()).is_err());
+        let result = parse_config(setup.path());
 
-        Ok(())
+        assert!(result.is_err());
+
+        let error = result.unwrap_err();
+
+        match error {
+            Error::InvalidConfig(parse_err) => match parse_err {
+                ParseError::UnknownSymbol(line_nr) => {
+                    if line_nr == 5 {
+                        return Ok(());
+                    } else {
+                        panic!("{}", format!("Error line is wrong, expected 4 but actual: {}",
+                                       line_nr));
+                    }
+                },
+                _ => {
+                    panic!("Error type is not Unknown Symbol");
+                }
+            },
+            _ => {
+                panic!("Error type is not InvalidConfig");
+            }
+        }
     }
 
     #[test]
