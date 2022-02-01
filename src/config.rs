@@ -52,7 +52,6 @@ pub fn parse_config(path: path::PathBuf) -> Result<Vec<Keybind>, Error> {
     file.read_to_string(&mut contents)?;
 
     // Parse file line-by-line
-    // TODO: Add more keys
     let key_to_evdev_key: HashMap<&str, evdev::Key> = HashMap::from([
         ("q", evdev::Key::KEY_Q), ("w", evdev::Key::KEY_W),
         ("e", evdev::Key::KEY_E), ("r", evdev::Key::KEY_R),
@@ -82,7 +81,6 @@ pub fn parse_config(path: path::PathBuf) -> Result<Vec<Keybind>, Error> {
     let lines: Vec<&str> = contents.split("\n").collect();
 
     for i in 0..lines.len() {
-        // TODO: Process multiple key presses with ' + '
         let mut key_presses: Vec<evdev::Key> = Vec::new();
 
         if key_to_evdev_key.contains_key(lines[i].trim()) {
