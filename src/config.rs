@@ -77,10 +77,23 @@ pub fn parse_config(path: path::PathBuf) -> Result<Vec<Keybind>, Error> {
         ("9", evdev::Key::KEY_9), ("0", evdev::Key::KEY_0),
     ]);
 
-    let mut keybinds: Vec<Keybind> = Vec::new();
     let lines: Vec<&str> = contents.split("\n").collect();
+    let mut keybinds: Vec<Keybind> = Vec::new();
+
+    let mut lines_to_skip: u32 = 0;
 
     for i in 0..lines.len() {
+        if lines_to_skip > 0 {
+            lines_to_skip -= 1;
+            continue;
+        }
+
+        // Ignore comments starting with # and blank lines
+        if lines[i].trim().starts_with("#") ||
+           lines[i].trim().is_empty() {
+            continue;
+        }
+
         let mut key_presses: Vec<evdev::Key> = Vec::new();
 
         if key_to_evdev_key.contains_key(lines[i].trim()) {
@@ -102,6 +115,12 @@ pub fn parse_config(path: path::PathBuf) -> Result<Vec<Keybind>, Error> {
 
             // Push a new keybind to the keybinds vector
             keybinds.push(Keybind::new(key_presses, String::from(command)));
+
+            // Skip trying to parse the next line (command)
+            // because we already dealt with it
+            lines_to_skip += 1;
+        } else {
+            return Err(Error::InvalidConfig( ParseError::UnknownSymbol(i.try_into().unwrap())));
         }
     }
 
