@@ -84,19 +84,25 @@ pub fn parse_config(path: path::PathBuf) -> Result<Vec<Keybind>, Error> {
         let mut key_presses: Vec<evdev::Key> = Vec::new();
 
         if key_to_evdev_key.contains_key(lines[i].trim()) {
+
+            // If the keybind line is at the very last line,
+            // it's impossible for there to be a command
+            if i >= lines.len() - 1 {
+                return Err(Error::InvalidConfig(
+                        ParseError::MissingCommand(i.try_into().unwrap())));
+            }
+
             // Translate keypress into evdev key
             let key_press = key_to_evdev_key.get(lines[i].trim()).unwrap();
 
             key_presses.push(*key_press);
 
-            // Then interpret the command (simple)
+            //// Find the command
             let command = lines[i + 1].trim();
 
             // Push a new keybind to the keybinds vector
             keybinds.push(Keybind::new(key_presses, String::from(command)));
         }
-
-        // If there are config errors, return a config ParseError
     }
 
 
@@ -339,8 +345,7 @@ pesto
 k
     xbacklight -inc 10 -fps 30 -time 200
 
-c
-                    ")?;
+c ")?;
 
         assert!(parse_config(setup.path()).is_err());
 
