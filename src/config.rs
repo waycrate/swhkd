@@ -28,21 +28,21 @@ impl From<std::io::Error> for Error {
 }
 
 #[derive(Debug)]
-pub struct Keybind {
+pub struct Hotkey {
     pressed_keys: Vec<evdev::Key>,
     command: String
 }
 
-impl Keybind {
+impl Hotkey {
     fn new(pressed_keys: Vec<evdev::Key>, command: String) -> Self {
-        Keybind {
+        Hotkey {
             pressed_keys,
             command
         }
     }
 }
 
-pub fn parse_config(path: path::PathBuf) -> Result<Vec<Keybind>, Error> {
+pub fn parse_config(path: path::PathBuf) -> Result<Vec<Hotkey>, Error> {
 
     // Find file
     let mut file = File::open(path)?;
@@ -75,7 +75,7 @@ pub fn parse_config(path: path::PathBuf) -> Result<Vec<Keybind>, Error> {
     ]);
 
     let lines: Vec<&str> = contents.split("\n").collect();
-    let mut keybinds: Vec<Keybind> = Vec::new();
+    let mut keybinds: Vec<Hotkey> = Vec::new();
 
     let mut lines_to_skip: u32 = 0;
 
@@ -123,7 +123,7 @@ pub fn parse_config(path: path::PathBuf) -> Result<Vec<Keybind>, Error> {
             let command = lines[i + 1].trim();
 
             // Push a new keybind to the keybinds vector
-            keybinds.push(Keybind::new(key_presses, String::from(command)));
+            keybinds.push(Hotkey::new(key_presses, String::from(command)));
 
             // Skip trying to parse the next line (command)
             // because we already dealt with it
@@ -217,7 +217,7 @@ r
         ")?;
 
         // Process the expected result
-        let expected_keybind = Keybind::new(vec![evdev::Key::KEY_R],
+        let expected_keybind = Hotkey::new(vec![evdev::Key::KEY_R],
                                             String::from("alacritty"));
 
         // Process the real result
@@ -251,11 +251,11 @@ t
     /bin/firefox
         ")?;
 
-        let keybind_1 = Keybind::new(vec![evdev::Key::KEY_R],
+        let keybind_1 = Hotkey::new(vec![evdev::Key::KEY_R],
                                      String::from("alacritty"));
-        let keybind_2 = Keybind::new(vec![evdev::Key::KEY_W],
+        let keybind_2 = Hotkey::new(vec![evdev::Key::KEY_W],
                                      String::from("kitty"));
-        let keybind_3 = Keybind::new(vec![evdev::Key::KEY_T],
+        let keybind_3 = Hotkey::new(vec![evdev::Key::KEY_T],
                                      String::from("/bin/firefox"));
 
         let result = parse_config(setup.path());
@@ -288,9 +288,9 @@ w
         ")?;
 
         let expected_keybinds = vec![
-            Keybind::new(vec![evdev::Key::KEY_R],
+            Hotkey::new(vec![evdev::Key::KEY_R],
                          String::from("alacritty")),
-            Keybind::new(vec![evdev::Key::KEY_W],
+            Hotkey::new(vec![evdev::Key::KEY_W],
                          String::from("kitty")),
         ];
 
@@ -321,7 +321,7 @@ super + 5
 
             // I don't know if the super key is macro or not,
             // please check
-            Keybind::new(vec![evdev::Key::KEY_MACRO, evdev::Key::KEY_5],
+            Hotkey::new(vec![evdev::Key::KEY_MACRO, evdev::Key::KEY_5],
                          String::from("alacritty")),
         ];
 
@@ -345,7 +345,7 @@ p
         ")?;
 
         let expected_keybinds = vec![
-            Keybind::new(vec![evdev::Key::KEY_P],
+            Hotkey::new(vec![evdev::Key::KEY_P],
                          String::from("xbacklight -inc 10 -fps 30 -time 200")),
         ];
 
@@ -534,29 +534,29 @@ super + minus
     play-song.sh album
                     ")?;
 
-        let expected_result: Vec<Keybind> = vec![
-            Keybind::new(
+        let expected_result: Vec<Hotkey> = vec![
+            Hotkey::new(
                 vec![evdev::Key::KEY_LEFTMETA,
                      evdev::Key::KEY_ESC],
                      String::from("pkill -USR1 -x sxhkd ; sxhkd &")),
-            Keybind::new(
+            Hotkey::new(
                 vec![evdev::Key::KEY_LEFTMETA,
                      evdev::Key::KEY_ENTER],
                      String::from("alacritty -t \"Terminal\" -e \"$HOME/.config/sxhkd/new_tmux_terminal.sh\"")),
-            Keybind::new(
+            Hotkey::new(
                 vec![evdev::Key::KEY_LEFTMETA,
                      evdev::Key::KEY_LEFTSHIFT,
                      evdev::Key::KEY_ENTER],
                      String::from("alacritty -t \"Terminal\"")),
-            Keybind::new(
+            Hotkey::new(
                 vec![evdev::Key::KEY_LEFTALT,
                      evdev::Key::KEY_ENTER],
                      String::from("alacritty -t \"Terminal\" -e \"tmux\"")),
-            Keybind::new(
+            Hotkey::new(
                 vec![evdev::Key::KEY_LEFTCTRL,
                      evdev::Key::KEY_0],
                      String::from("play-song.sh")),
-            Keybind::new(
+            Hotkey::new(
                 vec![evdev::Key::KEY_LEFTMETA,
                      evdev::Key::KEY_MINUS],
                      String::from("play-song.sh album")),
@@ -590,7 +590,7 @@ k
     sed -i 's/foo/bar/g'
                     ")?;
 
-        let expected_keybind = Keybind::new(
+        let expected_keybind = Hotkey::new(
             vec![evdev::Key::KEY_K],
             String::from("mpc ls | dmenu | sed -i 's/foo/bar/g'")
                                            );
