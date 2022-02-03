@@ -29,14 +29,14 @@ impl From<std::io::Error> for Error {
 
 #[derive(Debug)]
 pub struct Hotkey {
-    pressed_keys: Vec<evdev::Key>,
+    keysyms: Vec<evdev::Key>,
     command: String
 }
 
 impl Hotkey {
-    fn new(pressed_keys: Vec<evdev::Key>, command: String) -> Self {
+    fn new(keysyms: Vec<evdev::Key>, command: String) -> Self {
         Hotkey {
-            pressed_keys,
+            keysyms,
             command
         }
     }
@@ -227,8 +227,8 @@ r
 
         let parse_result = parse_result.unwrap();
 
-        assert_eq!(parse_result[0].pressed_keys,
-                   expected_keybind.pressed_keys);
+        assert_eq!(parse_result[0].keysyms,
+                   expected_keybind.keysyms);
 
         assert_eq!(parse_result[0].command,
                    expected_keybind.command);
@@ -262,11 +262,11 @@ t
         assert!(result.is_ok());
         let result = result.unwrap();
 
-        assert_eq!(keybind_1.pressed_keys, result[0].pressed_keys);
+        assert_eq!(keybind_1.keysyms, result[0].keysyms);
         assert_eq!(keybind_1.command, result[0].command);
-        assert_eq!(keybind_2.pressed_keys, result[1].pressed_keys);
+        assert_eq!(keybind_2.keysyms, result[1].keysyms);
         assert_eq!(keybind_2.command, result[1].command);
-        assert_eq!(keybind_3.pressed_keys, result[2].pressed_keys);
+        assert_eq!(keybind_3.keysyms, result[2].keysyms);
         assert_eq!(keybind_3.command, result[2].command);
 
         Ok(())
@@ -300,9 +300,9 @@ w
 
         assert_eq!(result.len(), 2);
 
-        assert_eq!(result[0].pressed_keys, expected_keybinds[0].pressed_keys);
+        assert_eq!(result[0].keysyms, expected_keybinds[0].keysyms);
         assert_eq!(result[0].command, expected_keybinds[0].command);
-        assert_eq!(result[1].pressed_keys, expected_keybinds[1].pressed_keys);
+        assert_eq!(result[1].keysyms, expected_keybinds[1].keysyms);
         assert_eq!(result[1].command, expected_keybinds[1].command);
 
         Ok(())
@@ -329,7 +329,7 @@ super + 5
         assert!(result.is_ok());
         let result = result.unwrap();
 
-        assert_eq!(result[0].pressed_keys, expected_keybinds[0].pressed_keys);
+        assert_eq!(result[0].keysyms, expected_keybinds[0].keysyms);
         assert_eq!(result[0].command, expected_keybinds[0].command);
 
         Ok(())
@@ -353,7 +353,7 @@ p
         assert!(result.is_ok());
         let result = result.unwrap();
 
-        assert_eq!(result[0].pressed_keys, expected_keybinds[0].pressed_keys);
+        assert_eq!(result[0].keysyms, expected_keybinds[0].keysyms);
         assert_eq!(result[0].command, expected_keybinds[0].command);
 
         Ok(())
@@ -467,8 +467,8 @@ w
         assert_eq!(actual_keybinds.len(), 36);
 
         for i in 0..actual_keybinds.len() {
-            assert_eq!(actual_keybinds[i].pressed_keys.len(), 1);
-            assert_eq!(actual_keybinds[i].pressed_keys[0], keysyms[i]);
+            assert_eq!(actual_keybinds[i].keysyms.len(), 1);
+            assert_eq!(actual_keybinds[i].keysyms[0], keysyms[i]);
             assert_eq!(actual_keybinds[i].command, "st");
         }
 
@@ -571,8 +571,8 @@ super + minus
         assert_eq!(real_result.len(), expected_result.len());
 
         for i in 0..real_result.len() {
-            assert_eq!(real_result[i].pressed_keys,
-                       expected_result[i].pressed_keys);
+            assert_eq!(real_result[i].keysyms,
+                       expected_result[i].keysyms);
             assert_eq!(real_result[i].command,
                        expected_result[i].command);
         }
@@ -603,7 +603,7 @@ k
 
         assert_eq!(real_keybind.len(), 1);
 
-        assert_eq!(real_keybind[0].pressed_keys, expected_keybind.pressed_keys);
+        assert_eq!(real_keybind[0].keysyms, expected_keybind.keysyms);
         assert_eq!(real_keybind[0].command, expected_keybind.command);
 
         Ok(())
