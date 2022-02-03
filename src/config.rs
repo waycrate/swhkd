@@ -42,7 +42,12 @@ impl Hotkey {
     }
 }
 
-pub fn load_file_contents(path: path::PathBuf)
+pub fn load(path: path::PathBuf) -> Result<Vec<Hotkey>, Error> {
+    let file_contents = load_file_contents(path)?;
+    parse_contents(file_contents)
+}
+
+fn load_file_contents(path: path::PathBuf)
     -> Result<String, Error> {
     let mut file = File::open(path)?;
     let mut contents = String::new();
@@ -50,7 +55,7 @@ pub fn load_file_contents(path: path::PathBuf)
     Ok(contents)
 }
 
-pub fn parse_contents(contents: String) -> Result<Vec<Hotkey>, Error> {
+fn parse_contents(contents: String) -> Result<Vec<Hotkey>, Error> {
     let key_to_evdev_key: HashMap<&str, evdev::Key> = HashMap::from([
         ("q", evdev::Key::KEY_Q), ("w", evdev::Key::KEY_W),
         ("e", evdev::Key::KEY_E), ("r", evdev::Key::KEY_R),
