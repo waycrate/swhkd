@@ -219,7 +219,7 @@ r
         let expected_hotkey = Hotkey::new(vec![evdev::Key::KEY_R],
                                             String::from("alacritty"));
 
-        let parse_result = parse_contents(contents);
+        let parse_result = parse_contents(contents.to_string());
 
         assert!(parse_result.is_ok());
 
@@ -254,7 +254,7 @@ t
         let hotkey_3 = Hotkey::new(vec![evdev::Key::KEY_T],
                                      String::from("/bin/firefox"));
 
-        let result = parse_contents(contents);
+        let result = parse_contents(contents.to_string());
         assert!(result.is_ok());
         let result = result.unwrap();
 
@@ -268,11 +268,9 @@ t
         Ok(())
     }
 
-    #[ignore]
+    #[test]
     fn test_comments() -> std::io::Result<()> {
-        let setup = TestPath::new("/tmp/swhkd-test-file4");
-        let mut f = File::create(setup.path())?;
-        f.write_all(b"
+        let contents = "
 r
     alacritty
 
@@ -281,7 +279,7 @@ w
 
 #t
     #/bin/firefox
-        ")?;
+        ";
 
         let expected_keybinds = vec![
             Hotkey::new(vec![evdev::Key::KEY_R],
@@ -290,7 +288,7 @@ w
                          String::from("kitty")),
         ];
 
-        let result = parse_contents(setup.path());
+        let result = parse_contents(contents.to_string());
         assert!(result.is_ok());
         let result = result.unwrap();
 
@@ -306,12 +304,10 @@ w
 
     #[ignore]
     fn test_multiple_keypress() -> std::io::Result<()> {
-        let setup = TestPath::new("/tmp/swhkd-test-file5");
-        let mut f = File::create(setup.path())?;
-        f.write_all(b"
+        let contents = "
 super + 5
     alacritty
-        ")?;
+        ";
 
         let expected_keybinds = vec![
 
@@ -321,7 +317,7 @@ super + 5
                          String::from("alacritty")),
         ];
 
-        let result = parse_contents(setup.path());
+        let result = parse_contents(contents.to_string());
         assert!(result.is_ok());
         let result = result.unwrap();
 
@@ -331,21 +327,19 @@ super + 5
         Ok(())
     }
 
-    #[ignore]
+    #[test]
     fn test_command_with_many_spaces() -> std::io::Result<()> {
-        let setup = TestPath::new("/tmp/swhkd-test-file6");
-        let mut f = File::create(setup.path())?;
-        f.write_all(b"
+        let contents = "
 p
     xbacklight -inc 10 -fps 30 -time 200
-        ")?;
+        ";
 
         let expected_keybinds = vec![
             Hotkey::new(vec![evdev::Key::KEY_P],
                          String::from("xbacklight -inc 10 -fps 30 -time 200")),
         ];
 
-        let result = parse_contents(setup.path());
+        let result = parse_contents(contents.to_string());
         assert!(result.is_ok());
         let result = result.unwrap();
 
@@ -355,19 +349,17 @@ p
         Ok(())
     }
 
-    #[ignore]
+    #[test]
     fn test_invalid_keybinding() -> std::io::Result<()> {
-        let setup = TestPath::new("/tmp/swhkd-test-file7");
-        let mut f = File::create(setup.path())?;
-        f.write_all(b"
+        let contents = "
 p
     xbacklight -inc 10 -fps 30 -time 200
 
 pesto
     xterm
-                    ")?;
+                    ";
 
-        let result = parse_contents(setup.path());
+        let result = parse_contents(contents.to_string());
 
         assert!(result.is_err());
 
@@ -393,43 +385,36 @@ pesto
         }
     }
 
-    #[ignore]
+    #[test]
     fn test_eofed_keybinding() -> std::io::Result<()> {
-        let setup = TestPath::new("/tmp/swhkd-test-file8");
-        let mut f = File::create(setup.path())?;
-        f.write_all(b"
+        let contents = "
 k
     xbacklight -inc 10 -fps 30 -time 200
 
-c ")?;
+c ";
 
-        assert!(parse_contents(setup.path()).is_err());
+        assert!(parse_contents(contents.to_string()).is_err());
 
         Ok(())
     }
 
-    #[ignore]
+    #[test]
     fn test_no_command() -> std::io::Result<()> {
-        let setup = TestPath::new("/tmp/swhkd-test-file9");
-        let mut f = File::create(setup.path())?;
-        f.write_all(b"
+        let contents = "
 k
     xbacklight -inc 10 -fps 30 -time 200
 
 w
 
-                    ")?;
+                    ";
 
-        assert!(parse_contents(setup.path()).is_err());
+        assert!(parse_contents(contents.to_string()).is_err());
 
         Ok(())
     }
 
-    #[ignore]
+    #[test]
     fn test_all_alphanumeric() -> std::io::Result<()> {
-        let setup = TestPath::new("/tmp/swhkd-test-file10");
-        let mut f = File::create(setup.path())?;
-
         let symbols: [&str; 36] = ["a", "b", "c", "d", "e", "f", "g",
         "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r",
         "s", "t", "u", "v", "w", "x", "y", "z", "0", "1", "2",
@@ -450,11 +435,13 @@ w
             evdev::Key::KEY_7, evdev::Key::KEY_8, evdev::Key::KEY_9,
         ];
 
+        let mut contents = String::new();
+
         for symbol in &symbols {
-            f.write_all(format!("{}\n    st\n", symbol).as_bytes())?;
+            contents.push_str(&format!("{}\n    st\n", symbol));
         }
 
-        let parse_result = parse_contents(setup.path());
+        let parse_result = parse_contents(contents);
 
         assert!(parse_result.is_ok());
 
@@ -471,42 +458,36 @@ w
         Ok(())
     }
 
-    #[ignore]
+    #[test]
     fn test_nonsensical_file() -> std::io::Result<()> {
-        let setup = TestPath::new("/tmp/swhkd-test-file11");
-        let mut f = File::create(setup.path())?;
-        f.write_all(b"
+        let contents = "
 WE WISH YOU A MERRY RUSTMAS
 
-                    ")?;
+                    ";
 
-        assert!(parse_contents(setup.path()).is_err());
+        assert!(parse_contents(contents.to_string()).is_err());
 
         Ok(())
     }
 
     #[ignore]
     fn test_valid_keybind_but_commented_command() -> std::io::Result<()> {
-        let setup = TestPath::new("/tmp/swhkd-test-file12");
-        let mut f = File::create(setup.path())?;
-        f.write_all(b"
+        let contents = "
 5
     takeshot --now --verbose
 
 p
     #commented out command
-                    ")?;
+                    ";
 
-        assert!(parse_contents(setup.path()).is_err());
+        assert!(parse_contents(contents.to_string()).is_err());
 
         Ok(())
     }
 
     #[ignore]
     fn test_real_config_snippet() -> std::io::Result<()> {
-        let setup = TestPath::new("/tmp/swhkd-test-file13");
-        let mut f = File::create(setup.path())?;
-        f.write_all(b"
+        let contents = "
 # reloads sxhkd configuration:
 super + Escape
     pkill -USR1 -x sxhkd ; sxhkd &
@@ -528,7 +509,7 @@ ctrl + 0
 
 super + minus
     play-song.sh album
-                    ")?;
+                    ";
 
         let expected_result: Vec<Hotkey> = vec![
             Hotkey::new(
@@ -558,7 +539,7 @@ super + minus
                      String::from("play-song.sh album")),
         ];
 
-        let real_result = parse_contents(setup.path());
+        let real_result = parse_contents(contents.to_string());
 
         assert!(real_result.is_ok());
 
@@ -578,20 +559,18 @@ super + minus
 
     #[ignore]
     fn test_multiline_command() -> std::io::Result<()> {
-        let setup = TestPath::new("/tmp/swhkd-test-file14");
-        let mut f = File::create(setup.path())?;
-        f.write_all(b"
+        let contents = "
 k
     mpc ls | dmenu | \\
     sed -i 's/foo/bar/g'
-                    ")?;
+                    ";
 
         let expected_keybind = Hotkey::new(
             vec![evdev::Key::KEY_K],
             String::from("mpc ls | dmenu | sed -i 's/foo/bar/g'")
                                            );
 
-        let real_keybind = parse_contents(setup.path());
+        let real_keybind = parse_contents(contents.to_string());
 
         assert!(real_keybind.is_ok());
 
@@ -605,16 +584,14 @@ k
         Ok(())
     }
 
-    #[ignore]
+    #[test]
     fn test_commented_out_keybind() -> std::io::Result<()> {
-        let setup = TestPath::new("/tmp/swhkd-test-file15");
-        let mut f = File::create(setup.path())?;
-        f.write_all(b"
+        let contents = "
 #w
     gimp
-                    ")?;
+                    ";
 
-        assert!(parse_contents(setup.path()).is_err());
+        assert!(parse_contents(contents.to_string()).is_err());
 
         Ok(())
     }
