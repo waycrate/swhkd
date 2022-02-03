@@ -93,7 +93,7 @@ fn parse_contents(contents: String) -> Result<Vec<Hotkey>, Error> {
         ("0", evdev::Key::KEY_0),
     ]);
 
-    let lines: Vec<&str> = contents.split("\n").collect();
+    let lines: Vec<&str> = contents.split('\n').collect();
     let mut hotkeys: Vec<Hotkey> = Vec::new();
 
     let mut lines_to_skip: u32 = 0;
@@ -106,7 +106,7 @@ fn parse_contents(contents: String) -> Result<Vec<Hotkey>, Error> {
         }
 
         // Ignore blank lines and comments starting with #
-        if lines[i].trim().is_empty() || lines[i].trim().starts_with("#") {
+        if lines[i].trim().is_empty() || lines[i].trim().starts_with('#') {
             continue;
         }
 
@@ -148,7 +148,7 @@ fn parse_contents(contents: String) -> Result<Vec<Hotkey>, Error> {
     }
 
     // If all is ok, return Vec<Hotkeys>
-    return Ok(hotkeys);
+    Ok(hotkeys)
 }
 
 #[cfg(test)]
@@ -368,7 +368,7 @@ pesto
             Error::InvalidConfig(parse_err) => match parse_err {
                 ParseError::UnknownSymbol(line_nr) => {
                     if line_nr == 5 {
-                        return Ok(());
+                        Ok(())
                     } else {
                         panic!(
                             "{}",
