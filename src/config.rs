@@ -13,6 +13,7 @@ pub enum Error {
 
 #[derive(Debug)]
 pub enum ParseError {
+    // u32 is the line number where an error occured
     UnknownSymbol(u32),
     MissingCommand(u32),
 }
