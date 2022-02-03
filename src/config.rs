@@ -42,6 +42,14 @@ impl Hotkey {
     }
 }
 
+pub fn load_file(path: path::PathBuf)
+    -> Result<String, Error> {
+    let mut file = File::open(path)?;
+    let mut contents = String::new();
+    file.read_to_string(&mut contents)?;
+    Ok(contents)
+}
+
 pub fn parse_config(path: path::PathBuf) -> Result<Vec<Hotkey>, Error> {
 
     // Find file
@@ -75,7 +83,7 @@ pub fn parse_config(path: path::PathBuf) -> Result<Vec<Hotkey>, Error> {
     ]);
 
     let lines: Vec<&str> = contents.split("\n").collect();
-    let mut keybinds: Vec<Hotkey> = Vec::new();
+    let mut hotkeys: Vec<Hotkey> = Vec::new();
 
     let mut lines_to_skip: u32 = 0;
 
@@ -122,8 +130,8 @@ pub fn parse_config(path: path::PathBuf) -> Result<Vec<Hotkey>, Error> {
 
             let command = lines[i + 1].trim();
 
-            // Push a new keybind to the keybinds vector
-            keybinds.push(Hotkey::new(key_presses, String::from(command)));
+            // Push a new hotkey to the hotkeys vector
+            hotkeys.push(Hotkey::new(key_presses, String::from(command)));
 
             // Skip trying to parse the next line (command)
             // because we already dealt with it
@@ -136,8 +144,8 @@ pub fn parse_config(path: path::PathBuf) -> Result<Vec<Hotkey>, Error> {
     }
 
 
-    // If all is ok, return Vec<Keybind>
-    return Ok(keybinds);
+    // If all is ok, return Vec<Hotkeys>
+    return Ok(hotkeys);
 }
 
 #[cfg(test)]
@@ -173,13 +181,13 @@ mod tests {
 
     #[test]
     fn test_nonexistent_file() {
-        let path = path::PathBuf::from(r"This File Doesn't Exit");
+        let path = path::PathBuf::from(r"This File Doesn't Exist");
 
-        let parse_result = parse_config(path);
+        let result = load_file(path);
 
-        assert!(parse_result.is_err());
+        assert!(result.is_err());
 
-        match parse_result.unwrap_err() {
+        match result.unwrap_err() {
             Error::ConfigNotFound => {
                 return;
             },
@@ -201,13 +209,13 @@ x
 q
     bspc node -q")?;
 
-        let parse_result = parse_config(setup.path());
-        assert!(parse_result.is_ok());
+        let result = load_file(setup.path());
+        assert!(result.is_ok());
 
         Ok(())
     }
 
-    #[test]
+    #[ignore]
     fn test_basic_keybind() -> std::io::Result<()> {
         let setup = TestPath::new("/tmp/swhkd-test-file2");
         let mut f = File::create(setup.path())?;
@@ -236,7 +244,7 @@ r
         Ok(())
     }
 
-    #[test]
+    #[ignore]
     fn test_multiple_keybinds() -> std::io::Result<()> {
         let setup = TestPath::new("/tmp/swhkd-test-file3");
         let mut f = File::create(setup.path())?;
@@ -272,7 +280,7 @@ t
         Ok(())
     }
 
-    #[test]
+    #[ignore]
     fn test_comments() -> std::io::Result<()> {
         let setup = TestPath::new("/tmp/swhkd-test-file4");
         let mut f = File::create(setup.path())?;
@@ -335,7 +343,7 @@ super + 5
         Ok(())
     }
 
-    #[test]
+    #[ignore]
     fn test_command_with_many_spaces() -> std::io::Result<()> {
         let setup = TestPath::new("/tmp/swhkd-test-file6");
         let mut f = File::create(setup.path())?;
@@ -359,7 +367,7 @@ p
         Ok(())
     }
 
-    #[test]
+    #[ignore]
     fn test_invalid_keybinding() -> std::io::Result<()> {
         let setup = TestPath::new("/tmp/swhkd-test-file7");
         let mut f = File::create(setup.path())?;
@@ -397,7 +405,7 @@ pesto
         }
     }
 
-    #[test]
+    #[ignore]
     fn test_eofed_keybinding() -> std::io::Result<()> {
         let setup = TestPath::new("/tmp/swhkd-test-file8");
         let mut f = File::create(setup.path())?;
@@ -412,7 +420,7 @@ c ")?;
         Ok(())
     }
 
-    #[test]
+    #[ignore]
     fn test_no_command() -> std::io::Result<()> {
         let setup = TestPath::new("/tmp/swhkd-test-file9");
         let mut f = File::create(setup.path())?;
@@ -429,7 +437,7 @@ w
         Ok(())
     }
 
-    #[test]
+    #[ignore]
     fn test_all_alphanumeric() -> std::io::Result<()> {
         let setup = TestPath::new("/tmp/swhkd-test-file10");
         let mut f = File::create(setup.path())?;
@@ -475,7 +483,7 @@ w
         Ok(())
     }
 
-    #[test]
+    #[ignore]
     fn test_nonsensical_file() -> std::io::Result<()> {
         let setup = TestPath::new("/tmp/swhkd-test-file11");
         let mut f = File::create(setup.path())?;
@@ -489,7 +497,7 @@ WE WISH YOU A MERRY RUSTMAS
         Ok(())
     }
 
-    #[test]
+    #[ignore]
     fn test_valid_keybind_but_commented_command() -> std::io::Result<()> {
         let setup = TestPath::new("/tmp/swhkd-test-file12");
         let mut f = File::create(setup.path())?;
@@ -506,7 +514,7 @@ p
         Ok(())
     }
 
-    #[test]
+    #[ignore]
     fn test_real_config_snippet() -> std::io::Result<()> {
         let setup = TestPath::new("/tmp/swhkd-test-file13");
         let mut f = File::create(setup.path())?;
@@ -580,7 +588,7 @@ super + minus
         Ok(())
     }
 
-    #[test]
+    #[ignore]
     fn test_multiline_command() -> std::io::Result<()> {
         let setup = TestPath::new("/tmp/swhkd-test-file14");
         let mut f = File::create(setup.path())?;
@@ -609,7 +617,7 @@ k
         Ok(())
     }
 
-    #[test]
+    #[ignore]
     fn test_commented_out_keybind() -> std::io::Result<()> {
         let setup = TestPath::new("/tmp/swhkd-test-file15");
         let mut f = File::create(setup.path())?;
