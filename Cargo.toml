@@ -8,7 +8,6 @@ authors = ["Shinyzenith <aakashsensharma@gmail.com>"]
 clap = "3.0.4"
 env_logger = "0.8.4"
 evdev = "0.11.3"
-interprocess = "1.1.1"
 log = "0.4.0"
 nix = "0.23.1"
 sysinfo = "0.23.0"
