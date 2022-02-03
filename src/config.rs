@@ -16,6 +16,7 @@ pub enum ParseError {
     // u32 is the line number where an error occured
     UnknownSymbol(u32),
     MissingCommand(u32),
+    CommandWithoutWhitespace(u32)
 }
 
 impl From<std::io::Error> for Error {
@@ -388,6 +389,56 @@ pesto
             _ => {
                 panic!("Error type is not InvalidConfig");
             }
+        }
+    }
+
+    #[test]
+    fn test_command_without_whitespace() -> std::io::Result<()> {
+        let contents = "0
+    firefox
+
+1
+brave
+            ";
+        let result = parse_contents(contents.to_string());
+
+        let config_error = match result {
+            Ok(_) => panic!(
+"❌ Commands without whitespaces at the start are invalid.
+But the config parser still accepts commands without whitespaces.
+
+The invalid file:
+```
+{}
+``` ", contents),
+            Err(config_error) => {
+                config_error
+            }
+        };
+
+        let parse_error = match config_error {
+            Error::InvalidConfig(parse_error) => parse_error,
+            other_error => panic!("The Error enum type for a command without starting whitespace
+is expected to be InvalidConfig, but it is instead {:?}", other_error)
+
+        };
+
+        let line_number = match parse_error {
+            ParseError::CommandWithoutWhitespace(line_nr) => line_nr,
+            other_error => panic!("The ParseError enum type for a command without starting whitespaces
+is expected to be CommandWithoutWhitespace, but it is instead {:?}", other_error)
+        };
+
+        if line_number == 5 {
+            Ok(())
+        } else {
+            panic!("The line number returned for the no-whitespace error is expected to be 5,
+but what was returned was {}.
+
+Invalid config file:
+```
+{}
+```", line_number, contents)
         }
     }
 
