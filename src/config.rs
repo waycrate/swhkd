@@ -138,7 +138,7 @@ fn parse_contents(contents: String) -> Result<Vec<Hotkey>, Error> {
 
             // Error if the command doesn't start with whitespace
             if !command.starts_with(' ') && !command.starts_with('\t') {
-                return Err(Error::InvalidConfig(ParseError::CommandWithoutWhitespace(real_line_no)));
+                return Err(Error::InvalidConfig(ParseError::CommandWithoutWhitespace(real_line_no + 1)));
             }
 
             // Push a new hotkey to the hotkeys vector
@@ -394,16 +394,13 @@ pesto
     #[test]
     fn test_command_without_whitespace() -> std::io::Result<()> {
 
-        let contents = "
-0
+        let contents = "0
     firefox
 
 1
 brave
             ";
         let result = parse_contents(contents.to_string());
-
-        assert!(result.is_err());
 
         let config_error = match result {
             Ok(_) => panic!(
