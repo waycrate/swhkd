@@ -42,7 +42,7 @@ impl Hotkey {
     }
 }
 
-pub fn load_file(path: path::PathBuf)
+pub fn load_file_contents(path: path::PathBuf)
     -> Result<String, Error> {
     let mut file = File::open(path)?;
     let mut contents = String::new();
@@ -50,7 +50,7 @@ pub fn load_file(path: path::PathBuf)
     Ok(contents)
 }
 
-pub fn parse_config(path: path::PathBuf) -> Result<Vec<Hotkey>, Error> {
+pub fn parse_contents(path: path::PathBuf) -> Result<Vec<Hotkey>, Error> {
 
     // Find file
     let mut file = File::open(path)?;
@@ -183,7 +183,7 @@ mod tests {
     fn test_nonexistent_file() {
         let path = path::PathBuf::from(r"This File Doesn't Exist");
 
-        let result = load_file(path);
+        let result = load_file_contents(path);
 
         assert!(result.is_err());
 
@@ -209,46 +209,40 @@ x
 q
     bspc node -q")?;
 
-        let result = load_file(setup.path());
+        let result = load_file_contents(setup.path());
         assert!(result.is_ok());
 
         Ok(())
     }
 
-    #[ignore]
+    #[test]
     fn test_basic_keybind() -> std::io::Result<()> {
-        let setup = TestPath::new("/tmp/swhkd-test-file2");
-        let mut f = File::create(setup.path())?;
-        f.write_all(b"
+        let contents = "
 r
     alacritty
-        ")?;
+            ";
 
-        // Process the expected result
-        let expected_keybind = Hotkey::new(vec![evdev::Key::KEY_R],
+        let expected_hotkey = Hotkey::new(vec![evdev::Key::KEY_R],
                                             String::from("alacritty"));
 
-        // Process the real result
-        let parse_result = parse_config(setup.path());
+        let parse_result = parse_contents(contents);
 
         assert!(parse_result.is_ok());
 
         let parse_result = parse_result.unwrap();
 
         assert_eq!(parse_result[0].keysyms,
-                   expected_keybind.keysyms);
+                   expected_hotkey.keysyms);
 
         assert_eq!(parse_result[0].command,
-                   expected_keybind.command);
+                   expected_hotkey.command);
 
         Ok(())
     }
 
-    #[ignore]
+    #[test]
     fn test_multiple_keybinds() -> std::io::Result<()> {
-        let setup = TestPath::new("/tmp/swhkd-test-file3");
-        let mut f = File::create(setup.path())?;
-        f.write_all(b"
+        let contents = "
 r
     alacritty
 
@@ -257,25 +251,25 @@ w
 
 t
     /bin/firefox
-        ")?;
+        ";
 
-        let keybind_1 = Hotkey::new(vec![evdev::Key::KEY_R],
+        let hotkey_1 = Hotkey::new(vec![evdev::Key::KEY_R],
                                      String::from("alacritty"));
-        let keybind_2 = Hotkey::new(vec![evdev::Key::KEY_W],
+        let hotkey_2 = Hotkey::new(vec![evdev::Key::KEY_W],
                                      String::from("kitty"));
-        let keybind_3 = Hotkey::new(vec![evdev::Key::KEY_T],
+        let hotkey_3 = Hotkey::new(vec![evdev::Key::KEY_T],
                                      String::from("/bin/firefox"));
 
-        let result = parse_config(setup.path());
+        let result = parse_contents(contents);
         assert!(result.is_ok());
         let result = result.unwrap();
 
-        assert_eq!(keybind_1.keysyms, result[0].keysyms);
-        assert_eq!(keybind_1.command, result[0].command);
-        assert_eq!(keybind_2.keysyms, result[1].keysyms);
-        assert_eq!(keybind_2.command, result[1].command);
-        assert_eq!(keybind_3.keysyms, result[2].keysyms);
-        assert_eq!(keybind_3.command, result[2].command);
+        assert_eq!(hotkey_1.keysyms, result[0].keysyms);
+        assert_eq!(hotkey_1.command, result[0].command);
+        assert_eq!(hotkey_2.keysyms, result[1].keysyms);
+        assert_eq!(hotkey_2.command, result[1].command);
+        assert_eq!(hotkey_3.keysyms, result[2].keysyms);
+        assert_eq!(hotkey_3.command, result[2].command);
 
         Ok(())
     }
@@ -302,7 +296,7 @@ w
                          String::from("kitty")),
         ];
 
-        let result = parse_config(setup.path());
+        let result = parse_contents(setup.path());
         assert!(result.is_ok());
         let result = result.unwrap();
 
@@ -333,7 +327,7 @@ super + 5
                          String::from("alacritty")),
         ];
 
-        let result = parse_config(setup.path());
+        let result = parse_contents(setup.path());
         assert!(result.is_ok());
         let result = result.unwrap();
 
@@ -357,7 +351,7 @@ p
                          String::from("xbacklight -inc 10 -fps 30 -time 200")),
         ];
 
-        let result = parse_config(setup.path());
+        let result = parse_contents(setup.path());
         assert!(result.is_ok());
         let result = result.unwrap();
 
@@ -379,7 +373,7 @@ pesto
     xterm
                     ")?;
 
-        let result = parse_config(setup.path());
+        let result = parse_contents(setup.path());
 
         assert!(result.is_err());
 
@@ -415,7 +409,7 @@ k
 
 c ")?;
 
-        assert!(parse_config(setup.path()).is_err());
+        assert!(parse_contents(setup.path()).is_err());
 
         Ok(())
     }
@@ -432,7 +426,7 @@ w
 
                     ")?;
 
-        assert!(parse_config(setup.path()).is_err());
+        assert!(parse_contents(setup.path()).is_err());
 
         Ok(())
     }
@@ -466,7 +460,7 @@ w
             f.write_all(format!("{}\n    st\n", symbol).as_bytes())?;
         }
 
-        let parse_result = parse_config(setup.path());
+        let parse_result = parse_contents(setup.path());
 
         assert!(parse_result.is_ok());
 
@@ -492,7 +486,7 @@ WE WISH YOU A MERRY RUSTMAS
 
                     ")?;
 
-        assert!(parse_config(setup.path()).is_err());
+        assert!(parse_contents(setup.path()).is_err());
 
         Ok(())
     }
@@ -509,7 +503,7 @@ p
     #commented out command
                     ")?;
 
-        assert!(parse_config(setup.path()).is_err());
+        assert!(parse_contents(setup.path()).is_err());
 
         Ok(())
     }
@@ -570,7 +564,7 @@ super + minus
                      String::from("play-song.sh album")),
         ];
 
-        let real_result = parse_config(setup.path());
+        let real_result = parse_contents(setup.path());
 
         assert!(real_result.is_ok());
 
@@ -603,7 +597,7 @@ k
             String::from("mpc ls | dmenu | sed -i 's/foo/bar/g'")
                                            );
 
-        let real_keybind = parse_config(setup.path());
+        let real_keybind = parse_contents(setup.path());
 
         assert!(real_keybind.is_ok());
 
@@ -626,7 +620,7 @@ k
     gimp
                     ")?;
 
-        assert!(parse_config(setup.path()).is_err());
+        assert!(parse_contents(setup.path()).is_err());
 
         Ok(())
     }
