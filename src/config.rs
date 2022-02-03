@@ -623,6 +623,23 @@ k
         Ok(())
     }
 
+    // TODO: Write these tests as needed.
+
+    #[ignore]
+    fn test_homerow_special_keys() -> std::io::Result<()> {Ok(())}
+
+    #[ignore]
+    fn test_numrow_special_keys() -> std::io::Result<()> {Ok(())}
+
+    #[ignore]
+    fn test_all_modifier_keys() -> std::io::Result<()> {Ok(())}
+
+    #[ignore]
+    fn test_mod_keys_after_normal_keys() -> std::io::Result<()> {Ok(())}
+
+    #[ignore]
+    fn test_plus_at_start_and_end_of_keybind() -> std::io::Result<()> {Ok(())}
+
     // Bracket expansion example:
     // `super + ctrl + {h,j,k,l}`
     // `    bspc node -p {westh,south,north,west}`
@@ -636,4 +653,18 @@ k
 
     #[ignore]
     fn test_unclosed_bracket_in_binding() -> std::io::Result<()> {Ok(())}
+
+    #[ignore]
+    fn test_bracket_in_binding_but_not_in_command()
+        -> std::io::Result<()> {Ok(())}
+
+    #[ignore]
+    fn test_bracket_non_matching_counts() -> std::io::Result<()> {Ok(())}
+
+    #[ignore]
+    fn test_multiple_brackets() -> std::io::Result<()> {Ok(())}
+
+    #[ignore]
+    fn test_multiple_brackets_only_one_in_command()
+        -> std::io::Result<()> {Ok(())}
 }
