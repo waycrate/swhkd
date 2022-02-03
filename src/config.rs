@@ -178,6 +178,15 @@ mod tests {
         let parse_result = parse_config(path);
 
         assert!(parse_result.is_err());
+
+        match parse_result.unwrap_err() {
+            Error::ConfigNotFound => {
+                return;
+            },
+            _ => {
+                panic!("Error type for nonexistent file is wrong.");
+            }
+        }
     }
 
     #[test]
