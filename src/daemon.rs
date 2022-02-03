@@ -43,7 +43,9 @@ pub fn main() {
     log::debug!("{} Keyboard device(s) detected.", keyboard_devices.len());
     match sock_send("notify-send hello world") {
         Err(e) => {
-            log::error!("Failed to send command over IPC: {:#?}", e);
+            log::error!("Failed to send command over IPC.");
+            log::error!("Is swhks running?");
+            log::error!("{:#?}", e)
         }
         _ => {}
     };
