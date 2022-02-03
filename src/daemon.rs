@@ -32,12 +32,12 @@ pub fn main() {
     log::trace!("Attempting to find all keyboard file descriptors.");
     let mut keyboard_devices: Vec<Device> = Vec::new();
     for (_, device) in evdev::enumerate().enumerate() {
-        if check_keyboard(&device) == true {
+        if check_keyboard(&device) {
             keyboard_devices.push(device);
         }
     }
 
-    if keyboard_devices.len() == 0 {
+    if keyboard_devices.is_empty() {
         log::error!("No valid keyboard device was detected!");
         exit(1);
     }
@@ -65,7 +65,7 @@ pub fn main() {
 }
 
 pub fn permission_check() {
-    if unistd::Uid::current().is_root() == false {
+    if !unistd::Uid::current().is_root() {
         let groups = unistd::getgroups();
         for (_, groups) in groups.iter().enumerate() {
             for group in groups {
@@ -86,10 +86,10 @@ pub fn permission_check() {
 pub fn check_keyboard(device: &Device) -> bool {
     if device.supported_keys().map_or(false, |keys| keys.contains(Key::KEY_ENTER)) {
         log::debug!("{} is a keyboard.", device.name().unwrap(),);
-        return true;
+        true
     } else {
         log::trace!("{} is not a keyboard.", device.name().unwrap(),);
-        return false;
+        false
     }
 }
 
@@ -109,7 +109,7 @@ pub fn set_flags() -> App<'static> {
                 .required(true)
                 .help("Shell command to run on success"),
         );
-    return app;
+    app
 }
 
 pub fn check_config_xdg() -> std::path::PathBuf {
@@ -132,5 +132,5 @@ pub fn check_config_xdg() -> std::path::PathBuf {
             log::warn!("The following issue may be addressed in the future, but it is certainly not a priority right now.");
         }
     }
-    return config_file_path;
+    config_file_path
 }

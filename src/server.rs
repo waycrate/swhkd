@@ -66,7 +66,7 @@ fn main() {
         connection.map_err(|error| log::error!("Incoming connection failed: {}", error)).ok()
     }
 
-    fn run_system_command(command: &String) -> () {
+    fn run_system_command(command: &str) {
         match Command::new("sh")
             .arg("-c")
             .arg(command)
