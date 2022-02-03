@@ -1,7 +1,7 @@
 use clap::{arg, App};
 use evdev::{Device, Key};
 use nix::unistd;
-use std::{env, path::Path, process::exit};
+use std::{env, io::prelude::*, os::unix::net::UnixStream, path::Path, process::exit};
 
 pub fn main() {
     let args = set_flags().get_matches();
@@ -41,6 +41,12 @@ pub fn main() {
         exit(1);
     }
     log::debug!("{} Keyboard device(s) detected.", keyboard_devices.len());
+    match sock_send("notify-send hello world") {
+        Err(e) => {
+            log::error!("Failed to send command over IPC: {:#?}", e);
+        }
+        _ => {}
+    };
 }
 
 pub fn permission_check() {
@@ -107,4 +113,10 @@ pub fn check_config_xdg() -> std::path::PathBuf {
         }
     }
     config_file_path
+}
+
+fn sock_send(command: &str) -> std::io::Result<()> {
+    let mut stream = UnixStream::connect("/tmp/swhkd.sock")?;
+    stream.write_all(command.as_bytes())?;
+    Ok(())
 }
