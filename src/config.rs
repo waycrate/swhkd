@@ -134,10 +134,15 @@ fn parse_contents(contents: String) -> Result<Vec<Hotkey>, Error> {
                 return Err(Error::InvalidConfig(ParseError::MissingCommand(real_line_no)));
             }
 
-            let command = lines[i + 1].trim();
+            let command = lines[i + 1];
+
+            // Error if the command doesn't start with whitespace
+            if !command.starts_with(' ') && !command.starts_with('\t') {
+                return Err(Error::InvalidConfig(ParseError::CommandWithoutWhitespace(real_line_no + 1)));
+            }
 
             // Push a new hotkey to the hotkeys vector
-            hotkeys.push(Hotkey::new(key_presses, String::from(command)));
+            hotkeys.push(Hotkey::new(key_presses, String::from(command.trim())));
 
             // Skip trying to parse the next line (command)
             // because we already dealt with it
@@ -388,6 +393,7 @@ pesto
 
     #[test]
     fn test_command_without_whitespace() -> std::io::Result<()> {
+
         let contents = "0
     firefox
 
