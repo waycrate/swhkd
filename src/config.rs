@@ -50,13 +50,7 @@ pub fn load_file_contents(path: path::PathBuf)
     Ok(contents)
 }
 
-pub fn parse_contents(path: path::PathBuf) -> Result<Vec<Hotkey>, Error> {
-
-    // Find file
-    let mut file = File::open(path)?;
-    let mut contents = String::new();
-    file.read_to_string(&mut contents)?;
-
+pub fn parse_contents(contents: String) -> Result<Vec<Hotkey>, Error> {
     let key_to_evdev_key: HashMap<&str, evdev::Key> = HashMap::from([
         ("q", evdev::Key::KEY_Q), ("w", evdev::Key::KEY_W),
         ("e", evdev::Key::KEY_E), ("r", evdev::Key::KEY_R),
