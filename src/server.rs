@@ -11,7 +11,7 @@ fn main() -> std::io::Result<()> {
     env::set_var("RUST_LOG", "swhks=trace");
     env_logger::init();
 
-    let pidfile: String = String::from("/tmp/swhkc.pid");
+    let pidfile: String = String::from("/tmp/swhks.pid");
     let sockfile: String = String::from("/tmp/swhkd.sock");
 
     if Path::new(&pidfile).exists() {
