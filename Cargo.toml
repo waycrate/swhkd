@@ -3,9 +3,9 @@ name = "Simple-Wayland-HotKey-Daemon"
 version = "0.1.0"
 edition = "2021"
 authors = [
-	"Shinyzenith <aakashsensharma@gmail.com>",
-	"Angelo Fallaria <ba.fallaria@gmail.com>",
-	"EdenQwQ <lsahlm1eden@gmail.com>"
+	"Shinyzenith <aakashsensharma@gmail.com>\n",
+	"Angelo Fallaria <ba.fallaria@gmail.com>\n",
+	"EdenQwQ <lsahlm1eden@gmail.com>\n"
 ]
 
 [dependencies]
