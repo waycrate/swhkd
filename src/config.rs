@@ -12,6 +12,7 @@ pub enum Error {
 }
 
 #[derive(Debug)]
+#[derive(PartialEq)]
 pub enum ParseError {
     // u32 is the line number where an error occured
     UnknownSymbol(u32),
@@ -185,6 +186,30 @@ mod tests {
         fn drop(self: &mut TestPath) {
             fs::remove_file(self.path());
         }
+    }
+
+    // Wrapper for the many error tests
+    fn eval_invalid_config_test(contents: &str,
+                                parse_error_type: ParseError) -> std::io::Result<()> {
+
+        let result = parse_contents(contents.to_string());
+
+        assert!(result.is_err());
+        let result = result.unwrap_err();
+
+        // Check if the Error type is InvalidConfig
+        let result = match result {
+            Error::InvalidConfig(parse_err) => parse_err,
+            _ => panic!()
+        };
+
+        // Check the ParseError enum type
+        if result != parse_error_type {
+            panic!("ParseError: Expected `{:?}`, found `{:?}`",
+                   parse_error_type, result);
+        }
+
+        Ok(())
     }
 
     #[test]
@@ -365,32 +390,10 @@ pesto
     xterm
                     ";
 
-        let result = parse_contents(contents.to_string());
+        eval_invalid_config_test(contents,
+                                 ParseError::UnknownSymbol(5))?;
 
-        assert!(result.is_err());
-
-        let error = result.unwrap_err();
-
-        match error {
-            Error::InvalidConfig(parse_err) => match parse_err {
-                ParseError::UnknownSymbol(line_nr) => {
-                    if line_nr == 5 {
-                        Ok(())
-                    } else {
-                        panic!(
-                            "{}",
-                            format!("Error line is wrong, expected 4 but actual: {}", line_nr)
-                        );
-                    }
-                }
-                _ => {
-                    panic!("Error type is not Unknown Symbol");
-                }
-            },
-            _ => {
-                panic!("Error type is not InvalidConfig");
-            }
-        }
+        Ok(())
     }
 
     #[test]
@@ -401,54 +404,10 @@ pesto
 1
 brave
             ";
-        let result = parse_contents(contents.to_string());
 
-        let config_error = match result {
-            Ok(_) => panic!(
-                "❌ Commands without whitespaces at the start are invalid.
-But the config parser still accepts commands without whitespaces.
-
-The invalid file:
-```
-{}
-``` ",
-                contents
-            ),
-            Err(config_error) => config_error,
-        };
-
-        let parse_error = match config_error {
-            Error::InvalidConfig(parse_error) => parse_error,
-            other_error => panic!(
-                "The Error enum type for a command without starting whitespace
-is expected to be InvalidConfig, but it is instead {:?}",
-                other_error
-            ),
-        };
-
-        let line_number = match parse_error {
-            ParseError::CommandWithoutWhitespace(line_nr) => line_nr,
-            other_error => panic!(
-                "The ParseError enum type for a command without starting whitespaces
-is expected to be CommandWithoutWhitespace, but it is instead {:?}",
-                other_error
-            ),
-        };
-
-        if line_number == 5 {
-            Ok(())
-        } else {
-            panic!(
-                "The line number returned for the no-whitespace error is expected to be 5,
-but what was returned was {}.
-
-Invalid config file:
-```
-{}
-```",
-                line_number, contents
-            )
-        }
+        eval_invalid_config_test(contents,
+                                 ParseError::CommandWithoutWhitespace(5))?;
+        Ok(())
     }
 
     #[test]
@@ -459,8 +418,8 @@ k
 
 c ";
 
-        assert!(parse_contents(contents.to_string()).is_err());
-
+        eval_invalid_config_test(contents,
+                                 ParseError::MissingCommand(5))?;
         Ok(())
     }
 
@@ -474,8 +433,8 @@ w
 
                     ";
 
-        assert!(parse_contents(contents.to_string()).is_err());
-
+        eval_invalid_config_test(contents,
+                                 ParseError::MissingCommand(6))?;
         Ok(())
     }
 
@@ -666,8 +625,8 @@ k
     gimp
                     ";
 
-        assert!(parse_contents(contents.to_string()).is_err());
-
+        eval_invalid_config_test(contents,
+                                 ParseError::UnknownSymbol(3))?;
         Ok(())
     }
 
