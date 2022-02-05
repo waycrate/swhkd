@@ -1,20 +1,20 @@
-use interprocess::local_socket::{LocalSocketListener, LocalSocketStream};
+use std::io::prelude::*;
+use std::os::unix::net::UnixListener;
 use std::{
     env, fs,
-    io::{self, prelude::*, BufReader},
     path::Path,
     process::{exit, id, Command, Stdio},
 };
 use sysinfo::{ProcessExt, System, SystemExt};
 
-// Necessary so we can test the config file
 mod config;
 
-fn main() {
+fn main() -> std::io::Result<()> {
+
     env::set_var("RUST_LOG", "swhks=trace");
     env_logger::init();
 
-    let pidfile: String = String::from("/tmp/swhkc.pid");
+    let pidfile: String = String::from("/tmp/swhks.pid");
     let sockfile: String = String::from("/tmp/swhkd.sock");
 
     if Path::new(&pidfile).exists() {
@@ -62,10 +62,6 @@ fn main() {
         }
     }
 
-    fn handle_error(connection: io::Result<LocalSocketStream>) -> Option<LocalSocketStream> {
-        connection.map_err(|error| log::error!("Incoming connection failed: {}", error)).ok()
-    }
-
     fn run_system_command(command: &String) -> () {
         match Command::new("sh")
             .arg("-c")
@@ -83,26 +79,16 @@ fn main() {
         }
     }
 
-    let listener = match LocalSocketListener::bind(sockfile.clone()) {
-        Ok(listener) => listener,
-        Err(e) => {
-            log::error!("Failed to connect to {}", sockfile);
-            log::error!("Error: {}", e);
-            exit(1);
-        }
-    };
-    for conn in listener.incoming().filter_map(handle_error) {
-        let mut conn = BufReader::new(conn);
-        let mut buffer = String::new();
-        match conn.read_line(&mut buffer) {
-            Ok(_) => {}
-            Err(e) => {
-                log::error!("Failed to read incoming command from client.");
-                log::error!("Error: {}", e);
-                exit(1);
+    let listener = UnixListener::bind(sockfile)?;
+    loop {
+        match listener.accept() {
+            Ok((mut socket, addr)) => {
+                let mut response = String::new();
+                socket.read_to_string(&mut response)?;
+                run_system_command(&response);
+                log::debug!("Socket: {:?} Address: {:?} Response: {}", socket, addr, response);
             }
-        };
-        log::debug!("Recieved command : {}", buffer);
-        run_system_command(&buffer);
+            Err(e) => log::error!("accept function failed: {:?}", e),
+        }
     }
 }
