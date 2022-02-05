@@ -135,8 +135,6 @@ fn parse_contents(contents: String) -> Result<Vec<Hotkey>, Error> {
         // in a file are of course counted from 1
         let real_line_no: u32 = (i + 1).try_into().unwrap();
 
-        let mut keysyms: Vec<evdev::Key> = Vec::new();
-
         if key_to_evdev_key.contains_key(lines[i].trim()) {
             // Error if keybind line is at the very last line
             // ( It's impossible for there to be a command )
