@@ -126,7 +126,6 @@ fn parse_contents(contents: String) -> Result<Vec<Hotkey>, Error> {
 
             // Translate keypress into evdev key
             let keysym = key_to_evdev_key.get(lines[i].trim()).unwrap();
-
             keysyms.push(*keysym);
 
             //// Find the command
