@@ -592,76 +592,6 @@ w
     }
 
     #[test]
-    fn test_all_alphanumeric() -> std::io::Result<()> {
-        let symbols: [&str; 36] = [
-            "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q",
-            "r", "s", "t", "u", "v", "w", "x", "y", "z", "0", "1", "2", "3", "4", "5", "6", "7",
-            "8", "9",
-        ];
-
-        let keysyms: [evdev::Key; 36] = [
-            evdev::Key::KEY_A,
-            evdev::Key::KEY_B,
-            evdev::Key::KEY_C,
-            evdev::Key::KEY_D,
-            evdev::Key::KEY_E,
-            evdev::Key::KEY_F,
-            evdev::Key::KEY_G,
-            evdev::Key::KEY_H,
-            evdev::Key::KEY_I,
-            evdev::Key::KEY_J,
-            evdev::Key::KEY_K,
-            evdev::Key::KEY_L,
-            evdev::Key::KEY_M,
-            evdev::Key::KEY_N,
-            evdev::Key::KEY_O,
-            evdev::Key::KEY_P,
-            evdev::Key::KEY_Q,
-            evdev::Key::KEY_R,
-            evdev::Key::KEY_S,
-            evdev::Key::KEY_T,
-            evdev::Key::KEY_U,
-            evdev::Key::KEY_V,
-            evdev::Key::KEY_W,
-            evdev::Key::KEY_X,
-            evdev::Key::KEY_Y,
-            evdev::Key::KEY_Z,
-            evdev::Key::KEY_0,
-            evdev::Key::KEY_1,
-            evdev::Key::KEY_2,
-            evdev::Key::KEY_3,
-            evdev::Key::KEY_4,
-            evdev::Key::KEY_5,
-            evdev::Key::KEY_6,
-            evdev::Key::KEY_7,
-            evdev::Key::KEY_8,
-            evdev::Key::KEY_9,
-        ];
-
-        let mut contents = String::new();
-
-        for symbol in &symbols {
-            contents.push_str(&format!("{}\n    st\n", symbol));
-        }
-
-        let parse_result = parse_contents(contents);
-
-        assert!(parse_result.is_ok());
-
-        let actual_keybinds = parse_result.unwrap();
-
-        assert_eq!(actual_keybinds.len(), 36);
-
-        for i in 0..actual_keybinds.len() {
-            assert_eq!(actual_keybinds[i].keysym, keysyms[i]);
-            assert_eq!(actual_keybinds[i].modifiers.len(), 0);
-            assert_eq!(actual_keybinds[i].command, "st");
-        }
-
-        Ok(())
-    }
-
-    #[test]
     fn test_nonsensical_file() -> std::io::Result<()> {
         let contents = "
 WE WISH YOU A MERRY RUSTMAS
@@ -769,9 +699,182 @@ k
     // TODO: Write these tests as needed.
 
     #[test]
+    fn test_all_alphanumeric() -> std::io::Result<()> {
+        let symbols: [&str; 36] = [
+            "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q",
+            "r", "s", "t", "u", "v", "w", "x", "y", "z", "0", "1", "2", "3", "4", "5", "6", "7",
+            "8", "9",
+        ];
+        let keysyms: [evdev::Key; 36] = [
+            evdev::Key::KEY_A,
+            evdev::Key::KEY_B,
+            evdev::Key::KEY_C,
+            evdev::Key::KEY_D,
+            evdev::Key::KEY_E,
+            evdev::Key::KEY_F,
+            evdev::Key::KEY_G,
+            evdev::Key::KEY_H,
+            evdev::Key::KEY_I,
+            evdev::Key::KEY_J,
+            evdev::Key::KEY_K,
+            evdev::Key::KEY_L,
+            evdev::Key::KEY_M,
+            evdev::Key::KEY_N,
+            evdev::Key::KEY_O,
+            evdev::Key::KEY_P,
+            evdev::Key::KEY_Q,
+            evdev::Key::KEY_R,
+            evdev::Key::KEY_S,
+            evdev::Key::KEY_T,
+            evdev::Key::KEY_U,
+            evdev::Key::KEY_V,
+            evdev::Key::KEY_W,
+            evdev::Key::KEY_X,
+            evdev::Key::KEY_Y,
+            evdev::Key::KEY_Z,
+            evdev::Key::KEY_0,
+            evdev::Key::KEY_1,
+            evdev::Key::KEY_2,
+            evdev::Key::KEY_3,
+            evdev::Key::KEY_4,
+            evdev::Key::KEY_5,
+            evdev::Key::KEY_6,
+            evdev::Key::KEY_7,
+            evdev::Key::KEY_8,
+            evdev::Key::KEY_9,
+        ];
+
+        let mut contents = String::new();
+        for symbol in &symbols {
+            contents.push_str(&format!("{}\n    st\n", symbol));
+        }
+        let contents = &contents;
+
+        let expected_result: Vec<Hotkey> = keysyms
+                        .iter()
+                        .map(|keysym|
+                             Hotkey::new(*keysym,
+                                         vec![],
+                                         "st".to_string()))
+                        .collect();
+
+        eval_config_test(contents, expected_result)
+    }
+
+    #[test]
     #[ignore]
     fn test_homerow_special_keys() -> std::io::Result<()> {
-        Ok(())
+        // Quite difficult to find the evdev equivalnets for these.
+        let symbols: [&str; 31] = [
+            "bracketleft",
+            "braceleft",
+            "bracketright",
+            "braceright",
+            "semicolon",
+            "colon",
+            "apostrophe",
+            "quotedbl",
+            "comma",
+            "less",
+            "period",
+            "greater",
+            "slash",
+            "question",
+            "backslash",
+            "bar",
+            "grave",
+            "asciitilde",
+            "at",
+            "numbersign",
+            "dollar",
+            "percent",
+            "asciicircum",
+            "ampersand",
+            "asterisk",
+            "parenleft",
+            "parenright",
+            "minus",
+            "underscore",
+            "equal",
+            "plus",
+        ];
+
+        // TODO: Find the appropiate key for each keysym
+        let keysyms: [evdev::Key; 18] = [
+            evdev::Key::KEY_A,
+            evdev::Key::KEY_B,
+            evdev::Key::KEY_C,
+            evdev::Key::KEY_B,
+            evdev::Key::KEY_C,
+            evdev::Key::KEY_D,
+            evdev::Key::KEY_E,
+            evdev::Key::KEY_F,
+            evdev::Key::KEY_G,
+            evdev::Key::KEY_1,
+            evdev::Key::KEY_2,
+            evdev::Key::KEY_3,
+            evdev::Key::KEY_4,
+            evdev::Key::KEY_5,
+            evdev::Key::KEY_6,
+            evdev::Key::KEY_7,
+            evdev::Key::KEY_8,
+            evdev::Key::KEY_9,
+        ];
+
+        let mut contents = String::new();
+        for symbol in &symbols {
+            contents.push_str(&format!("{}\n    st\n", symbol));
+        }
+        let contents = &contents;
+
+        let expected_result: Vec<Hotkey> = keysyms
+                        .iter()
+                        .map(|keysym|
+                             Hotkey::new(*keysym,
+                                         vec![],
+                                         "st".to_string()))
+                        .collect();
+
+        eval_config_test(contents, expected_result)
+    }
+
+    #[test]
+    fn test_homerow_special_keys_top() -> std::io::Result<()> {
+        let symbols: [&str; 7] = [
+            "Escape",
+            "BackSpace",
+            "Return",
+            "Tab",
+            "minus",
+            "equal",
+            "grave",
+        ];
+
+        let keysyms: [evdev::Key; 7] = [
+            evdev::Key::KEY_ESC,
+            evdev::Key::KEY_BACKSPACE,
+            evdev::Key::KEY_ENTER,
+            evdev::Key::KEY_TAB,
+            evdev::Key::KEY_MINUS,
+            evdev::Key::KEY_EQUAL,
+            evdev::Key::KEY_GRAVE,
+        ];
+
+        let mut contents = String::new();
+        for symbol in &symbols {
+            contents.push_str(&format!("{}\n    st\n", symbol));
+        }
+        let contents = &contents;
+
+        let expected_result: Vec<Hotkey> = keysyms
+                        .iter()
+                        .map(|keysym|
+                             Hotkey::new(*keysym,
+                                         vec![],
+                                         "st".to_string()))
+                        .collect();
+
+        eval_config_test(contents, expected_result)
     }
 
     #[test]
