@@ -562,21 +562,6 @@ WE WISH YOU A MERRY RUSTMAS
     }
 
     #[ignore]
-    fn test_valid_keybind_but_commented_command() -> std::io::Result<()> {
-        let contents = "
-5
-    takeshot --now --verbose
-
-p
-    #commented out command
-                    ";
-
-        assert!(parse_contents(contents.to_string()).is_err());
-
-        Ok(())
-    }
-
-    #[ignore]
     fn test_real_config_snippet() -> std::io::Result<()> {
         let contents = "
 # reloads sxhkd configuration:
