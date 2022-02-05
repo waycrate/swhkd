@@ -52,7 +52,7 @@ pub enum Modifier {
     Mod2,
     Mod3,
     Mod4,
-    Mod5
+    Mod5,
 }
 
 impl Hotkey {
@@ -76,11 +76,12 @@ fn load_file_contents(path: path::PathBuf) -> Result<String, Error> {
 // We need to get the reference to key_to_evdev_key
 // and mod_to_mod enum instead of recreating them
 // after each function call because it's too expensive
-fn parse_keybind(line: &str, line_nr: u32,
-                 key_to_evdev_key: &HashMap<&str, evdev::Key>,
-                 mod_to_mod_enum: &HashMap<&str, Modifier>)
-    -> Result<(evdev::Key, Vec<Modifier>), Error> {
-
+fn parse_keybind(
+    line: &str,
+    line_nr: u32,
+    key_to_evdev_key: &HashMap<&str, evdev::Key>,
+    mod_to_mod_enum: &HashMap<&str, Modifier>,
+) -> Result<(evdev::Key, Vec<Modifier>), Error> {
     let tokens: Vec<&str> = line.split('+').map(|token| token.trim()).collect();
     let last_token = tokens.last().unwrap().trim();
 
@@ -195,11 +196,8 @@ fn parse_contents(contents: String) -> Result<Vec<Hotkey>, Error> {
         // in a file are of course counted from 1
         let real_line_no: u32 = (i + 1).try_into().unwrap();
 
-        let (keysym, modifiers) = parse_keybind(
-            lines[i],
-            real_line_no,
-            &key_to_evdev_key,
-            &mod_to_mod_enum)?;
+        let (keysym, modifiers) =
+            parse_keybind(lines[i], real_line_no, &key_to_evdev_key, &mod_to_mod_enum)?;
 
         // Error if keybind line is at the very last line
         // ( It's impossible for there to be a command )
@@ -227,8 +225,7 @@ fn parse_contents(contents: String) -> Result<Vec<Hotkey>, Error> {
                 command.push(' ');
             }
 
-            command.push_str(lines[j].trim_end_matches('\\')
-                                     .trim());
+            command.push_str(lines[j].trim_end_matches('\\').trim());
 
             if lines[j].ends_with('\\') {
                 j += 1;
@@ -279,11 +276,7 @@ mod tests {
     }
 
     // Wrapper for config tests
-    fn eval_config_test(
-        contents: &str,
-        expected_hotkeys: Vec<Hotkey>
-        ) -> std::io::Result<()> {
-
+    fn eval_config_test(contents: &str, expected_hotkeys: Vec<Hotkey>) -> std::io::Result<()> {
         let result = parse_contents(contents.to_string());
 
         if result.is_err() {
@@ -295,18 +288,14 @@ mod tests {
         assert_eq!(actual_hotkeys.len(), expected_hotkeys.len());
 
         for i in 0..actual_hotkeys.len() {
-            assert_eq!(actual_hotkeys[i].keysym,
-                       expected_hotkeys[i].keysym);
+            assert_eq!(actual_hotkeys[i].keysym, expected_hotkeys[i].keysym);
 
-            assert_eq!(actual_hotkeys[i].modifiers.len(),
-                       expected_hotkeys[i].modifiers.len());
+            assert_eq!(actual_hotkeys[i].modifiers.len(), expected_hotkeys[i].modifiers.len());
             for j in 0..expected_hotkeys[i].modifiers.len() {
-                assert!(actual_hotkeys[i].modifiers
-                        .contains(&expected_hotkeys[i].modifiers[j]));
+                assert!(actual_hotkeys[i].modifiers.contains(&expected_hotkeys[i].modifiers[j]));
             }
 
-            assert_eq!(actual_hotkeys[i].command,
-                       expected_hotkeys[i].command);
+            assert_eq!(actual_hotkeys[i].command, expected_hotkeys[i].command);
         }
 
         Ok(())
@@ -382,7 +371,7 @@ r
 
         eval_config_test(
             contents,
-            vec![Hotkey::new(evdev::Key::KEY_R, vec![], String::from("alacritty"))]
+            vec![Hotkey::new(evdev::Key::KEY_R, vec![], String::from("alacritty"))],
         )?;
         Ok(())
     }
@@ -404,8 +393,7 @@ t
         let hotkey_2 = Hotkey::new(evdev::Key::KEY_W, vec![], String::from("kitty"));
         let hotkey_3 = Hotkey::new(evdev::Key::KEY_T, vec![], String::from("/bin/firefox"));
 
-        eval_config_test(contents,
-                         vec![hotkey_1, hotkey_2, hotkey_3])?;
+        eval_config_test(contents, vec![hotkey_1, hotkey_2, hotkey_3])?;
         Ok(())
     }
 
@@ -438,11 +426,8 @@ super + 5
     alacritty
         ";
 
-        let expected_keybinds = vec![
-            Hotkey::new(evdev::Key::KEY_5,
-                        vec![Modifier::Super],
-                        String::from("alacritty")),
-        ];
+        let expected_keybinds =
+            vec![Hotkey::new(evdev::Key::KEY_5, vec![Modifier::Super], String::from("alacritty"))];
 
         eval_config_test(contents, expected_keybinds)?;
         Ok(())
@@ -455,8 +440,7 @@ shift + k + m
     notify-send 'Hello world!'
             ";
 
-        eval_invalid_config_test(contents,
-                                 ParseError::InvalidModifier(2))
+        eval_invalid_config_test(contents, ParseError::InvalidModifier(2))
     }
 
     #[test]
@@ -466,8 +450,7 @@ shift + k + alt
     notify-send 'Hello world!'
             ";
 
-        eval_invalid_config_test(contents,
-                                 ParseError::InvalidModifier(2))
+        eval_invalid_config_test(contents, ParseError::InvalidModifier(2))
     }
 
     #[test]
@@ -479,8 +462,7 @@ shift + alt +
     notify-send 'Hello world!'
             ";
 
-        eval_invalid_config_test(contents,
-                                 ParseError::UnknownSymbol(4))
+        eval_invalid_config_test(contents, ParseError::UnknownSymbol(4))
     }
 
     #[test]
@@ -490,8 +472,7 @@ shift + alt +
     notify-send 'Hello world!'
             ";
 
-        eval_invalid_config_test(contents,
-                                 ParseError::UnknownSymbol(2))
+        eval_invalid_config_test(contents, ParseError::UnknownSymbol(2))
     }
 
     #[test]
@@ -511,18 +492,26 @@ super + z
             ";
 
         let expected_hotkeys = vec![
-            Hotkey::new(evdev::Key::KEY_K,
-                        vec![Modifier::Shift],
-                        "notify-send 'Hello world!'".to_string()),
-            Hotkey::new(evdev::Key::KEY_5,
-                        vec![Modifier::Control],
-                        "notify-send 'Hello world!'".to_string()),
-            Hotkey::new(evdev::Key::KEY_2,
-                        vec![Modifier::Alt],
-                        "notify-send 'Hello world!'".to_string()),
-            Hotkey::new(evdev::Key::KEY_Z,
-                        vec![Modifier::Super],
-                        "notify-send 'Hello world!'".to_string()),
+            Hotkey::new(
+                evdev::Key::KEY_K,
+                vec![Modifier::Shift],
+                "notify-send 'Hello world!'".to_string(),
+            ),
+            Hotkey::new(
+                evdev::Key::KEY_5,
+                vec![Modifier::Control],
+                "notify-send 'Hello world!'".to_string(),
+            ),
+            Hotkey::new(
+                evdev::Key::KEY_2,
+                vec![Modifier::Alt],
+                "notify-send 'Hello world!'".to_string(),
+            ),
+            Hotkey::new(
+                evdev::Key::KEY_Z,
+                vec![Modifier::Super],
+                "notify-send 'Hello world!'".to_string(),
+            ),
         ];
 
         eval_config_test(contents, expected_hotkeys)
@@ -658,11 +647,7 @@ super + minus
                 vec![Modifier::Alt],
                 String::from("alacritty -t \"Terminal\" -e \"tmux\""),
             ),
-            Hotkey::new(
-                evdev::Key::KEY_0,
-                vec![Modifier::Control],
-                String::from("play-song.sh"),
-            ),
+            Hotkey::new(evdev::Key::KEY_0, vec![Modifier::Control], String::from("play-song.sh")),
             Hotkey::new(
                 evdev::Key::KEY_MINUS,
                 vec![Modifier::Super],
@@ -757,13 +742,8 @@ k
         }
         let contents = &contents;
 
-        let expected_result: Vec<Hotkey> = keysyms
-                        .iter()
-                        .map(|keysym|
-                             Hotkey::new(*keysym,
-                                         vec![],
-                                         "st".to_string()))
-                        .collect();
+        let expected_result: Vec<Hotkey> =
+            keysyms.iter().map(|keysym| Hotkey::new(*keysym, vec![], "st".to_string())).collect();
 
         eval_config_test(contents, expected_result)
     }
@@ -834,28 +814,16 @@ k
         }
         let contents = &contents;
 
-        let expected_result: Vec<Hotkey> = keysyms
-                        .iter()
-                        .map(|keysym|
-                             Hotkey::new(*keysym,
-                                         vec![],
-                                         "st".to_string()))
-                        .collect();
+        let expected_result: Vec<Hotkey> =
+            keysyms.iter().map(|keysym| Hotkey::new(*keysym, vec![], "st".to_string())).collect();
 
         eval_config_test(contents, expected_result)
     }
 
     #[test]
     fn test_homerow_special_keys_top() -> std::io::Result<()> {
-        let symbols: [&str; 7] = [
-            "Escape",
-            "BackSpace",
-            "Return",
-            "Tab",
-            "minus",
-            "equal",
-            "grave",
-        ];
+        let symbols: [&str; 7] =
+            ["Escape", "BackSpace", "Return", "Tab", "minus", "equal", "grave"];
 
         let keysyms: [evdev::Key; 7] = [
             evdev::Key::KEY_ESC,
@@ -873,13 +841,8 @@ k
         }
         let contents = &contents;
 
-        let expected_result: Vec<Hotkey> = keysyms
-                        .iter()
-                        .map(|keysym|
-                             Hotkey::new(*keysym,
-                                         vec![],
-                                         "st".to_string()))
-                        .collect();
+        let expected_result: Vec<Hotkey> =
+            keysyms.iter().map(|keysym| Hotkey::new(*keysym, vec![], "st".to_string())).collect();
 
         eval_config_test(contents, expected_result)
     }
