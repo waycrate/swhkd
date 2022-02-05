@@ -31,13 +31,31 @@ impl From<std::io::Error> for Error {
 
 #[derive(Debug)]
 pub struct Hotkey {
-    keysyms: Vec<evdev::Key>,
+    keysym: evdev::Key,
+    modifiers: Vec<Modifier>,
     command: String,
 }
 
+#[derive(Debug, PartialEq)]
+pub enum Modifier {
+    Super,
+    Hyper,
+    Meta,
+    Alt,
+    Control,
+    Shift,
+    ModeSwitch,
+    Lock,
+    Mod1,
+    Mod2,
+    Mod3,
+    Mod4,
+    Mod5
+}
+
 impl Hotkey {
-    fn new(keysyms: Vec<evdev::Key>, command: String) -> Self {
-        Hotkey { keysyms, command }
+    fn new(keysym: evdev::Key, modifiers: Vec<Modifier>, command: String) -> Self {
+        Hotkey { keysym, modifiers, command }
     }
 }
 
@@ -138,7 +156,6 @@ fn parse_contents(contents: String) -> Result<Vec<Hotkey>, Error> {
 
             // Translate keypress into evdev key
             let keysym = key_to_evdev_key.get(lines[i].trim()).unwrap();
-            keysyms.push(*keysym);
 
             // Parse the command, also handling multiline commands
             let mut command = String::new();
@@ -160,7 +177,7 @@ fn parse_contents(contents: String) -> Result<Vec<Hotkey>, Error> {
             }
 
             // Push a new hotkey to the hotkeys vector
-            hotkeys.push(Hotkey::new(keysyms, String::from(command.trim())));
+            hotkeys.push(Hotkey::new(*keysym, vec![], String::from(command.trim())));
 
             // Skip trying to parse the next line (command)
             // because we already dealt with it
@@ -219,8 +236,16 @@ mod tests {
         assert_eq!(actual_hotkeys.len(), expected_hotkeys.len());
 
         for i in 0..actual_hotkeys.len() {
-            assert_eq!(actual_hotkeys[i].keysyms,
-                       expected_hotkeys[i].keysyms);
+            assert_eq!(actual_hotkeys[i].keysym,
+                       expected_hotkeys[i].keysym);
+
+            assert_eq!(actual_hotkeys[i].modifiers.len(),
+                       expected_hotkeys[i].modifiers.len());
+            for j in 0..expected_hotkeys[i].modifiers.len() {
+                assert!(actual_hotkeys[i].modifiers
+                        .contains(&expected_hotkeys[i].modifiers[j]));
+            }
+
             assert_eq!(actual_hotkeys[i].command,
                        expected_hotkeys[i].command);
         }
@@ -298,7 +323,7 @@ r
 
         eval_config_test(
             contents,
-            vec![Hotkey::new(vec![evdev::Key::KEY_R], String::from("alacritty"))]
+            vec![Hotkey::new(evdev::Key::KEY_R, vec![], String::from("alacritty"))]
         )?;
         Ok(())
     }
@@ -316,9 +341,9 @@ t
     /bin/firefox
         ";
 
-        let hotkey_1 = Hotkey::new(vec![evdev::Key::KEY_R], String::from("alacritty"));
-        let hotkey_2 = Hotkey::new(vec![evdev::Key::KEY_W], String::from("kitty"));
-        let hotkey_3 = Hotkey::new(vec![evdev::Key::KEY_T], String::from("/bin/firefox"));
+        let hotkey_1 = Hotkey::new(evdev::Key::KEY_R, vec![], String::from("alacritty"));
+        let hotkey_2 = Hotkey::new(evdev::Key::KEY_W, vec![], String::from("kitty"));
+        let hotkey_3 = Hotkey::new(evdev::Key::KEY_T, vec![], String::from("/bin/firefox"));
 
         eval_config_test(contents,
                          vec![hotkey_1, hotkey_2, hotkey_3])?;
@@ -339,8 +364,8 @@ w
         ";
 
         let expected_keybinds = vec![
-            Hotkey::new(vec![evdev::Key::KEY_R], String::from("alacritty")),
-            Hotkey::new(vec![evdev::Key::KEY_W], String::from("kitty")),
+            Hotkey::new(evdev::Key::KEY_R, vec![], String::from("alacritty")),
+            Hotkey::new(evdev::Key::KEY_W, vec![], String::from("kitty")),
         ];
 
         eval_config_test(contents, expected_keybinds)?;
@@ -356,7 +381,9 @@ super + 5
         ";
 
         let expected_keybinds = vec![
-            Hotkey::new(vec![evdev::Key::KEY_LEFTMETA, evdev::Key::KEY_5], String::from("alacritty")),
+            Hotkey::new(evdev::Key::KEY_5,
+                        vec![Modifier::Super],
+                        String::from("alacritty")),
         ];
 
         eval_config_test(contents, expected_keybinds)?;
@@ -371,7 +398,8 @@ p
         ";
 
         let expected_keybinds = vec![Hotkey::new(
-            vec![evdev::Key::KEY_P],
+            evdev::Key::KEY_P,
+            vec![],
             String::from("xbacklight -inc 10 -fps 30 -time 200"),
         )];
 
@@ -494,8 +522,8 @@ w
         assert_eq!(actual_keybinds.len(), 36);
 
         for i in 0..actual_keybinds.len() {
-            assert_eq!(actual_keybinds[i].keysyms.len(), 1);
-            assert_eq!(actual_keybinds[i].keysyms[0], keysyms[i]);
+            assert_eq!(actual_keybinds[i].keysym, keysyms[i]);
+            assert_eq!(actual_keybinds[i].modifiers.len(), 0);
             assert_eq!(actual_keybinds[i].command, "st");
         }
 
@@ -542,29 +570,35 @@ super + minus
 
         let expected_result: Vec<Hotkey> = vec![
             Hotkey::new(
-                vec![evdev::Key::KEY_LEFTMETA, evdev::Key::KEY_ESC],
+                evdev::Key::KEY_ESC,
+                vec![Modifier::Super],
                 String::from("pkill -USR1 -x sxhkd ; sxhkd &"),
             ),
             Hotkey::new(
-                vec![evdev::Key::KEY_LEFTMETA, evdev::Key::KEY_ENTER],
+                evdev::Key::KEY_ENTER,
+                vec![Modifier::Super],
                 String::from(
                     "alacritty -t \"Terminal\" -e \"$HOME/.config/sxhkd/new_tmux_terminal.sh\"",
                 ),
             ),
             Hotkey::new(
-                vec![evdev::Key::KEY_LEFTMETA, evdev::Key::KEY_LEFTSHIFT, evdev::Key::KEY_ENTER],
+                evdev::Key::KEY_ENTER,
+                vec![Modifier::Super, Modifier::Shift],
                 String::from("alacritty -t \"Terminal\""),
             ),
             Hotkey::new(
-                vec![evdev::Key::KEY_LEFTALT, evdev::Key::KEY_ENTER],
+                evdev::Key::KEY_ENTER,
+                vec![Modifier::Alt],
                 String::from("alacritty -t \"Terminal\" -e \"tmux\""),
             ),
             Hotkey::new(
-                vec![evdev::Key::KEY_LEFTCTRL, evdev::Key::KEY_0],
+                evdev::Key::KEY_0,
+                vec![Modifier::Control],
                 String::from("play-song.sh"),
             ),
             Hotkey::new(
-                vec![evdev::Key::KEY_LEFTMETA, evdev::Key::KEY_MINUS],
+                evdev::Key::KEY_MINUS,
+                vec![Modifier::Super],
                 String::from("play-song.sh album"),
             ),
         ];
@@ -582,7 +616,8 @@ k
                     ";
 
         let expected_keybind = Hotkey::new(
-            vec![evdev::Key::KEY_K],
+            evdev::Key::KEY_K,
+            vec![],
             String::from("mpc ls | dmenu | sed -i 's/foo/bar/g'"),
         );
 
