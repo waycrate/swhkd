@@ -1,8 +1,7 @@
 use clap::{arg, App};
 use evdev::{Device, Key};
-use interprocess::local_socket::LocalSocketStream;
 use nix::unistd;
-use std::{env, io::prelude::*, path::Path, process::exit};
+use std::{env, io::prelude::*, os::unix::net::UnixStream, path::Path, process::exit};
 
 pub fn main() {
     let args = set_flags().get_matches();
@@ -32,40 +31,28 @@ pub fn main() {
     log::trace!("Attempting to find all keyboard file descriptors.");
     let mut keyboard_devices: Vec<Device> = Vec::new();
     for (_, device) in evdev::enumerate().enumerate() {
-        if check_keyboard(&device) == true {
+        if check_keyboard(&device) {
             keyboard_devices.push(device);
         }
     }
 
-    if keyboard_devices.len() == 0 {
+    if keyboard_devices.is_empty() {
         log::error!("No valid keyboard device was detected!");
         exit(1);
     }
     log::debug!("{} Keyboard device(s) detected.", keyboard_devices.len());
-
-    //TODO: IMPLEMENT KEYBOARD EVENT GRAB
-
-    let mut conn = match LocalSocketStream::connect("/tmp/swhkd.sock") {
-        Ok(conn) => conn,
+    match sock_send("notify-send hello world") {
         Err(e) => {
-            log::error!("Unable to connect to hotkey server, is swhks running??");
-            log::error!("Error: {}", e);
-            exit(1);
+            log::error!("Failed to send command over IPC.");
+            log::error!("Is swhks running?");
+            log::error!("{:#?}", e)
         }
-    };
-
-    match conn.write_all(args.value_of("shell").unwrap().as_bytes()) {
-        Ok(_) => {}
-        Err(e) => {
-            log::error!("Unable to send command to hotkey server, is swhks running??");
-            log::error!("Error: {}", e);
-            exit(1);
-        }
+        _ => {}
     };
 }
 
 pub fn permission_check() {
-    if unistd::Uid::current().is_root() == false {
+    if !unistd::Uid::current().is_root() {
         let groups = unistd::getgroups();
         for (_, groups) in groups.iter().enumerate() {
             for group in groups {
@@ -86,10 +73,10 @@ pub fn permission_check() {
 pub fn check_keyboard(device: &Device) -> bool {
     if device.supported_keys().map_or(false, |keys| keys.contains(Key::KEY_ENTER)) {
         log::debug!("{} is a keyboard.", device.name().unwrap(),);
-        return true;
+        true
     } else {
         log::trace!("{} is not a keyboard.", device.name().unwrap(),);
-        return false;
+        false
     }
 }
 
@@ -103,13 +90,8 @@ pub fn set_flags() -> App<'static> {
                 .required(false)
                 .help("Set a custom config file path"),
         )
-        .arg(arg!(-d - -debug).required(false).help("Enable debug mode"))
-        .arg(
-            arg!(-s - -shell <SHELL_COMMAND>)
-                .required(true)
-                .help("Shell command to run on success"),
-        );
-    return app;
+        .arg(arg!(-d - -debug).required(false).help("Enable debug mode"));
+    app
 }
 
 pub fn check_config_xdg() -> std::path::PathBuf {
@@ -132,5 +114,11 @@ pub fn check_config_xdg() -> std::path::PathBuf {
             log::warn!("The following issue may be addressed in the future, but it is certainly not a priority right now.");
         }
     }
-    return config_file_path;
+    config_file_path
+}
+
+fn sock_send(command: &str) -> std::io::Result<()> {
+    let mut stream = UnixStream::connect("/tmp/swhkd.sock")?;
+    stream.write_all(command.as_bytes())?;
+    Ok(())
 }

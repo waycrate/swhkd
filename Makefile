@@ -51,7 +51,7 @@ clean:
 	@cargo clean
 
 setup:
-	@mkdir bin
+	@mkdir -p ./bin
 	@rustup install stable
 	@rustup default stable
 	@rustup target add x86_64-unknown-linux-musl
