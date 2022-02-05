@@ -205,13 +205,11 @@ fn parse_contents(contents: String) -> Result<Vec<Hotkey>, Error> {
             return Err(Error::InvalidConfig(ParseError::MissingCommand(real_line_no)));
         }
 
-        // Error if empty command
-        if lines[i + 1].trim().is_empty() {
-            return Err(Error::InvalidConfig(ParseError::MissingCommand(real_line_no + 1)));
-        }
-
         // Error if the command doesn't start with whitespace
-        if !lines[i + 1].starts_with(' ') && !lines[i + 1].starts_with('\t') {
+        // OR is not a blank command
+        if (!lines[i + 1].starts_with(' ') && !lines[i + 1].starts_with('\t'))
+            && !lines[i + 1].trim().is_empty()
+        {
             return Err(Error::InvalidConfig(ParseError::CommandWithoutWhitespace(
                 real_line_no + 1,
             )));
@@ -583,8 +581,17 @@ w
 
                     ";
 
-        eval_invalid_config_test(contents, ParseError::MissingCommand(6))?;
-        Ok(())
+        eval_config_test(
+            contents,
+            vec![
+                Hotkey::new(
+                    evdev::Key::KEY_K,
+                    vec![],
+                    "xbacklight -inc 10 -fps 30 -time 200".to_string(),
+                ),
+                Hotkey::new(evdev::Key::KEY_W, vec![], "".to_string()),
+            ],
+        )
     }
 
     #[test]
