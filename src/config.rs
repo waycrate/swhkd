@@ -202,6 +202,32 @@ mod tests {
         }
     }
 
+    // Wrapper for config tests
+    fn eval_config_test(
+        contents: &str,
+        expected_hotkeys: Vec<Hotkey>
+        ) -> std::io::Result<()> {
+
+        let result = parse_contents(contents.to_string());
+
+        if result.is_err() {
+            panic!("Expected Ok config, found Err {:?}", result.unwrap_err());
+        }
+
+        let actual_hotkeys = result.unwrap();
+
+        assert_eq!(actual_hotkeys.len(), expected_hotkeys.len());
+
+        for i in 0..actual_hotkeys.len() {
+            assert_eq!(actual_hotkeys[i].keysyms,
+                       expected_hotkeys[i].keysyms);
+            assert_eq!(actual_hotkeys[i].command,
+                       expected_hotkeys[i].command);
+        }
+
+        Ok(())
+    }
+
     // Wrapper for the many error tests
     fn eval_invalid_config_test(
         contents: &str,
@@ -260,7 +286,6 @@ q
 
         let result = load_file_contents(setup.path());
         assert!(result.is_ok());
-
         Ok(())
     }
 
@@ -271,18 +296,10 @@ r
     alacritty
             ";
 
-        let expected_hotkey = Hotkey::new(vec![evdev::Key::KEY_R], String::from("alacritty"));
-
-        let parse_result = parse_contents(contents.to_string());
-
-        assert!(parse_result.is_ok());
-
-        let parse_result = parse_result.unwrap();
-
-        assert_eq!(parse_result[0].keysyms, expected_hotkey.keysyms);
-
-        assert_eq!(parse_result[0].command, expected_hotkey.command);
-
+        eval_config_test(
+            contents,
+            vec![Hotkey::new(vec![evdev::Key::KEY_R], String::from("alacritty"))]
+        )?;
         Ok(())
     }
 
@@ -303,17 +320,8 @@ t
         let hotkey_2 = Hotkey::new(vec![evdev::Key::KEY_W], String::from("kitty"));
         let hotkey_3 = Hotkey::new(vec![evdev::Key::KEY_T], String::from("/bin/firefox"));
 
-        let result = parse_contents(contents.to_string());
-        assert!(result.is_ok());
-        let result = result.unwrap();
-
-        assert_eq!(hotkey_1.keysyms, result[0].keysyms);
-        assert_eq!(hotkey_1.command, result[0].command);
-        assert_eq!(hotkey_2.keysyms, result[1].keysyms);
-        assert_eq!(hotkey_2.command, result[1].command);
-        assert_eq!(hotkey_3.keysyms, result[2].keysyms);
-        assert_eq!(hotkey_3.command, result[2].command);
-
+        eval_config_test(contents,
+                         vec![hotkey_1, hotkey_2, hotkey_3])?;
         Ok(())
     }
 
@@ -335,17 +343,7 @@ w
             Hotkey::new(vec![evdev::Key::KEY_W], String::from("kitty")),
         ];
 
-        let result = parse_contents(contents.to_string());
-        assert!(result.is_ok());
-        let result = result.unwrap();
-
-        assert_eq!(result.len(), 2);
-
-        assert_eq!(result[0].keysyms, expected_keybinds[0].keysyms);
-        assert_eq!(result[0].command, expected_keybinds[0].command);
-        assert_eq!(result[1].keysyms, expected_keybinds[1].keysyms);
-        assert_eq!(result[1].command, expected_keybinds[1].command);
-
+        eval_config_test(contents, expected_keybinds)?;
         Ok(())
     }
 
@@ -357,18 +355,10 @@ super + 5
         ";
 
         let expected_keybinds = vec![
-            // I don't know if the super key is macro or not,
-            // please check
-            Hotkey::new(vec![evdev::Key::KEY_MACRO, evdev::Key::KEY_5], String::from("alacritty")),
+            Hotkey::new(vec![evdev::Key::KEY_LEFTMETA, evdev::Key::KEY_5], String::from("alacritty")),
         ];
 
-        let result = parse_contents(contents.to_string());
-        assert!(result.is_ok());
-        let result = result.unwrap();
-
-        assert_eq!(result[0].keysyms, expected_keybinds[0].keysyms);
-        assert_eq!(result[0].command, expected_keybinds[0].command);
-
+        eval_config_test(contents, expected_keybinds)?;
         Ok(())
     }
 
@@ -384,13 +374,7 @@ p
             String::from("xbacklight -inc 10 -fps 30 -time 200"),
         )];
 
-        let result = parse_contents(contents.to_string());
-        assert!(result.is_ok());
-        let result = result.unwrap();
-
-        assert_eq!(result[0].keysyms, expected_keybinds[0].keysyms);
-        assert_eq!(result[0].command, expected_keybinds[0].command);
-
+        eval_config_test(contents, expected_keybinds)?;
         Ok(())
     }
 
@@ -405,7 +389,6 @@ pesto
                     ";
 
         eval_invalid_config_test(contents, ParseError::UnknownSymbol(5))?;
-
         Ok(())
     }
 
@@ -526,7 +509,6 @@ WE WISH YOU A MERRY RUSTMAS
                     ";
 
         assert!(parse_contents(contents.to_string()).is_err());
-
         Ok(())
     }
 
@@ -585,19 +567,7 @@ super + minus
             ),
         ];
 
-        let real_result = parse_contents(contents.to_string());
-
-        assert!(real_result.is_ok());
-
-        let real_result = real_result.unwrap();
-
-        assert_eq!(real_result.len(), expected_result.len());
-
-        for i in 0..real_result.len() {
-            assert_eq!(real_result[i].keysyms, expected_result[i].keysyms);
-            assert_eq!(real_result[i].command, expected_result[i].command);
-        }
-
+        eval_config_test(contents, expected_result)?;
         Ok(())
     }
 
@@ -614,19 +584,7 @@ k
             String::from("mpc ls | dmenu | sed -i 's/foo/bar/g'"),
         );
 
-        let real_keybind = parse_contents(contents.to_string());
-
-        if real_keybind.is_err() {
-            panic!("Expected Ok, found {:?}", real_keybind.unwrap_err());
-        }
-
-        let real_keybind = real_keybind.unwrap();
-
-        assert_eq!(real_keybind.len(), 1);
-
-        assert_eq!(real_keybind[0].keysyms, expected_keybind.keysyms);
-        assert_eq!(real_keybind[0].command, expected_keybind.command);
-
+        eval_config_test(contents, vec![expected_keybind])?;
         Ok(())
     }
 
