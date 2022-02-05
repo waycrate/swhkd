@@ -2,7 +2,11 @@
 name = "Simple-Wayland-HotKey-Daemon"
 version = "0.1.0"
 edition = "2021"
-authors = ["Shinyzenith <aakashsensharma@gmail.com>"]
+authors = [
+	"Shinyzenith <aakashsensharma@gmail.com>",
+	"Angelo Fallaria <ba.fallaria@gmail.com>",
+	"EdenQwQ <lsahlm1eden@gmail.com>"
+]
 
 [dependencies]
 clap = "3.0.4"
