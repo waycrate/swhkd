@@ -17,6 +17,8 @@ pub enum ParseError {
     UnknownSymbol(u32),
     MissingCommand(u32),
     CommandWithoutWhitespace(u32),
+    InvalidModifier(u32),
+    InvalidKeysym(u32),
 }
 
 impl From<std::io::Error> for Error {
@@ -373,7 +375,6 @@ w
     }
 
     #[test]
-    #[ignore]
     fn test_multiple_keypress() -> std::io::Result<()> {
         let contents = "
 super + 5
@@ -388,6 +389,85 @@ super + 5
 
         eval_config_test(contents, expected_keybinds)?;
         Ok(())
+    }
+
+    #[test]
+    fn test_keysym_instead_of_modifier() -> std::io::Result<()> {
+        let contents = "
+shift + k + m
+    notify-send 'Hello world!'
+            ";
+
+        eval_invalid_config_test(contents,
+                                 ParseError::InvalidModifier(2))
+    }
+
+    #[test]
+    fn test_modifier_instead_of_keysym() -> std::io::Result<()> {
+        let contents = "
+shift + k + alt
+    notify-send 'Hello world!'
+            ";
+
+        eval_invalid_config_test(contents,
+                                 ParseError::InvalidKeysym(2))
+    }
+
+    #[test]
+    fn test_unfinished_plus_sign() -> std::io::Result<()> {
+        let contents = "
+
+
+shift + k +
+    notify-send 'Hello world!'
+            ";
+
+        eval_invalid_config_test(contents,
+                                 ParseError::UnknownSymbol(4))
+    }
+
+    #[test]
+    fn test_plus_sign_at_start() -> std::io::Result<()> {
+        let contents = "
++ shift + k
+    notify-send 'Hello world!'
+            ";
+
+        eval_invalid_config_test(contents,
+                                 ParseError::UnknownSymbol(2))
+    }
+
+    fn test_common_modifiers() -> std::io::Result<()> {
+        let contents = "
+shift + k
+    notify-send 'Hello world!'
+
+control + 5
+    notify-send 'Hello world!'
+
+alt + 2
+    notify-send 'Hello world!'
+
+super + z
+    notify-send 'Hello world!'
+            ";
+
+        let expected_hotkeys = vec![
+            Hotkey::new(evdev::Key::KEY_K,
+                        vec![Modifier::Shift],
+                        "notify-send 'Hello world!'".to_string()),
+            Hotkey::new(evdev::Key::KEY_5,
+                        vec![Modifier::Control],
+                        "notify-send 'Hello world!'".to_string()),
+            Hotkey::new(evdev::Key::KEY_2,
+                        vec![Modifier::Alt],
+                        "notify-send 'Hello world!'".to_string()),
+            Hotkey::new(evdev::Key::KEY_Z,
+                        vec![Modifier::Super],
+                        "notify-send 'Hello world!'".to_string()),
+        ];
+
+        eval_config_test(contents, expected_hotkeys)
     }
 
     #[test]
