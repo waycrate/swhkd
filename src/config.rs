@@ -101,7 +101,7 @@ fn parse_contents(contents: String) -> Result<Vec<Hotkey>, Error> {
 
     let mut lines_with_types: Vec<(&str, u32)> = Vec::new();
     for (line_number, line) in lines.iter().enumerate() {
-        if line.trim().starts_with('#') || line.is_empty() {
+        if line.trim().starts_with('#') || line.trim().is_empty() {
             continue;
         }
         if line.starts_with(' ') || line.starts_with('\t') {
@@ -110,8 +110,6 @@ fn parse_contents(contents: String) -> Result<Vec<Hotkey>, Error> {
             lines_with_types.push(("keysym", line_number as u32));
         }
     }
-
-    println!("{:?}", lines_with_types);
 
     // Go through lines_with_types, and add the next line over and over until the current line no
     // longer ends with backslash. (Only if the lines have the same type)
@@ -138,23 +136,24 @@ fn parse_contents(contents: String) -> Result<Vec<Hotkey>, Error> {
         }
     }
 
-    println!("{:?}", actual_lines);
-
     let mut hotkeys: Vec<Hotkey> = Vec::new();
 
-    // Go through actual_lines.
-    // If the line is a keysym, check if it's valid. If it is, add it to the current hotkey. If
-    // not, return an error.
-    // Check the next line of the keysym. If it's a keysym, add an empty command to the current
-    // hotkey. If it's a command, add it to the current hotkey. Then continue searching until we
-    // find another keysym.
 
     for (i, item) in actual_lines.iter().enumerate() {
         let line_type = item.0;
         let line_number = item.1;
         let line = &item.2;
-        let mut current_hotkey = Hotkey::new(Vec::new(), String::new());
         if line_type == "keysym" {
+            let mut current_hotkey = Hotkey::new(Vec::new(), String::new());
+            if let Some(next_line) = actual_lines.get(i + 1) {
+                if next_line.0 == "command" {
+                    current_hotkey.command.push_str(&next_line.2.clone());
+                } else {
+                    continue; // this should ignore keysyms that are not followed by a command
+                }
+            } else {
+                continue;
+            }
             // We split the line on '+' and trim each item
             let keysyms: Vec<&str> = line.split('+').map(|s| s.trim()).collect();
             for keysym in keysyms {
@@ -162,11 +161,6 @@ fn parse_contents(contents: String) -> Result<Vec<Hotkey>, Error> {
                     current_hotkey.keysyms.push(*key);
                 } else {
                     return Err(Error::InvalidConfig(ParseError::UnknownSymbol(line_number + 1)));
-                }
-            }
-            if let Some(next_line) = actual_lines.get(i + 1) {
-                if next_line.0 == "command" {
-                    current_hotkey.command.push_str(&next_line.2.clone());
                 }
             }
             hotkeys.push(current_hotkey);
@@ -203,17 +197,14 @@ h
 i
     ";
     let hotkeys = parse_contents(contents.to_string()).unwrap();
-    assert_eq!(hotkeys.len(), 5);
+    println!("{:?}", hotkeys);
+    assert_eq!(hotkeys.len(), 3);
     assert_eq!(hotkeys[0].keysyms, vec![evdev::Key::KEY_A, evdev::Key::KEY_B, evdev::Key::KEY_C]);
     assert_eq!(hotkeys[0].command, "firefox".to_string());
     assert_eq!(hotkeys[1].keysyms, vec![evdev::Key::KEY_D]);
     assert_eq!(hotkeys[1].command, "brave".to_string());
     assert_eq!(hotkeys[2].keysyms, vec![evdev::Key::KEY_E, evdev::Key::KEY_F, evdev::Key::KEY_G]);
     assert_eq!(hotkeys[2].command, "chrome".to_string());
-    assert_eq!(hotkeys[3].keysyms, vec![evdev::Key::KEY_H]);
-    assert_eq!(hotkeys[3].command, "".to_string());
-    assert_eq!(hotkeys[4].keysyms, vec![evdev::Key::KEY_I]);
-    assert_eq!(hotkeys[4].command, "".to_string());
 }
 
 #[test]
