@@ -116,7 +116,7 @@ fn parse_contents(contents: String) -> Result<Vec<Hotkey>, Error> {
         // in a file are of course counted from 1
         let real_line_no: u32 = (i + 1).try_into().unwrap();
 
-        let mut key_presses: Vec<evdev::Key> = Vec::new();
+        let mut keysyms: Vec<evdev::Key> = Vec::new();
 
         if key_to_evdev_key.contains_key(lines[i].trim()) {
             // If the keybind line is at the very last line,
@@ -126,9 +126,9 @@ fn parse_contents(contents: String) -> Result<Vec<Hotkey>, Error> {
             }
 
             // Translate keypress into evdev key
-            let key_press = key_to_evdev_key.get(lines[i].trim()).unwrap();
+            let keysym = key_to_evdev_key.get(lines[i].trim()).unwrap();
 
-            key_presses.push(*key_press);
+            keysyms.push(*keysym);
 
             //// Find the command
             if lines[i + 1].trim().is_empty() {
@@ -145,17 +145,17 @@ fn parse_contents(contents: String) -> Result<Vec<Hotkey>, Error> {
             }
 
             // Push a new hotkey to the hotkeys vector
-            hotkeys.push(Hotkey::new(key_presses, String::from(command.trim())));
+            hotkeys.push(Hotkey::new(keysyms, String::from(command.trim())));
 
             // Skip trying to parse the next line (command)
             // because we already dealt with it
             lines_to_skip += 1;
+
         } else {
             return Err(Error::InvalidConfig(ParseError::UnknownSymbol(real_line_no)));
         }
     }
 
-    // If all is ok, return Vec<Hotkeys>
     Ok(hotkeys)
 }
 
