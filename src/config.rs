@@ -11,8 +11,7 @@ pub enum Error {
     InvalidConfig(ParseError),
 }
 
-#[derive(Debug)]
-#[derive(PartialEq)]
+#[derive(Debug, PartialEq)]
 pub enum ParseError {
     // u32 is the line number where an error occured
     UnknownSymbol(u32),
@@ -150,7 +149,6 @@ fn parse_contents(contents: String) -> Result<Vec<Hotkey>, Error> {
             // Skip trying to parse the next line (command)
             // because we already dealt with it
             lines_to_skip += 1;
-
         } else {
             return Err(Error::InvalidConfig(ParseError::UnknownSymbol(real_line_no)));
         }
@@ -189,9 +187,10 @@ mod tests {
     }
 
     // Wrapper for the many error tests
-    fn eval_invalid_config_test(contents: &str,
-                                parse_error_type: ParseError) -> std::io::Result<()> {
-
+    fn eval_invalid_config_test(
+        contents: &str,
+        parse_error_type: ParseError,
+    ) -> std::io::Result<()> {
         let result = parse_contents(contents.to_string());
 
         assert!(result.is_err());
@@ -200,13 +199,12 @@ mod tests {
         // Check if the Error type is InvalidConfig
         let result = match result {
             Error::InvalidConfig(parse_err) => parse_err,
-            _ => panic!()
+            _ => panic!(),
         };
 
         // Check the ParseError enum type
         if result != parse_error_type {
-            panic!("ParseError: Expected `{:?}`, found `{:?}`",
-                   parse_error_type, result);
+            panic!("ParseError: Expected `{:?}`, found `{:?}`", parse_error_type, result);
         }
 
         Ok(())
@@ -390,8 +388,7 @@ pesto
     xterm
                     ";
 
-        eval_invalid_config_test(contents,
-                                 ParseError::UnknownSymbol(5))?;
+        eval_invalid_config_test(contents, ParseError::UnknownSymbol(5))?;
 
         Ok(())
     }
@@ -405,8 +402,7 @@ pesto
 brave
             ";
 
-        eval_invalid_config_test(contents,
-                                 ParseError::CommandWithoutWhitespace(5))?;
+        eval_invalid_config_test(contents, ParseError::CommandWithoutWhitespace(5))?;
         Ok(())
     }
 
@@ -418,8 +414,7 @@ k
 
 c ";
 
-        eval_invalid_config_test(contents,
-                                 ParseError::MissingCommand(5))?;
+        eval_invalid_config_test(contents, ParseError::MissingCommand(5))?;
         Ok(())
     }
 
@@ -433,8 +428,7 @@ w
 
                     ";
 
-        eval_invalid_config_test(contents,
-                                 ParseError::MissingCommand(6))?;
+        eval_invalid_config_test(contents, ParseError::MissingCommand(6))?;
         Ok(())
     }
 
@@ -625,8 +619,7 @@ k
     gimp
                     ";
 
-        eval_invalid_config_test(contents,
-                                 ParseError::UnknownSymbol(3))?;
+        eval_invalid_config_test(contents, ParseError::UnknownSymbol(3))?;
         Ok(())
     }
 
