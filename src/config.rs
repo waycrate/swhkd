@@ -105,12 +105,6 @@ fn parse_keybind(
     // Translate keypress into evdev key
     let keysym = key_to_evdev_key.get(last_token).unwrap();
 
-    let mut modifiers: Vec<Modifier> = Vec::new();
-
-    for i in 0..(tokens.len() - 1) {
-        modifiers.push(*mod_to_mod_enum.get(tokens[i]).unwrap());
-    }
-
     let modifiers: Vec<Modifier> = tokens[0..(tokens.len() - 1)]
         .iter()
         .map(|token| *mod_to_mod_enum.get(token).unwrap())
