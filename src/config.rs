@@ -364,8 +364,7 @@ r
         eval_config_test(
             contents,
             vec![Hotkey::new(evdev::Key::KEY_R, vec![], String::from("alacritty"))],
-        )?;
-        Ok(())
+        )
     }
 
     #[test]
@@ -385,8 +384,7 @@ t
         let hotkey_2 = Hotkey::new(evdev::Key::KEY_W, vec![], String::from("kitty"));
         let hotkey_3 = Hotkey::new(evdev::Key::KEY_T, vec![], String::from("/bin/firefox"));
 
-        eval_config_test(contents, vec![hotkey_1, hotkey_2, hotkey_3])?;
-        Ok(())
+        eval_config_test(contents, vec![hotkey_1, hotkey_2, hotkey_3])
     }
 
     #[test]
@@ -407,8 +405,7 @@ w
             Hotkey::new(evdev::Key::KEY_W, vec![], String::from("kitty")),
         ];
 
-        eval_config_test(contents, expected_keybinds)?;
-        Ok(())
+        eval_config_test(contents, expected_keybinds)
     }
 
     #[test]
@@ -421,8 +418,7 @@ super + 5
         let expected_keybinds =
             vec![Hotkey::new(evdev::Key::KEY_5, vec![Modifier::Super], String::from("alacritty"))];
 
-        eval_config_test(contents, expected_keybinds)?;
-        Ok(())
+        eval_config_test(contents, expected_keybinds)
     }
 
     #[test]
@@ -522,8 +518,7 @@ p
             String::from("xbacklight -inc 10 -fps 30 -time 200"),
         )];
 
-        eval_config_test(contents, expected_keybinds)?;
-        Ok(())
+        eval_config_test(contents, expected_keybinds)
     }
 
     #[test]
@@ -536,8 +531,7 @@ pesto
     xterm
                     ";
 
-        eval_invalid_config_test(contents, ParseError::UnknownSymbol(5))?;
-        Ok(())
+        eval_invalid_config_test(contents, ParseError::UnknownSymbol(5))
     }
 
     #[test]
@@ -549,8 +543,7 @@ pesto
 brave
             ";
 
-        eval_invalid_config_test(contents, ParseError::CommandWithoutWhitespace(5))?;
-        Ok(())
+        eval_invalid_config_test(contents, ParseError::CommandWithoutWhitespace(5))
     }
 
     #[test]
@@ -561,8 +554,7 @@ k
 
 c ";
 
-        eval_invalid_config_test(contents, ParseError::MissingCommand(5))?;
-        Ok(())
+        eval_invalid_config_test(contents, ParseError::MissingCommand(5))
     }
 
     #[test]
@@ -656,8 +648,7 @@ super + minus
             ),
         ];
 
-        eval_config_test(contents, expected_result)?;
-        Ok(())
+        eval_config_test(contents, expected_result)
     }
 
     #[test]
@@ -674,8 +665,7 @@ k
             String::from("mpc ls | dmenu | sed -i 's/foo/bar/g'"),
         );
 
-        eval_config_test(contents, vec![expected_keybind])?;
-        Ok(())
+        eval_config_test(contents, vec![expected_keybind])
     }
 
     #[test]
@@ -685,8 +675,7 @@ k
     gimp
                     ";
 
-        eval_invalid_config_test(contents, ParseError::UnknownSymbol(3))?;
-        Ok(())
+        eval_invalid_config_test(contents, ParseError::UnknownSymbol(3))
     }
 
     // TODO: Write these tests as needed.
