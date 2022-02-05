@@ -38,7 +38,7 @@ pub struct Hotkey {
     command: String,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Copy, Clone)]
 pub enum Modifier {
     Super,
     Hyper,
@@ -71,6 +71,46 @@ fn load_file_contents(path: path::PathBuf) -> Result<String, Error> {
     let mut contents = String::new();
     file.read_to_string(&mut contents)?;
     Ok(contents)
+}
+
+// We need to get the reference to key_to_evdev_key
+// and mod_to_mod enum instead of recreating them
+// after each function call because it's too expensive
+fn parse_keybind(line: &str, line_nr: u32,
+                 key_to_evdev_key: &HashMap<&str, evdev::Key>,
+                 mod_to_mod_enum: &HashMap<&str, Modifier>)
+    -> Result<(evdev::Key, Vec<Modifier>), Error> {
+
+    let tokens: Vec<&str> = line.split('+').map(|token| token.trim()).collect();
+    let last_token = tokens.last().unwrap().trim();
+
+    // Check if each token is valid
+    for token in &tokens {
+        if key_to_evdev_key.contains_key(token) {
+            // Can't have a key that's like a modifier
+            if token != &last_token {
+                return Err(Error::InvalidConfig(ParseError::InvalidModifier(line_nr)));
+            }
+        } else if mod_to_mod_enum.contains_key(token) {
+            // Can't have a modifier that's like a modifier
+            if token == &last_token {
+                return Err(Error::InvalidConfig(ParseError::InvalidKeysym(line_nr)));
+            }
+        } else {
+            return Err(Error::InvalidConfig(ParseError::UnknownSymbol(line_nr)));
+        }
+    }
+
+    // Translate keypress into evdev key
+    let keysym = key_to_evdev_key.get(last_token).unwrap();
+
+    let mut modifiers: Vec<Modifier> = Vec::new();
+
+    for i in 0..(tokens.len() - 1) {
+        modifiers.push(*mod_to_mod_enum.get(tokens[i]).unwrap());
+    }
+
+    Ok((*keysym, modifiers))
 }
 
 fn parse_contents(contents: String) -> Result<Vec<Hotkey>, Error> {
@@ -143,9 +183,11 @@ fn parse_contents(contents: String) -> Result<Vec<Hotkey>, Error> {
         // in a file are of course counted from 1
         let real_line_no: u32 = (i + 1).try_into().unwrap();
 
-        if !key_to_evdev_key.contains_key(lines[i].trim()) {
-            return Err(Error::InvalidConfig(ParseError::UnknownSymbol(real_line_no)));
-        }
+        let (keysym, modifiers) = parse_keybind(
+            lines[i],
+            real_line_no,
+            &key_to_evdev_key,
+            &mod_to_mod_enum)?;
 
         // Error if keybind line is at the very last line
         // ( It's impossible for there to be a command )
@@ -164,9 +206,6 @@ fn parse_contents(contents: String) -> Result<Vec<Hotkey>, Error> {
                 real_line_no + 1,
             )));
         }
-
-        // Translate keypress into evdev key
-        let keysym = key_to_evdev_key.get(lines[i].trim()).unwrap();
 
         // Parse the command, also handling multiline commands
         let mut command = String::new();
@@ -188,7 +227,7 @@ fn parse_contents(contents: String) -> Result<Vec<Hotkey>, Error> {
         }
 
         // Push a new hotkey to the hotkeys vector
-        hotkeys.push(Hotkey::new(*keysym, vec![], String::from(command.trim())));
+        hotkeys.push(Hotkey::new(keysym, modifiers, String::from(command.trim())));
 
         // Skip trying to parse the next line (command)
         // because we already dealt with it
@@ -416,7 +455,7 @@ shift + k + alt
             ";
 
         eval_invalid_config_test(contents,
-                                 ParseError::InvalidKeysym(2))
+                                 ParseError::InvalidModifier(2))
     }
 
     #[test]
@@ -424,7 +463,7 @@ shift + k + alt
         let contents = "
 
 
-shift + k +
+shift + alt +
     notify-send 'Hello world!'
             ";
 
