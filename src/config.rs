@@ -347,6 +347,7 @@ w
         Ok(())
     }
 
+    #[test]
     #[ignore]
     fn test_multiple_keypress() -> std::io::Result<()> {
         let contents = "
@@ -512,6 +513,7 @@ WE WISH YOU A MERRY RUSTMAS
         Ok(())
     }
 
+    #[test]
     #[ignore]
     fn test_real_config_snippet() -> std::io::Result<()> {
         let contents = "
@@ -601,26 +603,31 @@ k
 
     // TODO: Write these tests as needed.
 
+    #[test]
     #[ignore]
     fn test_homerow_special_keys() -> std::io::Result<()> {
         Ok(())
     }
 
+    #[test]
     #[ignore]
     fn test_numrow_special_keys() -> std::io::Result<()> {
         Ok(())
     }
 
+    #[test]
     #[ignore]
     fn test_all_modifier_keys() -> std::io::Result<()> {
         Ok(())
     }
 
+    #[test]
     #[ignore]
     fn test_mod_keys_after_normal_keys() -> std::io::Result<()> {
         Ok(())
     }
 
+    #[test]
     #[ignore]
     fn test_plus_at_start_and_end_of_keybind() -> std::io::Result<()> {
         Ok(())
@@ -629,6 +636,7 @@ k
     // Bracket expansion example:
     // `super + ctrl + {h,j,k,l}`
     // `    bspc node -p {westh,south,north,west}`
+    #[test]
     #[ignore]
     fn test_bracket_expansion() -> std::io::Result<()> {
         Ok(())
@@ -636,31 +644,37 @@ k
 
     // `super + {1-9}`
     // `    bspc desktop -f '^{1-9}'`
+    #[test]
     #[ignore]
     fn test_bracket_expansion_numbers() -> std::io::Result<()> {
         Ok(())
     }
 
+    #[test]
     #[ignore]
     fn test_unclosed_bracket_in_binding() -> std::io::Result<()> {
         Ok(())
     }
 
+    #[test]
     #[ignore]
     fn test_bracket_in_binding_but_not_in_command() -> std::io::Result<()> {
         Ok(())
     }
 
+    #[test]
     #[ignore]
     fn test_bracket_non_matching_counts() -> std::io::Result<()> {
         Ok(())
     }
 
+    #[test]
     #[ignore]
     fn test_multiple_brackets() -> std::io::Result<()> {
         Ok(())
     }
 
+    #[test]
     #[ignore]
     fn test_multiple_brackets_only_one_in_command() -> std::io::Result<()> {
         Ok(())
