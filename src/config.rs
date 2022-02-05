@@ -118,15 +118,11 @@ fn parse_contents(contents: String) -> Result<Vec<Hotkey>, Error> {
         let mut keysyms: Vec<evdev::Key> = Vec::new();
 
         if key_to_evdev_key.contains_key(lines[i].trim()) {
-            // If the keybind line is at the very last line,
-            // it's impossible for there to be a command
+            // Error if keybind line is at the very last line
+            // ( It's impossible for there to be a command )
             if i >= lines.len() - 1 {
                 return Err(Error::InvalidConfig(ParseError::MissingCommand(real_line_no)));
             }
-
-            // Translate keypress into evdev key
-            let keysym = key_to_evdev_key.get(lines[i].trim()).unwrap();
-            keysyms.push(*keysym);
 
             // Error if empty command
             if lines[i + 1].trim().is_empty() {
@@ -139,6 +135,10 @@ fn parse_contents(contents: String) -> Result<Vec<Hotkey>, Error> {
                     real_line_no + 1,
                 )));
             }
+
+            // Translate keypress into evdev key
+            let keysym = key_to_evdev_key.get(lines[i].trim()).unwrap();
+            keysyms.push(*keysym);
 
             // Parse the command, also handling multiline commands
             let mut command = String::new();
