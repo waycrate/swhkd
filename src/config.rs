@@ -131,9 +131,7 @@ fn parse_contents(contents: String) -> Result<Vec<Hotkey>, Error> {
 
             //// Find the command
             if lines[i + 1].trim().is_empty() {
-                return Err(Error::InvalidConfig(ParseError::MissingCommand(
-                            real_line_no + 1
-                            )));
+                return Err(Error::InvalidConfig(ParseError::MissingCommand(real_line_no + 1)));
             }
 
             let command = lines[i + 1];
@@ -587,7 +585,7 @@ super + minus
         Ok(())
     }
 
-    #[ignore]
+    #[test]
     fn test_multiline_command() -> std::io::Result<()> {
         let contents = "
 k
