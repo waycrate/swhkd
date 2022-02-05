@@ -110,6 +110,11 @@ fn parse_keybind(line: &str, line_nr: u32,
         modifiers.push(*mod_to_mod_enum.get(tokens[i]).unwrap());
     }
 
+    let modifiers: Vec<Modifier> = tokens[0..(tokens.len() - 1)]
+        .iter()
+        .map(|token| *mod_to_mod_enum.get(token).unwrap())
+        .collect();
+
     Ok((*keysym, modifiers))
 }
 
