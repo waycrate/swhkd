@@ -156,6 +156,13 @@ fn parse_contents(contents: String) -> Result<Vec<Hotkey>, Error> {
         ("8", evdev::Key::KEY_8),
         ("9", evdev::Key::KEY_9),
         ("0", evdev::Key::KEY_0),
+        ("Escape", evdev::Key::KEY_ESC),
+        ("BackSpace", evdev::Key::KEY_BACKSPACE),
+        ("Return", evdev::Key::KEY_ENTER),
+        ("Tab", evdev::Key::KEY_TAB),
+        ("minus", evdev::Key::KEY_MINUS),
+        ("equal", evdev::Key::KEY_EQUAL),
+        ("grave", evdev::Key::KEY_GRAVE),
     ]);
 
     let mod_to_mod_enum: HashMap<&str, Modifier> = HashMap::from([
