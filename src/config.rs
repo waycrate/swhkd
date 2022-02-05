@@ -161,9 +161,7 @@ fn parse_contents(contents: String) -> Result<Vec<Hotkey>, Error> {
                 if let Some(key) = key_to_evdev_key.get(keysym) {
                     current_hotkey.keysyms.push(*key);
                 } else {
-                    return Err(Error::InvalidConfig(ParseError::UnknownSymbol(
-                        line_number + 1,
-                    )));
+                    return Err(Error::InvalidConfig(ParseError::UnknownSymbol(line_number + 1)));
                 }
             }
             if let Some(next_line) = actual_lines.get(i + 1) {
@@ -178,4 +176,53 @@ fn parse_contents(contents: String) -> Result<Vec<Hotkey>, Error> {
         }
     }
     Ok(hotkeys)
+}
+
+#[test]
+
+fn test_parse_config() {
+    let contents = "
+# This is a comment
+
+a + b+c
+  firefox
+
+d
+  brave
+
+e \
++f\
++g
+
+  chrome
+  #comment
+    command to be ignored
+
+h
+    #no command
+i
+    ";
+    let hotkeys = parse_contents(contents.to_string()).unwrap();
+    assert_eq!(hotkeys.len(), 5);
+    assert_eq!(hotkeys[0].keysyms, vec![evdev::Key::KEY_A, evdev::Key::KEY_B, evdev::Key::KEY_C]);
+    assert_eq!(hotkeys[0].command, "firefox".to_string());
+    assert_eq!(hotkeys[1].keysyms, vec![evdev::Key::KEY_D]);
+    assert_eq!(hotkeys[1].command, "brave".to_string());
+    assert_eq!(hotkeys[2].keysyms, vec![evdev::Key::KEY_E, evdev::Key::KEY_F, evdev::Key::KEY_G]);
+    assert_eq!(hotkeys[2].command, "chrome".to_string());
+    assert_eq!(hotkeys[3].keysyms, vec![evdev::Key::KEY_H]);
+    assert_eq!(hotkeys[3].command, "".to_string());
+    assert_eq!(hotkeys[4].keysyms, vec![evdev::Key::KEY_I]);
+    assert_eq!(hotkeys[4].command, "".to_string());
+}
+
+#[test]
+
+fn test_invalid_key() {
+    let contents = "
+invalid + a
+    firefox
+    ";
+    let hotkeys = parse_contents(contents.to_string());
+    assert!(hotkeys.is_err());
 }

@@ -7,6 +7,8 @@ use std::{
 };
 use sysinfo::{ProcessExt, System, SystemExt};
 
+mod config;
+
 fn main() -> std::io::Result<()> {
     env::set_var("RUST_LOG", "swhks=trace");
     env_logger::init();
