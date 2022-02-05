@@ -113,6 +113,14 @@ fn parse_contents(contents: String) -> Result<Vec<Hotkey>, Error> {
         ("0", evdev::Key::KEY_0),
     ]);
 
+    let mod_to_mod_enum: HashMap<&str, Modifier> = HashMap::from([
+        ("ctrl", Modifier::Control),
+        ("control", Modifier::Control),
+        ("super", Modifier::Super),
+        ("alt", Modifier::Alt),
+        ("shift", Modifier::Shift),
+    ]);
+
     let lines: Vec<&str> = contents.split('\n').collect();
     let mut hotkeys: Vec<Hotkey> = Vec::new();
 
@@ -135,56 +143,56 @@ fn parse_contents(contents: String) -> Result<Vec<Hotkey>, Error> {
         // in a file are of course counted from 1
         let real_line_no: u32 = (i + 1).try_into().unwrap();
 
-        if key_to_evdev_key.contains_key(lines[i].trim()) {
-            // Error if keybind line is at the very last line
-            // ( It's impossible for there to be a command )
-            if i >= lines.len() - 1 {
-                return Err(Error::InvalidConfig(ParseError::MissingCommand(real_line_no)));
-            }
-
-            // Error if empty command
-            if lines[i + 1].trim().is_empty() {
-                return Err(Error::InvalidConfig(ParseError::MissingCommand(real_line_no + 1)));
-            }
-
-            // Error if the command doesn't start with whitespace
-            if !lines[i + 1].starts_with(' ') && !lines[i + 1].starts_with('\t') {
-                return Err(Error::InvalidConfig(ParseError::CommandWithoutWhitespace(
-                    real_line_no + 1,
-                )));
-            }
-
-            // Translate keypress into evdev key
-            let keysym = key_to_evdev_key.get(lines[i].trim()).unwrap();
-
-            // Parse the command, also handling multiline commands
-            let mut command = String::new();
-            let mut j = i + 1;
-            loop {
-                if !command.is_empty() {
-                    command.push(' ');
-                }
-
-                command.push_str(lines[j].trim_end_matches('\\')
-                                         .trim());
-
-                if lines[j].ends_with('\\') {
-                    j += 1;
-                    lines_to_skip += 1;
-                    continue;
-                }
-                break;
-            }
-
-            // Push a new hotkey to the hotkeys vector
-            hotkeys.push(Hotkey::new(*keysym, vec![], String::from(command.trim())));
-
-            // Skip trying to parse the next line (command)
-            // because we already dealt with it
-            lines_to_skip += 1;
-        } else {
+        if !key_to_evdev_key.contains_key(lines[i].trim()) {
             return Err(Error::InvalidConfig(ParseError::UnknownSymbol(real_line_no)));
         }
+
+        // Error if keybind line is at the very last line
+        // ( It's impossible for there to be a command )
+        if i >= lines.len() - 1 {
+            return Err(Error::InvalidConfig(ParseError::MissingCommand(real_line_no)));
+        }
+
+        // Error if empty command
+        if lines[i + 1].trim().is_empty() {
+            return Err(Error::InvalidConfig(ParseError::MissingCommand(real_line_no + 1)));
+        }
+
+        // Error if the command doesn't start with whitespace
+        if !lines[i + 1].starts_with(' ') && !lines[i + 1].starts_with('\t') {
+            return Err(Error::InvalidConfig(ParseError::CommandWithoutWhitespace(
+                real_line_no + 1,
+            )));
+        }
+
+        // Translate keypress into evdev key
+        let keysym = key_to_evdev_key.get(lines[i].trim()).unwrap();
+
+        // Parse the command, also handling multiline commands
+        let mut command = String::new();
+        let mut j = i + 1;
+        loop {
+            if !command.is_empty() {
+                command.push(' ');
+            }
+
+            command.push_str(lines[j].trim_end_matches('\\')
+                                     .trim());
+
+            if lines[j].ends_with('\\') {
+                j += 1;
+                lines_to_skip += 1;
+                continue;
+            }
+            break;
+        }
+
+        // Push a new hotkey to the hotkeys vector
+        hotkeys.push(Hotkey::new(*keysym, vec![], String::from(command.trim())));
+
+        // Skip trying to parse the next line (command)
+        // because we already dealt with it
+        lines_to_skip += 1;
     }
 
     Ok(hotkeys)
@@ -435,6 +443,7 @@ shift + k +
                                  ParseError::UnknownSymbol(2))
     }
 
+    #[test]
     fn test_common_modifiers() -> std::io::Result<()> {
         let contents = "
 shift + k
@@ -620,7 +629,6 @@ WE WISH YOU A MERRY RUSTMAS
     }
 
     #[test]
-    #[ignore]
     fn test_real_config_snippet() -> std::io::Result<()> {
         let contents = "
 # reloads sxhkd configuration:
