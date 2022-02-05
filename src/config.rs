@@ -128,18 +128,35 @@ fn parse_contents(contents: String) -> Result<Vec<Hotkey>, Error> {
             let keysym = key_to_evdev_key.get(lines[i].trim()).unwrap();
             keysyms.push(*keysym);
 
-            //// Find the command
+            // Error if empty command
             if lines[i + 1].trim().is_empty() {
                 return Err(Error::InvalidConfig(ParseError::MissingCommand(real_line_no + 1)));
             }
 
-            let command = lines[i + 1];
-
             // Error if the command doesn't start with whitespace
-            if !command.starts_with(' ') && !command.starts_with('\t') {
+            if !lines[i + 1].starts_with(' ') && !lines[i + 1].starts_with('\t') {
                 return Err(Error::InvalidConfig(ParseError::CommandWithoutWhitespace(
                     real_line_no + 1,
                 )));
+            }
+
+            // Parse the command, also handling multiline commands
+            let mut command = String::new();
+            let mut j = i + 1;
+            loop {
+                if !command.is_empty() {
+                    command.push(' ');
+                }
+
+                command.push_str(lines[j].trim_end_matches('\\')
+                                         .trim());
+
+                if lines[j].ends_with('\\') {
+                    j += 1;
+                    lines_to_skip += 1;
+                    continue;
+                }
+                break;
             }
 
             // Push a new hotkey to the hotkeys vector
@@ -599,7 +616,9 @@ k
 
         let real_keybind = parse_contents(contents.to_string());
 
-        assert!(real_keybind.is_ok());
+        if real_keybind.is_err() {
+            panic!("Expected Ok, found {:?}", real_keybind.unwrap_err());
+        }
 
         let real_keybind = real_keybind.unwrap();
 
