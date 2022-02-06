@@ -1,7 +1,10 @@
 use clap::{arg, App};
-use evdev::{Device, Key};
+use evdev::{AttributeSet, Device, Key};
 use nix::unistd::{Group, Uid};
-use std::{env, io::prelude::*, os::unix::net::UnixStream, path::Path, process::exit};
+use std::{
+    env, io::prelude::*, os::unix::net::UnixStream, path::Path, process::exit, thread::sleep,
+    time::Duration,
+};
 
 mod config;
 
@@ -30,18 +33,6 @@ pub fn main() {
         exit(1);
     }
 
-    let hotkeys = match config::load(config_file_path) {
-        Err(e) => {
-            log::error!("Error: failed to parse config file.");
-            exit(1);
-        }
-        Ok(out) => out,
-    };
-
-    for hotkey in hotkeys {
-        log::debug!("hotkey: {:#?}", hotkey);
-    }
-
     log::trace!("Attempting to find all keyboard file descriptors.");
     let mut keyboard_devices: Vec<Device> = Vec::new();
     for (_, device) in evdev::enumerate().enumerate() {
@@ -55,6 +46,19 @@ pub fn main() {
         exit(1);
     }
     log::debug!("{} Keyboard device(s) detected.", keyboard_devices.len());
+
+    let hotkeys = match config::load(config_file_path) {
+        Err(e) => {
+            log::error!("Error: failed to parse config file.");
+            exit(1);
+        }
+        Ok(out) => out,
+    };
+
+    for hotkey in &hotkeys {
+        log::debug!("hotkey: {:#?}", hotkey);
+    }
+
     match sock_send("notify-send hello world") {
         Err(e) => {
             log::error!("Failed to send command over IPC.");
@@ -63,8 +67,28 @@ pub fn main() {
         }
         _ => {}
     };
-}
 
+    let mut key_states: Vec<AttributeSet<Key>> = Vec::new();
+    let mut possible_hotkeys: Vec<config::Hotkey> = Vec::new();
+    loop {
+        for device in &keyboard_devices {
+            key_states.push(device.get_key_state().unwrap());
+        }
+
+        for state in &key_states {
+            for hotkey in &hotkeys {
+                if state.iter().count() == hotkey.modifiers.len() + 1 {
+                    possible_hotkeys.push(hotkey.clone());
+                }
+            }
+        }
+
+        log::debug!("{:#?}", possible_hotkeys);
+        key_states.clear();
+        possible_hotkeys.clear();
+        sleep(Duration::from_millis(200)); // without this, swhkd will start to chew through your cpu.
+    }
+}
 pub fn permission_check() {
     if !Uid::current().is_root() {
         let groups = nix::unistd::getgroups();

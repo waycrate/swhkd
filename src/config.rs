@@ -29,7 +29,7 @@ impl From<std::io::Error> for Error {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Hotkey {
     pub keysym: evdev::Key,
     pub modifiers: Vec<Modifier>,
