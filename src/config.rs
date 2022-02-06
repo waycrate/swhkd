@@ -15,8 +15,6 @@ pub enum Error {
 pub enum ParseError {
     // u32 is the line number where an error occured
     UnknownSymbol(u32),
-    MissingCommand(u32),
-    CommandWithoutWhitespace(u32),
     InvalidModifier(u32),
     InvalidKeysym(u32),
 }
@@ -169,6 +167,22 @@ fn parse_contents(contents: String) -> Result<Vec<Hotkey>, Error> {
     ]);
 
     let lines: Vec<&str> = contents.split('\n').collect();
+
+    // Go through each line, ignore comments and empty lines, mark lines starting with whitespace
+    // as commands, and mark the other lines as keysyms. Mark means storing a line's type and the
+    // line number in a vector.
+    let mut lines_with_types: Vec<(&str, u32)> = Vec::new();
+    for (line_number, line) in lines.iter().enumerate() {
+        if line.trim().starts_with('#') || line.trim().is_empty() {
+            continue;
+        }
+        if line.starts_with(' ') || line.starts_with('\t') {
+            lines_with_types.push(("command", line_number as u32));
+        } else {
+            lines_with_types.push(("keysym", line_number as u32));
+        }
+    }
+
     let mut hotkeys: Vec<Hotkey> = Vec::new();
 
     let mut lines_to_skip: u32 = 0;
@@ -192,16 +206,6 @@ fn parse_contents(contents: String) -> Result<Vec<Hotkey>, Error> {
 
         let (keysym, modifiers) =
             parse_keybind(lines[i], real_line_no, &key_to_evdev_key, &mod_to_mod_enum)?;
-
-        // Error if the command doesn't start with whitespace
-        // OR is not a blank command
-        // if (!lines[i + 1].starts_with(' ') && !lines[i + 1].starts_with('\t'))
-        //     && !lines[i + 1].trim().is_empty()
-        // {
-        //     return Err(Error::InvalidConfig(ParseError::CommandWithoutWhitespace(
-        //         real_line_no + 1,
-        //     )));
-        // }
 
         // Parse the command, also handling multiline commands
         let mut command = String::new();
