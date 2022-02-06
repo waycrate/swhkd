@@ -80,19 +80,19 @@ fn parse_keybind(
     key_to_evdev_key: &HashMap<&str, evdev::Key>,
     mod_to_mod_enum: &HashMap<&str, Modifier>,
 ) -> Result<(evdev::Key, Vec<Modifier>), Error> {
-    let tokens: Vec<&str> = line.split('+').map(|token| token.trim()).collect();
+    let tokens: Vec<String> = line.split('+').map(|s| s.trim().to_lowercase()).collect();
     let last_token = tokens.last().unwrap().trim();
 
     // Check if each token is valid
     for token in &tokens {
-        if key_to_evdev_key.contains_key(token) {
+        if key_to_evdev_key.contains_key(token.as_str()) {
             // Can't have a key that's like a modifier
-            if token != &last_token {
+            if token != last_token {
                 return Err(Error::InvalidConfig(ParseError::InvalidModifier(line_nr)));
             }
-        } else if mod_to_mod_enum.contains_key(token) {
+        } else if mod_to_mod_enum.contains_key(token.as_str()) {
             // Can't have a modifier that's like a modifier
-            if token == &last_token {
+            if token == last_token {
                 return Err(Error::InvalidConfig(ParseError::InvalidKeysym(line_nr)));
             }
         } else {
@@ -105,7 +105,7 @@ fn parse_keybind(
 
     let modifiers: Vec<Modifier> = tokens[0..(tokens.len() - 1)]
         .iter()
-        .map(|token| *mod_to_mod_enum.get(token).unwrap())
+        .map(|token| *mod_to_mod_enum.get(token.as_str()).unwrap())
         .collect();
 
     Ok((*keysym, modifiers))
@@ -149,10 +149,10 @@ fn parse_contents(contents: String) -> Result<Vec<Hotkey>, Error> {
         ("8", evdev::Key::KEY_8),
         ("9", evdev::Key::KEY_9),
         ("0", evdev::Key::KEY_0),
-        ("Escape", evdev::Key::KEY_ESC),
-        ("BackSpace", evdev::Key::KEY_BACKSPACE),
-        ("Return", evdev::Key::KEY_ENTER),
-        ("Tab", evdev::Key::KEY_TAB),
+        ("escape", evdev::Key::KEY_ESC),
+        ("backspace", evdev::Key::KEY_BACKSPACE),
+        ("return", evdev::Key::KEY_ENTER),
+        ("tab", evdev::Key::KEY_TAB),
         ("minus", evdev::Key::KEY_MINUS),
         ("equal", evdev::Key::KEY_EQUAL),
         ("grave", evdev::Key::KEY_GRAVE),
@@ -232,56 +232,6 @@ fn parse_contents(contents: String) -> Result<Vec<Hotkey>, Error> {
         }
     }
     Ok(hotkeys)
-
-    // let mut lines_to_skip: u32 = 0;
-
-    // // Parse file line-by-line
-    // for i in 0..lines.len() {
-    //     if lines_to_skip > 0 {
-    //         lines_to_skip -= 1;
-    //         continue;
-    //     }
-
-    //     // Ignore blank lines and comments starting with #
-    //     if lines[i].trim().is_empty() || lines[i].trim().starts_with('#') {
-    //         continue;
-    //     }
-
-    //     // We need to get the real line number for errors
-    //     // because arrays in Rust are zero-index while lines
-    //     // in a file are of course counted from 1
-    //     let real_line_no: u32 = (i + 1).try_into().unwrap();
-
-    //     let (keysym, modifiers) =
-    //         parse_keybind(lines[i], real_line_no, &key_to_evdev_key, &mod_to_mod_enum)?;
-
-    //     // Parse the command, also handling multiline commands
-    //     let mut command = String::new();
-    //     let mut j = i + 1;
-    //     loop {
-    //         if !command.is_empty() {
-    //             command.push(' ');
-    //         }
-
-    //         command.push_str(lines[j].trim_end_matches('\\').trim());
-
-    //         if lines[j].ends_with('\\') {
-    //             j += 1;
-    //             lines_to_skip += 1;
-    //             continue;
-    //         }
-    //         break;
-    //     }
-
-    //     // Push a new hotkey to the hotkeys vector
-    //     hotkeys.push(Hotkey::new(keysym, modifiers, String::from(command.trim())));
-
-    //     // Skip trying to parse the next line (command)
-    //     // because we already dealt with it
-    //     lines_to_skip += 1;
-    // }
-
-    // Ok(hotkeys)
 }
 
 #[cfg(test)]
@@ -853,6 +803,27 @@ k
             keysyms.iter().map(|keysym| Hotkey::new(*keysym, vec![], "st".to_string())).collect();
 
         eval_config_test(contents, expected_result)
+    }
+
+    #[test]
+    fn test_case_insensitive() -> std::io::Result<()> {
+        let contents = "
+Super + SHIFT + alt + a
+    st
+ReTurn
+    ts
+            ";
+        eval_config_test(
+            contents,
+            vec![
+                Hotkey::new(
+                    evdev::Key::KEY_A,
+                    vec![Modifier::Super, Modifier::Shift, Modifier::Alt],
+                    "st".to_string(),
+                ),
+                Hotkey::new(evdev::Key::KEY_ENTER, vec![], "ts".to_string()),
+            ],
+        )
     }
 
     #[test]
