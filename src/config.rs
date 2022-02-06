@@ -845,10 +845,18 @@ ReTurn
 super + a
     st
 suPer +   A
-    ts";
+    ts
+b    
+    st
+B
+    ts
+";
         eval_config_test(
             contents,
-            vec![Hotkey::new(evdev::Key::KEY_A, vec![Modifier::Super], "st".to_string())],
+            vec![
+                Hotkey::new(evdev::Key::KEY_A, vec![Modifier::Super], "st".to_string()),
+                Hotkey::new(evdev::Key::KEY_B, vec![], "st".to_string()),
+            ],
         )
     }
 
