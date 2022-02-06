@@ -3,6 +3,8 @@ use evdev::{Device, Key};
 use nix::unistd;
 use std::{env, io::prelude::*, os::unix::net::UnixStream, path::Path, process::exit};
 
+mod config;
+
 pub fn main() {
     let args = set_flags().get_matches();
     env::set_var("RUST_LOG", "swhkd=warn");
@@ -26,6 +28,26 @@ pub fn main() {
     if !config_file_path.exists() {
         log::error!("{:#?} doesn't exist", config_file_path);
         exit(1);
+    }
+
+    let hotkeys = match config::load(config_file_path) {
+        Err(e) => {
+            log::error!("Error: failed to parse config file.");
+            exit(1);
+        }
+        Ok(out) => out,
+    };
+
+    for hotkey in hotkeys {
+        // for keysym in hotkey.keysym{
+        //     log::debug!("Keysym: {:#?}", keysym);
+        // }
+        log::debug!("Keysym: {:#?}", hotkey.keysym);
+
+        for modifier in hotkey.modifiers {
+            log::debug!("Modifier: {:#?}", modifier);
+        }
+        log::debug!("Command: {:#?}", hotkey.command);
     }
 
     log::trace!("Attempting to find all keyboard file descriptors.");

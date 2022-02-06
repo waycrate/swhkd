@@ -39,5 +39,5 @@ https://discord.gg/KKZRDYrRYW
 ## Contributors:
 
 <a href="https://github.com/Shinyzenith/swhkd/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=Shinyzenith/swhkd" />
+  <img src="https://contrib.rocks/image?repo=waycrate/swhkd" />
 </a>
