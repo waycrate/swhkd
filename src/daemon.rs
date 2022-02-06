@@ -30,26 +30,6 @@ pub fn main() {
         exit(1);
     }
 
-    let hotkeys = match config::load(config_file_path) {
-        Err(e) => {
-            log::error!("Error: failed to parse config file.");
-            exit(1);
-        }
-        Ok(out) => out,
-    };
-
-    for hotkey in hotkeys {
-        // for keysym in hotkey.keysym{
-        //     log::debug!("Keysym: {:#?}", keysym);
-        // }
-        log::debug!("Keysym: {:#?}", hotkey.keysym);
-
-        for modifier in hotkey.modifiers {
-            log::debug!("Modifier: {:#?}", modifier);
-        }
-        log::debug!("Command: {:#?}", hotkey.command);
-    }
-
     log::trace!("Attempting to find all keyboard file descriptors.");
     let mut keyboard_devices: Vec<Device> = Vec::new();
     for (_, device) in evdev::enumerate().enumerate() {
