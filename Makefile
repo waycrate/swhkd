@@ -1,12 +1,9 @@
 DAEMON_BINARY := swhkd
 SERVER_BINARY := swhks
-#DAEMON_MAN_PAGE := swhkd.1
-#SERVER_MAN_PAGE := swhks.1
 BUILDFLAGS := --release
 POLKIT_DIR := /etc/polkit-1/rules.d
 POLKIT_RULE := swhkd.rules
 TARGET_DIR := /usr/local/bin
-#MANPAGE_DIR := /usr/local/share/man/man1
 
 all: build
 
@@ -30,18 +27,11 @@ install:
 	@cp ./$(POLKIT_RULE) $(POLKIT_DIR)/$(POLKIT_RULE)
 	@chmod +x $(TARGET_DIR)/$(DAEMON_BINARY)
 	@chmod +x $(TARGET_DIR)/$(SERVER_BINARY)
-	@#@mkdir -p $(MANPAGE_DIR)
-	@#@cp ./docs/man/$(DAEMON_MAN_PAGE) $(MANPAGE_DIR)$(DAEMON_MAN_PAGE)
-	@#@cp ./docs/man/$(SERVER_MAN_PAGE) $(MANPAGE_DIR)$(SERVER_MAN_PAGE)
-	@#@chmod 755 $(MANPAGE_DIR)$(DAEMON_MAN_PAGE)
-	@#@chmod 755 $(MANPAGE_DIR)$(SERVER_MAN_PAGE)
 
 uninstall:
 	@rm $(TARGET_DIR)/$(SERVER_BINARY)
 	@rm $(TARGET_DIR)/$(DAEMON_BINARY)
 	@rm $(POLKIT_DIR)/$(POLKIT_RULE)
-	@# @rm $(MANPAGE_DIR)$(DAEMON_MAN_PAGE)
-	@# @rm $(MANPAGE_DIR)$(SERVER_MAN_PAGE)
 
 check:
 	@cargo fmt

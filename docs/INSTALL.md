@@ -1,7 +1,6 @@
 ## Installation
 
 `swhkd` and `swhks` install to `/usr/local/bin/` by default. You can change this behaviour by editing the [Makefile](../Makefile) variable, `TARGET_DIR`.
-The `man` pages (temporarily disabled), install to `/usr/local/share/man/man1` by default. You can change this behaviour by editing the [Makefile](../Makefile) variable, `MANPAGE_DIR`.
 
 # Dependencies:
 
