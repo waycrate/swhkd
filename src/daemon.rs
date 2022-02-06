@@ -1,6 +1,6 @@
 use clap::{arg, App};
 use evdev::{Device, Key};
-use nix::unistd;
+use nix::unistd::{Group, Uid};
 use std::{env, io::prelude::*, os::unix::net::UnixStream, path::Path, process::exit};
 
 mod config;
@@ -30,6 +30,18 @@ pub fn main() {
         exit(1);
     }
 
+    let hotkeys = match config::load(config_file_path) {
+        Err(e) => {
+            log::error!("Error: failed to parse config file.");
+            exit(1);
+        }
+        Ok(out) => out,
+    };
+
+    for hotkey in hotkeys {
+        log::debug!("hotkey: {:#?}", hotkey);
+    }
+
     log::trace!("Attempting to find all keyboard file descriptors.");
     let mut keyboard_devices: Vec<Device> = Vec::new();
     for (_, device) in evdev::enumerate().enumerate() {
@@ -54,11 +66,11 @@ pub fn main() {
 }
 
 pub fn permission_check() {
-    if !unistd::Uid::current().is_root() {
-        let groups = unistd::getgroups();
+    if !Uid::current().is_root() {
+        let groups = nix::unistd::getgroups();
         for (_, groups) in groups.iter().enumerate() {
             for group in groups {
-                let group = unistd::Group::from_gid(*group);
+                let group = Group::from_gid(*group);
                 if group.unwrap().unwrap().name == "input" {
                     log::error!("Note: INVOKING USER IS IN INPUT GROUP!!!!");
                     log::error!("THIS IS A HUGE SECURITY RISK!!!!");
