@@ -228,7 +228,20 @@ fn parse_contents(contents: String) -> Result<Vec<Hotkey>, Error> {
                 continue;
             }
 
-            hotkeys.push(Hotkey::new(keysym, modifiers, current_command));
+            // check if hotkeys already contains a hotkey with the same keysym and modifiers. If
+            // so, ignore this keysym.
+            let mut flag = false;
+            for hotkey in hotkeys.iter() {
+                if hotkey.keysym == keysym && hotkey.modifiers == modifiers {
+                    flag = true;
+                    break;
+                }
+            }
+            if flag {
+                continue;
+            } else {
+                hotkeys.push(Hotkey::new(keysym, modifiers, current_command));
+            }
         }
     }
     Ok(hotkeys)
@@ -823,6 +836,19 @@ ReTurn
                 ),
                 Hotkey::new(evdev::Key::KEY_ENTER, vec![], "ts".to_string()),
             ],
+        )
+    }
+
+    #[test]
+    fn test_duplicate_hotkeys() -> std::io::Result<()> {
+        let contents = "
+super + a
+    st
+suPer +   A
+    ts";
+        eval_config_test(
+            contents,
+            vec![Hotkey::new(evdev::Key::KEY_A, vec![Modifier::Super], "st".to_string())],
         )
     }
 
