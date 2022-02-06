@@ -210,55 +210,78 @@ fn parse_contents(contents: String) -> Result<Vec<Hotkey>, Error> {
 
     let mut hotkeys: Vec<Hotkey> = Vec::new();
 
-    let mut lines_to_skip: u32 = 0;
-
-    // Parse file line-by-line
-    for i in 0..lines.len() {
-        if lines_to_skip > 0 {
-            lines_to_skip -= 1;
-            continue;
-        }
-
-        // Ignore blank lines and comments starting with #
-        if lines[i].trim().is_empty() || lines[i].trim().starts_with('#') {
-            continue;
-        }
-
-        // We need to get the real line number for errors
-        // because arrays in Rust are zero-index while lines
-        // in a file are of course counted from 1
-        let real_line_no: u32 = (i + 1).try_into().unwrap();
-
-        let (keysym, modifiers) =
-            parse_keybind(lines[i], real_line_no, &key_to_evdev_key, &mod_to_mod_enum)?;
-
-        // Parse the command, also handling multiline commands
-        let mut command = String::new();
-        let mut j = i + 1;
-        loop {
-            if !command.is_empty() {
-                command.push(' ');
-            }
-
-            command.push_str(lines[j].trim_end_matches('\\').trim());
-
-            if lines[j].ends_with('\\') {
-                j += 1;
-                lines_to_skip += 1;
+    for (i, item) in actual_lines.iter().enumerate() {
+        let line_type = item.0;
+        let line_number = item.1;
+        let line = &item.2;
+        if line_type == "keysym" {
+            let mut current_command = String::new();
+            let (keysym, modifiers) =
+                parse_keybind(line, line_number + 1, &key_to_evdev_key, &mod_to_mod_enum)?;
+            if let Some(next_line) = actual_lines.get(i + 1) {
+                if next_line.0 == "command" {
+                    current_command.push_str(&next_line.2.clone());
+                } else {
+                    continue; // this should ignore keysyms that are not followed by a command
+                }
+            } else {
                 continue;
             }
-            break;
+
+            hotkeys.push(Hotkey::new(keysym, modifiers, current_command));
         }
-
-        // Push a new hotkey to the hotkeys vector
-        hotkeys.push(Hotkey::new(keysym, modifiers, String::from(command.trim())));
-
-        // Skip trying to parse the next line (command)
-        // because we already dealt with it
-        lines_to_skip += 1;
     }
-
     Ok(hotkeys)
+
+    // let mut lines_to_skip: u32 = 0;
+
+    // // Parse file line-by-line
+    // for i in 0..lines.len() {
+    //     if lines_to_skip > 0 {
+    //         lines_to_skip -= 1;
+    //         continue;
+    //     }
+
+    //     // Ignore blank lines and comments starting with #
+    //     if lines[i].trim().is_empty() || lines[i].trim().starts_with('#') {
+    //         continue;
+    //     }
+
+    //     // We need to get the real line number for errors
+    //     // because arrays in Rust are zero-index while lines
+    //     // in a file are of course counted from 1
+    //     let real_line_no: u32 = (i + 1).try_into().unwrap();
+
+    //     let (keysym, modifiers) =
+    //         parse_keybind(lines[i], real_line_no, &key_to_evdev_key, &mod_to_mod_enum)?;
+
+    //     // Parse the command, also handling multiline commands
+    //     let mut command = String::new();
+    //     let mut j = i + 1;
+    //     loop {
+    //         if !command.is_empty() {
+    //             command.push(' ');
+    //         }
+
+    //         command.push_str(lines[j].trim_end_matches('\\').trim());
+
+    //         if lines[j].ends_with('\\') {
+    //             j += 1;
+    //             lines_to_skip += 1;
+    //             continue;
+    //         }
+    //         break;
+    //     }
+
+    //     // Push a new hotkey to the hotkeys vector
+    //     hotkeys.push(Hotkey::new(keysym, modifiers, String::from(command.trim())));
+
+    //     // Skip trying to parse the next line (command)
+    //     // because we already dealt with it
+    //     lines_to_skip += 1;
+    // }
+
+    // Ok(hotkeys)
 }
 
 #[cfg(test)]
@@ -555,31 +578,7 @@ pesto
         eval_invalid_config_test(contents, ParseError::UnknownSymbol(5))
     }
 
-    #[ignore]
-    // if a line do not start with whitespace, it is treated as a key. So we'll expect a invalid key error here
-    fn test_command_without_whitespace() -> std::io::Result<()> {
-        let contents = "0
-    firefox
-
-1
-brave
-            ";
-
-        eval_invalid_config_test(contents, ParseError::UnknownSymbol(4))
-    }
-
-    // #[test]
-    // fn test_eofed_keybinding() -> std::io::Result<()> {
-    //     let contents = "
-    // k
-    // xbacklight -inc 10 -fps 30 -time 200
-
-    // c ";
-
-    //     eval_invalid_config_test(contents, ParseError::MissingCommand(5))
-    // }
-
-    #[ignore]
+    #[test]
     // keysyms not followed by command should be ignored
     fn test_no_command() -> std::io::Result<()> {
         let contents = "
@@ -607,8 +606,7 @@ WE WISH YOU A MERRY RUSTMAS
 
                     ";
 
-        assert!(parse_contents(contents.to_string()).is_err());
-        Ok(())
+        eval_invalid_config_test(contents, ParseError::UnknownSymbol(2))
     }
 
     #[test]
@@ -695,7 +693,7 @@ k
     gimp
                     ";
 
-        eval_invalid_config_test(contents, ParseError::UnknownSymbol(3))
+        eval_config_test(contents, vec![])
     }
 
     // TODO: Write these tests as needed.
