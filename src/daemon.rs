@@ -88,7 +88,7 @@ pub fn main() {
         log::debug!("{:#?}", possible_hotkeys);
         key_states.clear();
         possible_hotkeys.clear();
-        sleep(Duration::from_millis(200)); // without this, swhkd will start to chew through your cpu.
+        sleep(Duration::from_millis(10)); // without this, swhkd will start to chew through your cpu.
     }
 }
 pub fn permission_check() {
