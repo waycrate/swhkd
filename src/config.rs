@@ -229,7 +229,10 @@ i
     let hotkeys = parse_contents(contents.to_string()).unwrap();
     println!("{:?}", hotkeys);
     assert_eq!(hotkeys.len(), 3);
-    assert_eq!(hotkeys[0].keysyms, vec![evdev::Key::KEY_A, evdev::Key::KEY_B, evdev::Key::KEY_ENTER]);
+    assert_eq!(
+        hotkeys[0].keysyms,
+        vec![evdev::Key::KEY_A, evdev::Key::KEY_B, evdev::Key::KEY_ENTER]
+    );
     assert_eq!(hotkeys[0].modifiers, vec![Modifier::Super, Modifier::Alt, Modifier::Control]);
     assert_eq!(hotkeys[0].command, "firefox".to_string());
     assert_eq!(hotkeys[1].keysyms, vec![evdev::Key::KEY_D]);
