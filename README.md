@@ -4,11 +4,11 @@
   <p align=center>A next-generation hotkey daemon for Wayland/X11 written in Rust.</p>
   
   <p align="center">
-  <a href="./LICENSE.md"><img src="https://img.shields.io/github/license/shinyzenith/swhkd?style=flat-square&logo=appveyor"></a>
+  <a href="./LICENSE.md"><img src="https://img.shields.io/github/license/waycrate/swhkd?style=flat-square&logo=appveyor"></a>
   <img src="https://img.shields.io/badge/cargo-v0.1.0-green?style=flat-square&logo=appveyor">
-  <img src="https://img.shields.io/github/issues/shinyzenith/swhkd?style=flat-square&logo=appveyor">
-  <img src="https://img.shields.io/github/forks/shinyzenith/swhkd?style=flat-square&logo=appveyor">
-  <img src="https://img.shields.io/github/stars/shinyzenith/swhkd?style=flat-square&logo=appveyor">
+  <img src="https://img.shields.io/github/issues/waycrate/swhkd?style=flat-square&logo=appveyor">
+  <img src="https://img.shields.io/github/forks/waycrate/swhkd?style=flat-square&logo=appveyor">
+  <img src="https://img.shields.io/github/stars/waycrate/swhkd?style=flat-square&logo=appveyor">
   </p>
 </p>
 

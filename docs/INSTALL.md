@@ -16,7 +16,7 @@ The `man` pages (temporarily disabled), install to `/usr/local/share/man/man1` b
 
 # Compiling:
 
--   `git clone https://github.com/shinyzenith/swhkd`
+-   `git clone https://github.com/waycrate/swhkd`
 -   `make setup`
 -   `make clean`
     -   `make` for a musl compile.
