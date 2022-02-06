@@ -31,9 +31,9 @@ impl From<std::io::Error> for Error {
 
 #[derive(Debug)]
 pub struct Hotkey {
-    keysym: evdev::Key,
-    modifiers: Vec<Modifier>,
-    command: String,
+    pub keysym: evdev::Key,
+    pub modifiers: Vec<Modifier>,
+    pub command: String,
 }
 
 #[derive(Debug, PartialEq, Copy, Clone)]
