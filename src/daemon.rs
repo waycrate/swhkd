@@ -60,6 +60,7 @@ pub fn main() {
     }
 
     match sock_send("notify-send hello world") {
+        // testing .
         Err(e) => {
             log::error!("Failed to send command over IPC.");
             log::error!("Is swhks running?");
@@ -78,6 +79,7 @@ pub fn main() {
         for state in &key_states {
             for hotkey in &hotkeys {
                 if state.iter().count() == hotkey.modifiers.len() + 1 {
+                    // +1 Because we handle only 1 keysym.
                     possible_hotkeys.push(hotkey.clone());
                 }
             }
