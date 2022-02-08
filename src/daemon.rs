@@ -2,8 +2,8 @@ use clap::{arg, App};
 use evdev::{AttributeSet, Device, Key};
 use nix::unistd::{Group, Uid};
 use std::{
-    env, io::prelude::*, os::unix::net::UnixStream, path::Path, process::exit, thread::sleep,
-    time::Duration,
+    collections::HashMap, env, io::prelude::*, os::unix::net::UnixStream, path::Path,
+    process::exit, thread::sleep, time::Duration,
 };
 
 mod config;
@@ -48,7 +48,7 @@ pub fn main() {
     log::debug!("{} Keyboard device(s) detected.", keyboard_devices.len());
 
     let hotkeys = match config::load(config_file_path) {
-        Err(e) => {
+        Err(..) => {
             log::error!("Error: failed to parse config file.");
             exit(1);
         }
@@ -58,16 +58,39 @@ pub fn main() {
     for hotkey in &hotkeys {
         log::debug!("hotkey: {:#?}", hotkey);
     }
-
-    match sock_send("notify-send hello world") {
-        // testing .
-        Err(e) => {
-            log::error!("Failed to send command over IPC.");
-            log::error!("Is swhks running?");
-            log::error!("{:#?}", e)
-        }
-        _ => {}
+    if let Err(e) = sock_send("notify-send hello world") {
+        log::error!("Failed to send command over IPC.");
+        log::error!("Is swhks running?");
+        log::error!("{:#?}", e)
     };
+
+    // Super,
+    // Hyper,
+    // Meta,
+    // Alt,
+    // Control,
+    // Shift,
+    // ModeSwitch,
+    // Lock,
+    // Mod1,
+    // Mod2,
+    // Mod3,
+    // Mod4,
+    // Mod5,
+
+    //a hashmap that map evdev:Key to enum modifiers
+    let modifiers_map: HashMap<Key, config::Modifier> = HashMap::from([
+        (Key::KEY_LEFTMETA, config::Modifier::Super),
+        (Key::KEY_RIGHTMETA, config::Modifier::Super),
+        (Key::KEY_LEFTMETA, config::Modifier::Super),
+        (Key::KEY_RIGHTMETA, config::Modifier::Super),
+        (Key::KEY_LEFTALT, config::Modifier::Alt),
+        (Key::KEY_RIGHTALT, config::Modifier::Alt),
+        (Key::KEY_LEFTCTRL, config::Modifier::Control),
+        (Key::KEY_RIGHTCTRL, config::Modifier::Control),
+        (Key::KEY_LEFTSHIFT, config::Modifier::Shift),
+        (Key::KEY_RIGHTSHIFT, config::Modifier::Shift),
+    ]);
 
     let mut key_states: Vec<AttributeSet<Key>> = Vec::new();
     let mut possible_hotkeys: Vec<config::Hotkey> = Vec::new();
@@ -75,17 +98,42 @@ pub fn main() {
         for device in &keyboard_devices {
             key_states.push(device.get_key_state().unwrap());
         }
-
+        // check if a hotkey in hotkeys is pressed
         for state in &key_states {
             for hotkey in &hotkeys {
-                if state.iter().count() == hotkey.modifiers.len() + 1 {
-                    // +1 Because we handle only 1 keysym.
+                if hotkey.modifiers.len() < state.iter().count() {
                     possible_hotkeys.push(hotkey.clone());
+                } else {
+                    continue;
+                }
+            }
+            if !possible_hotkeys.is_empty() {
+                let mut state_modifiers: Vec<config::Modifier> = Vec::new();
+                let mut state_keysyms: Vec<evdev::Key> = Vec::new();
+                for key in state.iter() {
+                    if let Some(modifier) = modifiers_map.get(&key) {
+                        state_modifiers.push(*modifier);
+                    } else {
+                        state_keysyms.push(key);
+                    }
+                }
+                log::debug!("state_modifiers: {:#?}", state_modifiers);
+                log::debug!("state_keysyms: {:#?}", state_keysyms);
+                log::debug!("hotkey: {:#?}", possible_hotkeys);
+                for hotkey in &possible_hotkeys {
+                    if state_modifiers == hotkey.modifiers && state_keysyms.contains(&hotkey.keysym)
+                    {
+                        log::info!("Hotkey pressed: {:#?}", hotkey);
+                        if let Err(e) = sock_send(&hotkey.command) {
+                            log::error!("Failed to send command over IPC.");
+                            log::error!("Is swhks running?");
+                            log::error!("{:#?}", e)
+                        }
+                    }
                 }
             }
         }
 
-        log::debug!("{:#?}", possible_hotkeys);
         key_states.clear();
         possible_hotkeys.clear();
         sleep(Duration::from_millis(10)); // without this, swhkd will start to chew through your cpu.
