@@ -42,7 +42,7 @@ pkexec killall swhkd
 pkexec swhkd
 ```
 
-Then call it using `setsid -f sh <path_to_refres_script>`. 
+Then call it using `setsid -f sh <path_to_refresh_script>`. 
 
 A better implementation using signals will be developed later.
 
