@@ -230,7 +230,7 @@ pub fn set_flags() -> App<'static> {
             arg!(-C --cooldown <COOLDOWN_IN_MS>)
                 .required(false)
                 .takes_value(true)
-                .help("Set a custom repeat cooldown duration."),
+                .help("Set a custom repeat cooldown duration. Default is 250ms."),
         )
         .arg(arg!(-d - -debug).required(false).help("Enable debug mode."));
     app

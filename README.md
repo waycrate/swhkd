@@ -22,7 +22,8 @@ It is also attempts to be a drop-in replacement for sxhkd, meaning, your sxhkd c
 
 Because swhkd can be used anywhere, the same swhkd config can be used across Xorg or Wayland desktops, and you can even use swhkd in a tty.
 
-**Note: The project isn't complete yet.**
+**Note: The project is a WIP.**
+**BUT!! It does work right now however it's not a drop-in replacement yet. [Example config file](./docs/swhkdrc).**
 
 ## Installation
 

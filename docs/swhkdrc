@@ -1,0 +1,13 @@
+# This goes in /etc/swhkd/swhkdrc
+
+# terminal
+super + ReTuRn
+	alacritty
+
+# file manager
+super + shift + f
+	pcmanfm
+
+# web-browser
+super + w 
+	firefox
