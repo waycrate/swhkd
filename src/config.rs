@@ -1,8 +1,7 @@
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::Read;
-use std::io::Write;
-use std::{fs, path};
+use std::path;
 
 #[derive(Debug)]
 pub enum Error {
@@ -303,6 +302,8 @@ fn parse_contents(contents: String) -> Result<Vec<Hotkey>, Error> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs;
+    use std::io::Write;
 
     // Implement a struct for a path used in tests
     // so that the test file will be automatically removed
