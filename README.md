@@ -31,7 +31,7 @@ See [INSTALL.md](./docs/INSTALL.md) for installing swhkd.
 
 ## Running:
 ```bash
-swhks &
+swhkd &
 pkexec swhkd
 ```
 To refresh the config at runtime, make a script like so:
