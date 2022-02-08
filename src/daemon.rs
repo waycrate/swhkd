@@ -122,7 +122,8 @@ pub fn main() {
                 log::debug!("hotkey: {:#?}", possible_hotkeys);
                 for hotkey in &possible_hotkeys {
                     // this should check if state_modifiers and hotkey.modifiers have the same elements
-                    if state_modifiers.iter().all(|x| hotkey.modifiers.contains(x)) && state_keysyms.contains(&hotkey.keysym)
+                    if state_modifiers.iter().all(|x| hotkey.modifiers.contains(x))
+                        && state_keysyms.contains(&hotkey.keysym)
                     {
                         log::info!("Hotkey pressed: {:#?}", hotkey);
                         if let Err(e) = sock_send(&hotkey.command) {
