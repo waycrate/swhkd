@@ -30,8 +30,10 @@ Because swhkd can be used anywhere, the same swhkd config can be used across Xor
 See [INSTALL.md](./docs/INSTALL.md) for installing swhkd.
 
 ## Running:
-`swhks`
+`swhks
+`
 `pkexec swhkd`
+
 To refresh the config at runtime, make a script like so:
 
 ```bash
@@ -40,7 +42,9 @@ pkexec killall swhkd
 pkexec swhkd
 ```
 
-Then call it using `setsid -f sh <path_to_refres_script>`. A better implementation using signals will be developed later.
+Then call it using `setsid -f sh <path_to_refres_script>`. 
+
+A better implementation using signals will be developed later.
 
 ## Support server:
 
