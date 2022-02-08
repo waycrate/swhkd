@@ -38,11 +38,13 @@ To refresh the config at runtime, make a script like so:
 
 ```bash
 #!/bin/sh
-pkexec killall swhkd
+sudo killall swhkd
 pkexec swhkd
 ```
 
-Then call it using `setsid -f sh <path_to_refresh_script>`. 
+Mark it as executeable using `chmod +x <path_to_refresh_script>`.
+
+Then call it using `setsid -f <path_to_refresh_script>`. 
 
 A better implementation using signals will be developed later.
 
