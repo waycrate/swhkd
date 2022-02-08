@@ -80,6 +80,7 @@ fn parse_keybind(
     key_to_evdev_key: &HashMap<&str, evdev::Key>,
     mod_to_mod_enum: &HashMap<&str, Modifier>,
 ) -> Result<(evdev::Key, Vec<Modifier>), Error> {
+    let line = line.split('#').next().unwrap();
     let tokens: Vec<String> = line.split('+').map(|s| s.trim().to_lowercase()).collect();
     let last_token = tokens.last().unwrap().trim();
 
@@ -856,6 +857,28 @@ B
             vec![
                 Hotkey::new(evdev::Key::KEY_A, vec![Modifier::Super], "st".to_string()),
                 Hotkey::new(evdev::Key::KEY_B, vec![], "st".to_string()),
+            ],
+        )
+    }
+
+    #[test]
+    fn test_inline_comment() -> std::io::Result<()> {
+        let contents = "
+super + a #comment and comment super
+    st
+super + shift + b
+    ts #this comment should be handled by shell
+"
+        .to_string();
+        eval_config_test(
+            &contents,
+            vec![
+                Hotkey::new(evdev::Key::KEY_A, vec![Modifier::Super], "st".to_string()),
+                Hotkey::new(
+                    evdev::Key::KEY_B,
+                    vec![Modifier::Super, Modifier::Shift],
+                    "ts #this comment should be handled by shell".to_string(),
+                ),
             ],
         )
     }
