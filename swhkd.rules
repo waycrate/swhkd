@@ -1,5 +1,5 @@
 polkit.addRule(function(action, subject) {
-    if (action.lookup("program") == "/usr/local/bin/swhkd") {
+    if (action.lookup("program") == "/usr/bin/swhkd") {
         return polkit.Result.YES;
     }
 })

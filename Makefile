@@ -3,7 +3,7 @@ SERVER_BINARY := swhks
 BUILDFLAGS := --release
 POLKIT_DIR := /etc/polkit-1/rules.d
 POLKIT_RULE := swhkd.rules
-TARGET_DIR := /usr/local/bin
+TARGET_DIR := /usr/bin
 
 all: build
 
