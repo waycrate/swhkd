@@ -21,11 +21,6 @@ pub struct LastHotkey {
     hotkey: config::Hotkey,
     ran_at: SystemTime,
 }
-impl LastHotkey {
-    pub fn new(hotkey: config::Hotkey, ran_at: SystemTime) -> Result<Self, Box<dyn Error>> {
-        Ok(LastHotkey { hotkey, ran_at })
-    }
-}
 
 pub fn main() {
     let args = set_flags().get_matches();
@@ -96,16 +91,27 @@ pub fn main() {
         (Key::KEY_RIGHTSHIFT, config::Modifier::Shift),
     ]);
 
+    let repeat_cooldown_duration: u128;
     if args.is_present("cooldown") {
-        let cooldown: u32 = args.value_of("cooldown").unwrap().parse::<u32>().unwrap();
+        repeat_cooldown_duration = args.value_of("cooldown").unwrap().parse::<u128>().unwrap();
     } else {
-        let cooldown: u32 = 300;
+        repeat_cooldown_duration = 300;
     }
 
     let mut key_states: Vec<AttributeSet<Key>> = Vec::new();
     let mut possible_hotkeys: Vec<config::Hotkey> = Vec::new();
-    let mut first_run: bool = true; // Check for first iteration of a dectected hotkey.
-    let mut last_hotkey: LastHotkey;
+
+    let mut default_test_modifier: Vec<config::Modifier> = Vec::new();
+    default_test_modifier.push(config::Modifier::Super);
+    let mut last_hotkey = LastHotkey {
+        // just a dummy last_hotkey so I don't need to mess with Option<T>
+        hotkey: config::Hotkey::new(
+            evdev::Key::KEY_A,
+            default_test_modifier,
+            String::from("notify-send \"it works\""),
+        ),
+        ran_at: SystemTime::now(),
+    };
 
     loop {
         for device in &keyboard_devices {
@@ -138,15 +144,31 @@ pub fn main() {
                     if state_modifiers.iter().all(|x| hotkey.modifiers.contains(x))
                         && state_keysyms.contains(&hotkey.keysym)
                     {
-                        if first_run == true {
-                            last_hotkey =
-                                LastHotkey::new(hotkey.clone(), SystemTime::now()).unwrap();
-                            first_run = false;
-                        } else {
-                            if last_hotkey.hotkey == hotkey.clone() {
-                                log::info!(" This was already run!!!");
-                                break;
+                        if last_hotkey.hotkey == hotkey.clone() {
+                            let time_since_ran_at =
+                                match SystemTime::now().duration_since(last_hotkey.ran_at) {
+                                    Ok(n) => n.as_millis(),
+                                    Err(e) => {
+                                        log::error!("Error: {:#?}", e);
+                                        exit(1);
+                                    }
+                                };
+                            if time_since_ran_at <= repeat_cooldown_duration {
+                                log::error!(
+                                    "In cooldown: {:#?} \nTime Remaining: {:#?}ms",
+                                    hotkey,
+                                    repeat_cooldown_duration - time_since_ran_at
+                                );
+                                continue;
+                            } else {
+                                last_hotkey = LastHotkey {
+                                    hotkey: hotkey.clone(),
+                                    ran_at: SystemTime::now(),
+                                };
                             }
+                        } else {
+                            last_hotkey =
+                                LastHotkey { hotkey: hotkey.clone(), ran_at: SystemTime::now() };
                         }
 
                         log::info!("Hotkey pressed: {:#?}", hotkey);
@@ -203,15 +225,15 @@ pub fn set_flags() -> App<'static> {
             arg!(-c --config <CONFIG_FILE_PATH>)
                 .required(false)
                 .takes_value(true)
-                .help("Set a custom config file path"),
+                .help("Set a custom config file path."),
         )
         .arg(
             arg!(-C --cooldown <COOLDOWN_IN_MS>)
                 .required(false)
                 .takes_value(true)
-                .help("Set a custom cooldown between each run of the same Hotkey."),
+                .help("Set a custom repeat cooldown duration."),
         )
-        .arg(arg!(-d - -debug).required(false).help("Enable debug mode"));
+        .arg(arg!(-d - -debug).required(false).help("Enable debug mode."));
     app
 }
 

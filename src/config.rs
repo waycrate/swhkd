@@ -54,7 +54,7 @@ pub enum Modifier {
 }
 
 impl Hotkey {
-    fn new(keysym: evdev::Key, modifiers: Vec<Modifier>, command: String) -> Self {
+    pub fn new(keysym: evdev::Key, modifiers: Vec<Modifier>, command: String) -> Self {
         Hotkey { keysym, modifiers, command }
     }
 }
