@@ -62,8 +62,8 @@ pub fn main() {
     log::debug!("{} Keyboard device(s) detected.", keyboard_devices.len());
 
     let hotkeys = match config::load(config_file_path) {
-        Err(..) => {
-            log::error!("Error: failed to parse config file.");
+        Err(e) => {
+            log::error!("Error: failed to parse config file at line {:#?}", e);
             exit(1);
         }
         Ok(out) => out,
