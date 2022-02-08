@@ -3,16 +3,16 @@ use evdev::{AttributeSet, Device, Key};
 use nix::unistd::{Group, Uid};
 use std::{
     collections::HashMap,
-    env,
-    error::Error,
+    env, fs,
     io::prelude::*,
     os::unix::net::UnixStream,
     path::Path,
-    process::exit,
+    process::{exit, id, Command, Stdio},
     thread::sleep,
     time::Duration,
-    time::{SystemTime, UNIX_EPOCH},
+    time::SystemTime,
 };
+use sysinfo::{ProcessExt, System, SystemExt};
 
 mod config;
 
@@ -32,6 +32,39 @@ pub fn main() {
 
     env_logger::init();
     log::trace!("Logger initialized.");
+
+    let pidfile: String = String::from("/tmp/swhkd.pid");
+    if Path::new(&pidfile).exists() {
+        log::trace!("Reading {} file and checking for running instances.", pidfile);
+        let swhkd_pid = match fs::read_to_string(&pidfile) {
+            Ok(swhkd_pid) => swhkd_pid,
+            Err(e) => {
+                log::error!("Unable to read {} to check all running instances", e);
+                exit(1);
+            }
+        };
+        log::debug!("Previous PID: {}", swhkd_pid);
+
+        let mut sys = System::new_all();
+        sys.refresh_all();
+        for (pid, process) in sys.processes() {
+            if pid.to_string() == swhkd_pid {
+                if process.exe() == env::current_exe().unwrap() {
+                    log::error!("Swhkd is already running!");
+                    exit(1);
+                }
+            }
+        }
+    }
+
+    match fs::write(&pidfile, id().to_string()) {
+        Ok(_) => {}
+        Err(e) => {
+            log::error!("Unable to write to {}: {}", pidfile, e);
+            exit(1);
+        }
+    }
+
     permission_check();
 
     let config_file_path: std::path::PathBuf;
