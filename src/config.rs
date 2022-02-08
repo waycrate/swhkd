@@ -935,15 +935,12 @@ super + shift + b
             ],
         )
     }
-    
+
     #[test]
     fn test_blank_config() -> std::io::Result<()> {
         let contents = "";
-        
-        eval_config_test(
-            contents,
-            vec![],
-        )
+
+        eval_config_test(contents, vec![])
     }
 
     #[test]
@@ -952,11 +949,8 @@ super + shift + b
 
 
             ";
-        
-        eval_config_test(
-            contents,
-            vec![],
-        )
+
+        eval_config_test(contents, vec![])
     }
     #[test]
     #[ignore]
