@@ -72,11 +72,6 @@ pub fn main() {
     for hotkey in &hotkeys {
         log::debug!("hotkey: {:#?}", hotkey);
     }
-    if let Err(e) = sock_send("notify-send hello world") {
-        log::error!("Failed to send command over IPC.");
-        log::error!("Is swhks running?");
-        log::error!("{:#?}", e)
-    };
 
     let modifiers_map: HashMap<Key, config::Modifier> = HashMap::from([
         (Key::KEY_LEFTMETA, config::Modifier::Super),
@@ -95,7 +90,7 @@ pub fn main() {
     if args.is_present("cooldown") {
         repeat_cooldown_duration = args.value_of("cooldown").unwrap().parse::<u128>().unwrap();
     } else {
-        repeat_cooldown_duration = 300;
+        repeat_cooldown_duration = 250;
     }
 
     let mut key_states: Vec<AttributeSet<Key>> = Vec::new();
@@ -104,7 +99,7 @@ pub fn main() {
     let mut default_test_modifier: Vec<config::Modifier> = Vec::new();
     default_test_modifier.push(config::Modifier::Super);
     let mut last_hotkey = LastHotkey {
-        // just a dummy last_hotkey so I don't need to mess with Option<T>
+        // just a dummy last_hotkey so I don't need to mess with Option<T>. TODO: Change this to Option<T>
         hotkey: config::Hotkey::new(
             evdev::Key::KEY_A,
             default_test_modifier,
