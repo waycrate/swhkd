@@ -2,11 +2,30 @@ use clap::{arg, App};
 use evdev::{AttributeSet, Device, Key};
 use nix::unistd::{Group, Uid};
 use std::{
-    collections::HashMap, env, io::prelude::*, os::unix::net::UnixStream, path::Path,
-    process::exit, thread::sleep, time::Duration,
+    collections::HashMap,
+    env,
+    error::Error,
+    io::prelude::*,
+    os::unix::net::UnixStream,
+    path::Path,
+    process::exit,
+    thread::sleep,
+    time::Duration,
+    time::{SystemTime, UNIX_EPOCH},
 };
 
 mod config;
+
+#[derive(PartialEq)]
+pub struct LastHotkey {
+    hotkey: config::Hotkey,
+    ran_at: SystemTime,
+}
+impl LastHotkey {
+    pub fn new(hotkey: config::Hotkey, ran_at: SystemTime) -> Result<Self, Box<dyn Error>> {
+        Ok(LastHotkey { hotkey, ran_at })
+    }
+}
 
 pub fn main() {
     let args = set_flags().get_matches();
@@ -64,21 +83,6 @@ pub fn main() {
         log::error!("{:#?}", e)
     };
 
-    // Super,
-    // Hyper,
-    // Meta,
-    // Alt,
-    // Control,
-    // Shift,
-    // ModeSwitch,
-    // Lock,
-    // Mod1,
-    // Mod2,
-    // Mod3,
-    // Mod4,
-    // Mod5,
-
-    //a hashmap that map evdev:Key to enum modifiers
     let modifiers_map: HashMap<Key, config::Modifier> = HashMap::from([
         (Key::KEY_LEFTMETA, config::Modifier::Super),
         (Key::KEY_RIGHTMETA, config::Modifier::Super),
@@ -92,8 +96,17 @@ pub fn main() {
         (Key::KEY_RIGHTSHIFT, config::Modifier::Shift),
     ]);
 
+    if args.is_present("cooldown") {
+        let cooldown: u32 = args.value_of("cooldown").unwrap().parse::<u32>().unwrap();
+    } else {
+        let cooldown: u32 = 300;
+    }
+
     let mut key_states: Vec<AttributeSet<Key>> = Vec::new();
     let mut possible_hotkeys: Vec<config::Hotkey> = Vec::new();
+    let mut first_run: bool = true; // Check for first iteration of a dectected hotkey.
+    let mut last_hotkey: LastHotkey;
+
     loop {
         for device in &keyboard_devices {
             key_states.push(device.get_key_state().unwrap());
@@ -125,6 +138,17 @@ pub fn main() {
                     if state_modifiers.iter().all(|x| hotkey.modifiers.contains(x))
                         && state_keysyms.contains(&hotkey.keysym)
                     {
+                        if first_run == true {
+                            last_hotkey =
+                                LastHotkey::new(hotkey.clone(), SystemTime::now()).unwrap();
+                            first_run = false;
+                        } else {
+                            if last_hotkey.hotkey == hotkey.clone() {
+                                log::info!(" This was already run!!!");
+                                break;
+                            }
+                        }
+
                         log::info!("Hotkey pressed: {:#?}", hotkey);
                         if let Err(e) = sock_send(&hotkey.command) {
                             log::error!("Failed to send command over IPC.");
@@ -178,7 +202,14 @@ pub fn set_flags() -> App<'static> {
         .arg(
             arg!(-c --config <CONFIG_FILE_PATH>)
                 .required(false)
+                .takes_value(true)
                 .help("Set a custom config file path"),
+        )
+        .arg(
+            arg!(-C --cooldown <COOLDOWN_IN_MS>)
+                .required(false)
+                .takes_value(true)
+                .help("Set a custom cooldown between each run of the same Hotkey."),
         )
         .arg(arg!(-d - -debug).required(false).help("Enable debug mode"));
     app
