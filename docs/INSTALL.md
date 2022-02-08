@@ -1,8 +1,7 @@
-# Installation
-
 # AUR:
 `swhkd-git` `swhkd-musl-git` have been packaged. `swhkd-bin` & `swhkd-musl-bin` will be released soon.
 
+# Install
 
 `swhkd` and `swhks` install to `/usr/local/bin/` by default. You can change this behaviour by editing the [Makefile](../Makefile) variable, `TARGET_DIR`.
 
