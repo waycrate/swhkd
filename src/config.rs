@@ -231,6 +231,11 @@ fn parse_contents(contents: String) -> Result<Vec<Hotkey>, Error> {
         }
     }
 
+    // Edge case: return a blank vector if no lines detected
+    if lines_with_types.len() == 0 {
+        return Ok(vec![]);
+    }
+
     // Go through lines_with_types, and add the next line over and over until the current line no
     // longer ends with backslash. (Only if the lines have the same type)
     let mut actual_lines: Vec<(&str, u32, String)> = Vec::new();
@@ -929,7 +934,29 @@ super + shift + b
             ],
         )
     }
+    
+    #[test]
+    fn test_blank_config() -> std::io::Result<()> {
+        let contents = "";
+        
+        eval_config_test(
+            contents,
+            vec![],
+        )
+    }
 
+    #[test]
+    fn test_blank_config_with_whitespace() -> std::io::Result<()> {
+        let contents = "
+
+
+            ";
+        
+        eval_config_test(
+            contents,
+            vec![],
+        )
+    }
     #[test]
     #[ignore]
     fn test_numrow_special_keys() -> std::io::Result<()> {
