@@ -23,5 +23,5 @@
 -   `sudo make install`
 
 # Running:
-
+`swhks`
 `pkexec swhkd`
