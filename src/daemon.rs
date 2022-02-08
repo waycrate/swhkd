@@ -48,7 +48,7 @@ pub fn main() {
     log::debug!("{} Keyboard device(s) detected.", keyboard_devices.len());
 
     let hotkeys = match config::load(config_file_path) {
-        Err(e) => {
+        Err(..) => {
             log::error!("Error: failed to parse config file.");
             exit(1);
         }
@@ -59,14 +59,10 @@ pub fn main() {
         log::debug!("hotkey: {:#?}", hotkey);
     }
 
-    match sock_send("notify-send hello world") {
-        // testing .
-        Err(e) => {
-            log::error!("Failed to send command over IPC.");
-            log::error!("Is swhks running?");
-            log::error!("{:#?}", e)
-        }
-        _ => {}
+    if let Err(e) = sock_send("notify-send hello world") {
+        log::error!("Failed to send command over IPC.");
+        log::error!("Is swhks running?");
+        log::error!("{:#?}", e)
     };
 
     let mut key_states: Vec<AttributeSet<Key>> = Vec::new();
