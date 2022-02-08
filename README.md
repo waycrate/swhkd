@@ -29,7 +29,7 @@ Because swhkd can be used anywhere, the same swhkd config can be used across Xor
 See [INSTALL.md](./docs/INSTALL.md) for installing swhkd.
 
 ## Running:
-
+`swhks`
 `pkexec swhkd`
 
 ## Support server:

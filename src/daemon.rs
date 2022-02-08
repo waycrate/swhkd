@@ -1,9 +1,26 @@
 use clap::{arg, App};
-use evdev::{Device, Key};
+use evdev::{AttributeSet, Device, Key};
 use nix::unistd::{Group, Uid};
-use std::{env, io::prelude::*, os::unix::net::UnixStream, path::Path, process::exit};
+use std::{
+    collections::HashMap,
+    env,
+    error::Error,
+    io::prelude::*,
+    os::unix::net::UnixStream,
+    path::Path,
+    process::exit,
+    thread::sleep,
+    time::Duration,
+    time::{SystemTime, UNIX_EPOCH},
+};
 
 mod config;
+
+#[derive(PartialEq)]
+pub struct LastHotkey {
+    hotkey: config::Hotkey,
+    ran_at: SystemTime,
+}
 
 pub fn main() {
     let args = set_flags().get_matches();
@@ -30,18 +47,6 @@ pub fn main() {
         exit(1);
     }
 
-    let hotkeys = match config::load(config_file_path) {
-        Err(e) => {
-            log::error!("Error: failed to parse config file.");
-            exit(1);
-        }
-        Ok(out) => out,
-    };
-
-    for hotkey in hotkeys {
-        log::debug!("hotkey: {:#?}", hotkey);
-    }
-
     log::trace!("Attempting to find all keyboard file descriptors.");
     let mut keyboard_devices: Vec<Device> = Vec::new();
     for (_, device) in evdev::enumerate().enumerate() {
@@ -55,16 +60,132 @@ pub fn main() {
         exit(1);
     }
     log::debug!("{} Keyboard device(s) detected.", keyboard_devices.len());
-    match sock_send("notify-send hello world") {
-        Err(e) => {
-            log::error!("Failed to send command over IPC.");
-            log::error!("Is swhks running?");
-            log::error!("{:#?}", e)
-        }
-        _ => {}
-    };
-}
 
+    let hotkeys = match config::load(config_file_path) {
+        Err(..) => {
+            log::error!("Error: failed to parse config file.");
+            exit(1);
+        }
+        Ok(out) => out,
+    };
+
+    for hotkey in &hotkeys {
+        log::debug!("hotkey: {:#?}", hotkey);
+    }
+
+    let modifiers_map: HashMap<Key, config::Modifier> = HashMap::from([
+        (Key::KEY_LEFTMETA, config::Modifier::Super),
+        (Key::KEY_RIGHTMETA, config::Modifier::Super),
+        (Key::KEY_LEFTMETA, config::Modifier::Super),
+        (Key::KEY_RIGHTMETA, config::Modifier::Super),
+        (Key::KEY_LEFTALT, config::Modifier::Alt),
+        (Key::KEY_RIGHTALT, config::Modifier::Alt),
+        (Key::KEY_LEFTCTRL, config::Modifier::Control),
+        (Key::KEY_RIGHTCTRL, config::Modifier::Control),
+        (Key::KEY_LEFTSHIFT, config::Modifier::Shift),
+        (Key::KEY_RIGHTSHIFT, config::Modifier::Shift),
+    ]);
+
+    let repeat_cooldown_duration: u128;
+    if args.is_present("cooldown") {
+        repeat_cooldown_duration = args.value_of("cooldown").unwrap().parse::<u128>().unwrap();
+    } else {
+        repeat_cooldown_duration = 250;
+    }
+
+    let mut key_states: Vec<AttributeSet<Key>> = Vec::new();
+    let mut possible_hotkeys: Vec<config::Hotkey> = Vec::new();
+
+    let mut default_test_modifier: Vec<config::Modifier> = Vec::new();
+    default_test_modifier.push(config::Modifier::Super);
+    let mut last_hotkey = LastHotkey {
+        // just a dummy last_hotkey so I don't need to mess with Option<T>. TODO: Change this to Option<T>
+        hotkey: config::Hotkey::new(
+            evdev::Key::KEY_A,
+            default_test_modifier,
+            String::from("notify-send \"it works\""),
+        ),
+        ran_at: SystemTime::now(),
+    };
+
+    loop {
+        for device in &keyboard_devices {
+            key_states.push(device.get_key_state().unwrap());
+        }
+        // check if a hotkey in hotkeys is pressed
+        for state in &key_states {
+            for hotkey in &hotkeys {
+                if hotkey.modifiers.len() < state.iter().count() {
+                    possible_hotkeys.push(hotkey.clone());
+                } else {
+                    continue;
+                }
+            }
+            if !possible_hotkeys.is_empty() {
+                let mut state_modifiers: Vec<config::Modifier> = Vec::new();
+                let mut state_keysyms: Vec<evdev::Key> = Vec::new();
+                for key in state.iter() {
+                    if let Some(modifier) = modifiers_map.get(&key) {
+                        state_modifiers.push(*modifier);
+                    } else {
+                        state_keysyms.push(key);
+                    }
+                }
+                if state_modifiers.is_empty() {
+                    break;
+                }
+                log::debug!("state_modifiers: {:#?}", state_modifiers);
+                log::debug!("state_keysyms: {:#?}", state_keysyms);
+                log::debug!("hotkey: {:#?}", possible_hotkeys);
+                for hotkey in &possible_hotkeys {
+                    // this should check if state_modifiers and hotkey.modifiers have the same elements
+                    if state_modifiers.iter().all(|x| hotkey.modifiers.contains(x))
+                        && state_modifiers.len() == hotkey.modifiers.len()
+                        && state_keysyms.contains(&hotkey.keysym)
+                    {
+                        if last_hotkey.hotkey == hotkey.clone() {
+                            let time_since_ran_at =
+                                match SystemTime::now().duration_since(last_hotkey.ran_at) {
+                                    Ok(n) => n.as_millis(),
+                                    Err(e) => {
+                                        log::error!("Error: {:#?}", e);
+                                        exit(1);
+                                    }
+                                };
+                            if time_since_ran_at <= repeat_cooldown_duration {
+                                log::error!(
+                                    "In cooldown: {:#?} \nTime Remaining: {:#?}ms",
+                                    hotkey,
+                                    repeat_cooldown_duration - time_since_ran_at
+                                );
+                                continue;
+                            } else {
+                                last_hotkey = LastHotkey {
+                                    hotkey: hotkey.clone(),
+                                    ran_at: SystemTime::now(),
+                                };
+                            }
+                        } else {
+                            last_hotkey =
+                                LastHotkey { hotkey: hotkey.clone(), ran_at: SystemTime::now() };
+                        }
+
+                        log::info!("Hotkey pressed: {:#?}", hotkey);
+                        if let Err(e) = sock_send(&hotkey.command) {
+                            log::error!("Failed to send command over IPC.");
+                            log::error!("Is swhks running?");
+                            log::error!("{:#?}", e)
+                        }
+                    }
+                }
+            }
+        }
+
+        key_states.clear();
+        possible_hotkeys.clear();
+        sleep(Duration::from_millis(10)); // without this, swhkd will start to chew through your cpu.
+    }
+}
 pub fn permission_check() {
     if !Uid::current().is_root() {
         let groups = nix::unistd::getgroups();
@@ -102,9 +223,16 @@ pub fn set_flags() -> App<'static> {
         .arg(
             arg!(-c --config <CONFIG_FILE_PATH>)
                 .required(false)
-                .help("Set a custom config file path"),
+                .takes_value(true)
+                .help("Set a custom config file path."),
         )
-        .arg(arg!(-d - -debug).required(false).help("Enable debug mode"));
+        .arg(
+            arg!(-C --cooldown <COOLDOWN_IN_MS>)
+                .required(false)
+                .takes_value(true)
+                .help("Set a custom repeat cooldown duration."),
+        )
+        .arg(arg!(-d - -debug).required(false).help("Enable debug mode."));
     app
 }
 
