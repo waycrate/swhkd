@@ -2,8 +2,8 @@ use clap::{arg, App};
 use evdev::{AttributeSet, Device, Key};
 use nix::unistd::{Group, Uid};
 use std::{
-    env, io::prelude::*, os::unix::net::UnixStream, path::Path, process::exit, thread::sleep,
-    time::Duration,
+    collections::HashMap, env, io::prelude::*, os::unix::net::UnixStream, path::Path,
+    process::exit, thread::sleep, time::Duration,
 };
 
 mod config;
@@ -64,6 +64,34 @@ pub fn main() {
         log::error!("Is swhks running?");
         log::error!("{:#?}", e)
     };
+
+    // Super,
+    // Hyper,
+    // Meta,
+    // Alt,
+    // Control,
+    // Shift,
+    // ModeSwitch,
+    // Lock,
+    // Mod1,
+    // Mod2,
+    // Mod3,
+    // Mod4,
+    // Mod5,
+
+    //a hashmap that map evdev:Key to enum modifiers
+    let modifiers_map: HashMap<Key, config::Modifier> = HashMap::from([
+        (Key::KEY_LEFTMETA, config::Modifier::Super),
+        (Key::KEY_RIGHTMETA, config::Modifier::Super),
+        (Key::KEY_LEFTMETA, config::Modifier::Super),
+        (Key::KEY_RIGHTMETA, config::Modifier::Super),
+        (Key::KEY_LEFTALT, config::Modifier::Alt),
+        (Key::KEY_RIGHTALT, config::Modifier::Alt),
+        (Key::KEY_LEFTCTRL, config::Modifier::Control),
+        (Key::KEY_RIGHTCTRL, config::Modifier::Control),
+        (Key::KEY_LEFTSHIFT, config::Modifier::Shift),
+        (Key::KEY_RIGHTSHIFT, config::Modifier::Shift),
+    ]);
 
     let mut key_states: Vec<AttributeSet<Key>> = Vec::new();
     let mut possible_hotkeys: Vec<config::Hotkey> = Vec::new();
