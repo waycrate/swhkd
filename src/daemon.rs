@@ -58,7 +58,6 @@ pub fn main() {
     for hotkey in &hotkeys {
         log::debug!("hotkey: {:#?}", hotkey);
     }
-
     if let Err(e) = sock_send("notify-send hello world") {
         log::error!("Failed to send command over IPC.");
         log::error!("Is swhks running?");
@@ -99,17 +98,42 @@ pub fn main() {
         for device in &keyboard_devices {
             key_states.push(device.get_key_state().unwrap());
         }
-
+        // check if a hotkey in hotkeys is pressed
         for state in &key_states {
             for hotkey in &hotkeys {
-                if state.iter().count() == hotkey.modifiers.len() + 1 {
-                    // +1 Because we handle only 1 keysym.
+                if hotkey.modifiers.len() < state.iter().count() {
                     possible_hotkeys.push(hotkey.clone());
+                } else {
+                    continue;
+                }
+            }
+            if !possible_hotkeys.is_empty() {
+                let mut state_modifiers: Vec<config::Modifier> = Vec::new();
+                let mut state_keysyms: Vec<evdev::Key> = Vec::new();
+                for key in state.iter() {
+                    if let Some(modifier) = modifiers_map.get(&key) {
+                        state_modifiers.push(*modifier);
+                    } else {
+                        state_keysyms.push(key);
+                    }
+                }
+                log::debug!("state_modifiers: {:#?}", state_modifiers);
+                log::debug!("state_keysyms: {:#?}", state_keysyms);
+                log::debug!("hotkey: {:#?}", possible_hotkeys);
+                for hotkey in &possible_hotkeys {
+                    if state_modifiers == hotkey.modifiers && state_keysyms.contains(&hotkey.keysym)
+                    {
+                        log::info!("Hotkey pressed: {:#?}", hotkey);
+                        if let Err(e) = sock_send(&hotkey.command) {
+                            log::error!("Failed to send command over IPC.");
+                            log::error!("Is swhks running?");
+                            log::error!("{:#?}", e)
+                        }
+                    }
                 }
             }
         }
 
-        log::debug!("{:#?}", possible_hotkeys);
         key_states.clear();
         possible_hotkeys.clear();
         sleep(Duration::from_millis(10)); // without this, swhkd will start to chew through your cpu.
