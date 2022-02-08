@@ -145,6 +145,7 @@ pub fn main() {
                 for hotkey in &possible_hotkeys {
                     // this should check if state_modifiers and hotkey.modifiers have the same elements
                     if state_modifiers.iter().all(|x| hotkey.modifiers.contains(x))
+                        && state_modifiers.len() == hotkey.modifiers.len()
                         && state_keysyms.contains(&hotkey.keysym)
                     {
                         if last_hotkey.hotkey == hotkey.clone() {
