@@ -136,6 +136,9 @@ pub fn main() {
                         state_keysyms.push(key);
                     }
                 }
+                if state_modifiers.is_empty() {
+                    break;
+                }
                 log::debug!("state_modifiers: {:#?}", state_modifiers);
                 log::debug!("state_keysyms: {:#?}", state_keysyms);
                 log::debug!("hotkey: {:#?}", possible_hotkeys);
