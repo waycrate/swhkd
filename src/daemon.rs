@@ -7,7 +7,7 @@ use std::{
     io::prelude::*,
     os::unix::net::UnixStream,
     path::Path,
-    process::{exit, id, Command, Stdio},
+    process::{exit, id},
     thread::sleep,
     time::Duration,
     time::SystemTime,
@@ -154,58 +154,59 @@ pub fn main() {
                     continue;
                 }
             }
-            if !possible_hotkeys.is_empty() {
-                let mut state_modifiers: Vec<config::Modifier> = Vec::new();
-                let mut state_keysyms: Vec<evdev::Key> = Vec::new();
-                for key in state.iter() {
-                    if let Some(modifier) = modifiers_map.get(&key) {
-                        state_modifiers.push(*modifier);
-                    } else {
-                        state_keysyms.push(key);
-                    }
+
+            if possible_hotkeys.is_empty() {
+                continue;
+            }
+
+            let mut state_modifiers: Vec<config::Modifier> = Vec::new();
+            let mut state_keysyms: Vec<evdev::Key> = Vec::new();
+            for key in state.iter() {
+                if let Some(modifier) = modifiers_map.get(&key) {
+                    state_modifiers.push(*modifier);
+                } else {
+                    state_keysyms.push(key);
                 }
-                log::debug!("state_modifiers: {:#?}", state_modifiers);
-                log::debug!("state_keysyms: {:#?}", state_keysyms);
-                log::debug!("hotkey: {:#?}", possible_hotkeys);
-                for hotkey in &possible_hotkeys {
-                    // this should check if state_modifiers and hotkey.modifiers have the same elements
-                    if state_modifiers.iter().all(|x| hotkey.modifiers.contains(x))
-                        && state_modifiers.len() == hotkey.modifiers.len()
-                        && state_keysyms.contains(&hotkey.keysym)
-                    {
-                        if last_hotkey.hotkey == hotkey.clone() {
-                            let time_since_ran_at =
-                                match SystemTime::now().duration_since(last_hotkey.ran_at) {
-                                    Ok(n) => n.as_millis(),
-                                    Err(e) => {
-                                        log::error!("Error: {:#?}", e);
-                                        exit(1);
-                                    }
-                                };
-                            if time_since_ran_at <= repeat_cooldown_duration {
-                                log::error!(
-                                    "In cooldown: {:#?} \nTime Remaining: {:#?}ms",
-                                    hotkey,
-                                    repeat_cooldown_duration - time_since_ran_at
-                                );
-                                continue;
-                            } else {
-                                last_hotkey = LastHotkey {
-                                    hotkey: hotkey.clone(),
-                                    ran_at: SystemTime::now(),
-                                };
-                            }
+            }
+            log::debug!("state_modifiers: {:#?}", state_modifiers);
+            log::debug!("state_keysyms: {:#?}", state_keysyms);
+            log::debug!("hotkey: {:#?}", possible_hotkeys);
+            for hotkey in &possible_hotkeys {
+                // this should check if state_modifiers and hotkey.modifiers have the same elements
+                if state_modifiers.iter().all(|x| hotkey.modifiers.contains(x))
+                    && state_modifiers.len() == hotkey.modifiers.len()
+                    && state_keysyms.contains(&hotkey.keysym)
+                {
+                    if last_hotkey.hotkey == hotkey.clone() {
+                        let time_since_ran_at =
+                            match SystemTime::now().duration_since(last_hotkey.ran_at) {
+                                Ok(n) => n.as_millis(),
+                                Err(e) => {
+                                    log::error!("Error: {:#?}", e);
+                                    exit(1);
+                                }
+                            };
+                        if time_since_ran_at <= repeat_cooldown_duration {
+                            log::error!(
+                                "In cooldown: {:#?} \nTime Remaining: {:#?}ms",
+                                hotkey,
+                                repeat_cooldown_duration - time_since_ran_at
+                            );
+                            continue;
                         } else {
                             last_hotkey =
                                 LastHotkey { hotkey: hotkey.clone(), ran_at: SystemTime::now() };
                         }
+                    } else {
+                        last_hotkey =
+                            LastHotkey { hotkey: hotkey.clone(), ran_at: SystemTime::now() };
+                    }
 
-                        log::info!("Hotkey pressed: {:#?}", hotkey);
-                        if let Err(e) = sock_send(&hotkey.command) {
-                            log::error!("Failed to send command over IPC.");
-                            log::error!("Is swhks running?");
-                            log::error!("{:#?}", e)
-                        }
+                    log::info!("Hotkey pressed: {:#?}", hotkey);
+                    if let Err(e) = sock_send(&hotkey.command) {
+                        log::error!("Failed to send command over IPC.");
+                        log::error!("Is swhks running?");
+                        log::error!("{:#?}", e)
                     }
                 }
             }
