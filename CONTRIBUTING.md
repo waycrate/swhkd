@@ -13,6 +13,11 @@ I'm again borrowing these from [Facebook's Guidelines](https://github.com/facebo
 * 4 spaces for indentation.
 * You can run `make check` for style unification.
 
+## Proper Commit Messages
+Make sure to write proper commit messages. 
+
+Example: `[refactor] daemon.rs, simpler IPC implementation`.
+
 ## License
 By contributing, you agree that your contributions will be licensed under its BSD-2-Clause License.
 
