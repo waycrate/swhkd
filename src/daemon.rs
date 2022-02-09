@@ -7,7 +7,7 @@ use std::{
     io::prelude::*,
     os::unix::net::UnixStream,
     path::Path,
-    process::{exit, id, Command, Stdio},
+    process::{exit, id},
     thread::sleep,
     time::Duration,
     time::SystemTime,
