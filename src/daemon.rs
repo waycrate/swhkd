@@ -48,11 +48,9 @@ pub fn main() {
         let mut sys = System::new_all();
         sys.refresh_all();
         for (pid, process) in sys.processes() {
-            if pid.to_string() == swhkd_pid {
-                if process.exe() == env::current_exe().unwrap() {
-                    log::error!("Swhkd is already running!");
-                    exit(1);
-                }
+            if pid.to_string() == swhkd_pid && process.exe() == env::current_exe().unwrap() {
+                log::error!("Swhkd is already running!");
+                exit(1);
             }
         }
     }
@@ -129,8 +127,7 @@ pub fn main() {
     let mut key_states: Vec<AttributeSet<Key>> = Vec::new();
     let mut possible_hotkeys: Vec<config::Hotkey> = Vec::new();
 
-    let mut default_test_modifier: Vec<config::Modifier> = Vec::new();
-    default_test_modifier.push(config::Modifier::Super);
+    let default_test_modifier: Vec<config::Modifier> = vec![config::Modifier::Super];
     let mut last_hotkey = LastHotkey {
         // just a dummy last_hotkey so I don't need to mess with Option<T>. TODO: Change this to Option<T>
         hotkey: config::Hotkey::new(
