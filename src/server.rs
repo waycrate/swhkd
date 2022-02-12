@@ -28,11 +28,9 @@ fn main() -> std::io::Result<()> {
         let mut sys = System::new_all();
         sys.refresh_all();
         for (pid, process) in sys.processes() {
-            if pid.to_string() == swhkd_pid {
-                if process.exe() == env::current_exe().unwrap() {
-                    log::error!("Server is already running!");
-                    exit(1);
-                }
+            if pid.to_string() == swhkd_pid && process.exe() == env::current_exe().unwrap() {
+                log::error!("Server is already running!");
+                exit(1);
             }
         }
     }
@@ -59,7 +57,7 @@ fn main() -> std::io::Result<()> {
         }
     }
 
-    fn run_system_command(command: &String) -> () {
+    fn run_system_command(command: &str) {
         match Command::new("sh")
             .arg("-c")
             .arg(command)
