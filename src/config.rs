@@ -71,6 +71,32 @@ fn load_file_contents(path: path::PathBuf) -> Result<String, Error> {
     Ok(contents)
 }
 
+fn extract_curly_brace(line: &str) -> Vec<String> {
+    let mut before_curly_brace = String::new();
+    let mut after_curly_brace = String::new();
+    let mut start: usize = usize::MAX;
+    let mut end: usize = usize::MAX;
+    let mut output: Vec<String> = Vec::new();
+    for (i, c) in line.chars().enumerate() {
+        if c == '{' {
+            before_curly_brace = line[..i].to_string();
+            start = i;
+            continue;
+        }
+        if c == '}' {
+            after_curly_brace = line[i + 1..].to_string();
+            end = i;
+        }
+    }
+    if start >= end {
+        return vec![line.to_string()];
+    }
+    for item in line[start + 1..end].split(',') {
+        output.push(format!("{}{}{}", before_curly_brace, item, after_curly_brace));
+    }
+    output
+}
+
 // We need to get the reference to key_to_evdev_key
 // and mod_to_mod enum instead of recreating them
 // after each function call because it's too expensive
@@ -1027,6 +1053,30 @@ super + shift + b
     #[test]
     #[ignore]
     fn test_multiple_brackets_only_one_in_command() -> std::io::Result<()> {
+        Ok(())
+    }
+
+    #[test]
+    fn test_extract_curly_brace() -> std::io::Result<()> {
+        let keybind_with_curly_brace = "super + {a,b,c}";
+        assert_eq!(
+            extract_curly_brace(keybind_with_curly_brace),
+            vec!["super + a", "super + b", "super + c",]
+        );
+        let command_with_curly_brace = "bspc node -p {west,south,north,west}";
+        assert_eq!(
+            extract_curly_brace(command_with_curly_brace),
+            vec![
+                "bspc node -p west",
+                "bspc node -p south",
+                "bspc node -p north",
+                "bspc node -p west",
+            ]
+        );
+        let wrong_format = "super + }a, b, c{";
+        assert_eq!(extract_curly_brace(wrong_format), vec![wrong_format]);
+        let single_sym = "super + {a}";
+        assert_eq!(extract_curly_brace(single_sym), vec!["super + a"]);
         Ok(())
     }
 }
