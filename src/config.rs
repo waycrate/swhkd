@@ -156,9 +156,12 @@ fn extract_curly_brace(line: &str) -> Vec<String> {
                 continue;
         }
 
-        for i in
-            begin.parse::<char>().unwrap() as u8..=end.parse::<char>().unwrap() as u8
-        {
+        // In swhkd we will parse the full range using ASCII values.
+
+        let beginning_char_ascii = begin.parse::<char>().unwrap() as u8;
+        let end_char_ascii = end.parse::<char>().unwrap() as u8;
+
+        for i in beginning_char_ascii..=end_char_ascii {
             output
                 .push(format!("{}{}{}", before_curly_brace, i as char, after_curly_brace));
         }
