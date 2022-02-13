@@ -92,7 +92,19 @@ fn extract_curly_brace(line: &str) -> Vec<String> {
         return vec![line.to_string()];
     }
     for item in line[start + 1..end].split(',') {
-        output.push(format!("{}{}{}", before_curly_brace, item.trim(), after_curly_brace));
+        if item.contains('-') {
+            let mut range = item.split('-').map(|s| s.trim());
+            let begin = range.next().unwrap().parse::<usize>().unwrap();
+            let end = range.next().unwrap().parse::<usize>().unwrap();
+            if begin > end {
+                continue;
+            }
+            for i in begin..end + 1 {
+                output.push(format!("{}{}{}", before_curly_brace, i, after_curly_brace));
+            }
+        } else {
+            output.push(format!("{}{}{}", before_curly_brace, item.trim(), after_curly_brace));
+        }
     }
     output
 }
@@ -1121,6 +1133,28 @@ super + {a, b}
             vec![
                 Hotkey::new(evdev::Key::KEY_A, vec![Modifier::Super], "firefox".to_string()),
                 Hotkey::new(evdev::Key::KEY_B, vec![Modifier::Super], "brave".to_string()),
+            ],
+        )
+    }
+
+    #[test]
+    fn test_range_syntax() -> std::io::Result<()> {
+        let contents = "
+super + {1-9,0}
+    bspc desktop -f '{1-9,0}'";
+        eval_config_test(
+            contents,
+            vec![
+                Hotkey::new(evdev::Key::KEY_1, vec![Modifier::Super], "bspc desktop -f '1'".to_string()),
+                Hotkey::new(evdev::Key::KEY_2, vec![Modifier::Super], "bspc desktop -f '2'".to_string()),
+                Hotkey::new(evdev::Key::KEY_3, vec![Modifier::Super], "bspc desktop -f '3'".to_string()),
+                Hotkey::new(evdev::Key::KEY_4, vec![Modifier::Super], "bspc desktop -f '4'".to_string()),
+                Hotkey::new(evdev::Key::KEY_5, vec![Modifier::Super], "bspc desktop -f '5'".to_string()),
+                Hotkey::new(evdev::Key::KEY_6, vec![Modifier::Super], "bspc desktop -f '6'".to_string()),
+                Hotkey::new(evdev::Key::KEY_7, vec![Modifier::Super], "bspc desktop -f '7'".to_string()),
+                Hotkey::new(evdev::Key::KEY_8, vec![Modifier::Super], "bspc desktop -f '8'".to_string()),
+                Hotkey::new(evdev::Key::KEY_9, vec![Modifier::Super], "bspc desktop -f '9'".to_string()),
+                Hotkey::new(evdev::Key::KEY_0, vec![Modifier::Super], "bspc desktop -f '0'".to_string()),
             ],
         )
     }
