@@ -1269,6 +1269,14 @@ super + {bc-ad}
     ";
         eval_invalid_config_test(contents, ParseError::UnknownSymbol(2))
     }
+
+    #[test]
+    fn test_ranger_syntax_not_full_range() -> std::io::Result<()> {
+        let contents = "
+super + {a-}
+    {firefox, brave}";
+        eval_invalid_config_test(contents, ParseError::UnknownSymbol(2))
+    }
 }
 
 #[cfg(test)]
