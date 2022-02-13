@@ -331,9 +331,6 @@ fn parse_keybind(
 
     // Check if each token is valid
     for token in &tokens {
-        if token == "_" {
-            continue;
-        }
         if key_to_evdev_key.contains_key(token.as_str()) {
             // Can't have a key that's like a modifier
             if token != last_token {
