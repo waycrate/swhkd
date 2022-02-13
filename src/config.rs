@@ -97,25 +97,26 @@ fn extract_curly_brace(line: &str) -> Vec<String> {
     if !line.is_ascii() {
         return vec![line.to_string()];
     }
-    let mut before_curly_brace = String::new();
-    let mut after_curly_brace = String::new();
-    let mut start: usize = usize::MAX;
-    let mut end: usize = usize::MAX;
     let mut output: Vec<String> = Vec::new();
-    for (i, c) in line.chars().enumerate() {
-        if c == '{' {
-            before_curly_brace = line[..i].to_string();
-            start = i;
-            continue;
-        }
-        if c == '}' {
-            after_curly_brace = line[i + 1..].to_string();
-            end = i;
-        }
+
+    let index_open_brace = line.chars().position(|c| c == '{');
+    let index_close_brace = line.chars().position(|c| c == '}');
+
+    if index_open_brace.is_none() || index_close_brace.is_none() {
+        return vec![line.to_string()];
     }
+
+    let start = index_open_brace.unwrap();
+    let end = index_close_brace.unwrap();
+
+    // There are no expansions to build if } is earlier than {
     if start >= end {
         return vec![line.to_string()];
     }
+
+    let before_curly_brace = line[..start].to_string();
+    let after_curly_brace = line[end + 1..].to_string();
+
     for item in line[start + 1..end].split(',') {
         let mut direct_output = || {
             output.push(format!("{}{}{}", before_curly_brace, item.trim(), after_curly_brace));
