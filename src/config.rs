@@ -94,13 +94,13 @@ fn extract_curly_brace(line: &str) -> Vec<String> {
     for item in line[start + 1..end].split(',') {
         if item.contains('-') {
             let mut range = item.split('-').map(|s| s.trim());
-            let begin = range.next().unwrap().parse::<usize>().unwrap();
-            let end = range.next().unwrap().parse::<usize>().unwrap();
+            let begin = range.next().unwrap().parse::<char>().unwrap() as u8;
+            let end = range.next().unwrap().parse::<char>().unwrap() as u8;
             if begin > end {
                 continue;
             }
             for i in begin..end + 1 {
-                output.push(format!("{}{}{}", before_curly_brace, i, after_curly_brace));
+                output.push(format!("{}{}{}", before_curly_brace, i as char, after_curly_brace));
             }
         } else {
             output.push(format!("{}{}{}", before_curly_brace, item.trim(), after_curly_brace));
@@ -1197,5 +1197,31 @@ super + {1-9,0}
                 ),
             ],
         )
+    }
+
+    #[test]
+    fn test_range_syntax_ascii_character() -> std::io::Result<()> {
+        let contents = "
+super + {a-c}
+    {firefox, brave, chrome}";
+        eval_config_test(
+            contents,
+            vec![
+                Hotkey::new(evdev::Key::KEY_A, vec![Modifier::Super], "firefox".to_string()),
+                Hotkey::new(evdev::Key::KEY_B, vec![Modifier::Super], "brave".to_string()),
+                Hotkey::new(evdev::Key::KEY_C, vec![Modifier::Super], "chrome".to_string()),
+            ],
+        )
+    }
+
+    #[test]
+    #[ignore]
+    // TODO: check if range is valid
+    fn test_range_syntax_not_ascii() -> std::io::Result<()> {
+        let contents = "
+super + {ab-cd}
+    {firefox, brave}
+    ";
+        eval_invalid_config_test(contents, ParseError::UnknownSymbol(2))
     }
 }
