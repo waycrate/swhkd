@@ -412,9 +412,9 @@ fn extract_curly_brace(line: &str) -> Vec<String> {
         }
 
         // Do not accept range values that are longer than one char
-        // Example invalid: {ef,p} {3,56}
+        // Example invalid: {ef-p} {3-56}
         // Beginning of the range cannot be greater than end
-        // Example invalid: {9,4} {3,2}
+        // Example invalid: {9-4} {3-2}
         if begin_char.len() != 1 || end_char.len() != 1 || begin_char > end_char {
             push_one_item();
             continue;
