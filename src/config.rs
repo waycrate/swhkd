@@ -117,7 +117,9 @@ fn extract_curly_brace(line: &str) -> Vec<String> {
     let str_before_braces = line[..start_index].to_string();
     let str_after_braces = line[end_index + 1..].to_string();
 
-    for item in line[start_index + 1..end_index].split(',') {
+    let comma_separated_items = line[start_index + 1..end_index].split(',');
+
+    for item in comma_separated_items {
         let mut push_direct_output = || {
             output.push(format!("{}{}{}", str_before_braces, item.trim(), str_after_braces));
         };
@@ -130,18 +132,18 @@ fn extract_curly_brace(line: &str) -> Vec<String> {
         // Parse dash ranges like {1-5} and {a-f}
 
         let mut range = item.split('-').map(|s| s.trim());
-        let begin: &str;
-        let end: &str;
+        let begin_char: &str;
+        let end_char: &str;
 
         if let Some(b) = range.next() {
-            begin = b;
+            begin_char = b;
         } else {
             push_direct_output();
             continue;
         }
 
         if let Some(e) = range.next() {
-            end = e;
+            end_char = e;
         } else {
             push_direct_output();
             continue;
@@ -151,17 +153,17 @@ fn extract_curly_brace(line: &str) -> Vec<String> {
         // Example invalid: {ef,p} {3,56}
         // Beginning of the range cannot be greater than end
         // Example invalid: {9,4} {3,2}
-        if begin.len() != 1 || end.len() != 1 || begin > end {
+        if begin_char.len() != 1 || end_char.len() != 1 || begin_char > end_char {
             push_direct_output();
             continue;
         }
 
         // In swhkd we will parse the full range using ASCII values.
 
-        let beginning_char_ascii = begin.parse::<char>().unwrap() as u8;
-        let end_char_ascii = end.parse::<char>().unwrap() as u8;
+        let begin_ascii_val = begin_char.parse::<char>().unwrap() as u8;
+        let end_ascii_val = end_char.parse::<char>().unwrap() as u8;
 
-        for ascii_number in beginning_char_ascii..=end_char_ascii {
+        for ascii_number in begin_ascii_val..=end_ascii_val {
             output
                 .push(format!("{}{}{}", str_before_braces, ascii_number as char, str_after_braces));
         }
