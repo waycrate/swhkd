@@ -152,8 +152,8 @@ fn extract_curly_brace(line: &str) -> Vec<String> {
         // Beginning of the range cannot be greater than end
         // Example invalid: {9,4} {3,2}
         if begin.len() != 1 || end.len() != 1 || begin > end {
-                push_direct_output();
-                continue;
+            push_direct_output();
+            continue;
         }
 
         // In swhkd we will parse the full range using ASCII values.
