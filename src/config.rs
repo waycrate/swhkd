@@ -1372,6 +1372,35 @@ ctal + t
     firefox";
         eval_invalid_config_test(contents, ParseError::UnknownSymbol(5))
     }
+
+    #[test]
+    fn test_longer_alias_example() -> std::io::Result<()> {
+        let contents = "
+# Longer example
+alias pls=doas
+alias ctal = control + alt
+alias ctals = ctal + shift
+alias hello = #hello
+ctal + f hello
+    firefox
+ctals + b
+    brave hello";
+        eval_config_test(
+            contents,
+            vec![
+                Hotkey::new(
+                    evdev::Key::KEY_F,
+                    vec![Modifier::Control, Modifier::Alt],
+                    "firefox".to_string(),
+                ),
+                Hotkey::new(
+                    evdev::Key::KEY_B,
+                    vec![Modifier::Control, Modifier::Alt, Modifier::Shift],
+                    "brave  #hello".to_string(),
+                ),
+            ],
+        )
+    }
 }
 
 #[cfg(test)]
