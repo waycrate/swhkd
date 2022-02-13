@@ -94,7 +94,7 @@ pub fn main() {
 
     let hotkeys = match config::load(config_file_path) {
         Err(e) => {
-            log::error!("Error: failed to parse config file at line {:#?}", e);
+            log::error!("Config Error: {}", e);
             exit(1);
         }
         Ok(out) => out,
