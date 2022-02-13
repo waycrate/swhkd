@@ -122,42 +122,45 @@ fn extract_curly_brace(line: &str) -> Vec<String> {
             output.push(format!("{}{}{}", before_curly_brace, item.trim(), after_curly_brace));
         };
 
-        if item.contains('-') {
-            let mut range = item.split('-').map(|s| s.trim());
-            let begin: &str;
-            let end: &str;
+        if !item.contains('-') {
+            direct_output();
+            continue;
+        }
 
-            if let Some(b) = range.next() {
-                begin = b;
-            } else {
+        // Parse dash ranges like {1-5} and {a-f}
+
+        let mut range = item.split('-').map(|s| s.trim());
+        let begin: &str;
+        let end: &str;
+
+        if let Some(b) = range.next() {
+            begin = b;
+        } else {
+            direct_output();
+            continue;
+        }
+
+        if let Some(e) = range.next() {
+            end = e;
+        } else {
+            direct_output();
+            continue;
+        }
+
+        if begin.len() == 1 && end.len() == 1 {
+            if begin > end {
                 direct_output();
                 continue;
             }
-
-            if let Some(e) = range.next() {
-                end = e;
-            } else {
-                direct_output();
-                continue;
-            }
-
-            if begin.len() == 1 && end.len() == 1 {
-                if begin > end {
-                    direct_output();
-                    continue;
-                }
-                for i in
-                    begin.parse::<char>().unwrap() as u8..end.parse::<char>().unwrap() as u8 + 1
-                {
-                    output
-                        .push(format!("{}{}{}", before_curly_brace, i as char, after_curly_brace));
-                }
-            } else {
-                direct_output();
-                continue;
+            for i in
+                begin.parse::<char>().unwrap() as u8..end.parse::<char>().unwrap() as u8 + 1
+            {
+                output
+                    .push(format!("{}{}{}", before_curly_brace, i as char, after_curly_brace));
             }
         } else {
             direct_output();
+            continue;
         }
     }
     output
