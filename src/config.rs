@@ -662,18 +662,6 @@ w
     }
 
     #[test]
-    #[ignore]
-    // TODO: fix this test
-    fn test_nonsensical_file() -> std::io::Result<()> {
-        let contents = "
-WE WISH YOU A MERRY RUSTMAS
-
-                    ";
-
-        eval_invalid_config_test(contents, ParseError::UnknownSymbol(2))
-    }
-
-    #[test]
     fn test_real_config_snippet() -> std::io::Result<()> {
         let contents = "
 # reloads sxhkd configuration:
