@@ -147,20 +147,20 @@ fn extract_curly_brace(line: &str) -> Vec<String> {
             continue;
         }
 
-        if begin.len() == 1 && end.len() == 1 {
-            if begin > end {
+        // Do not accept range values that are longer than one char
+        // Example invalid: {ef,p} {3,56}
+        // Beginning of the range cannot be greater than end
+        // Example invalid: {9,4} {3,2}
+        if begin.len() != 1 || end.len() != 1 || begin > end {
                 push_direct_output();
                 continue;
-            }
-            for i in
-                begin.parse::<char>().unwrap() as u8..end.parse::<char>().unwrap() as u8 + 1
-            {
-                output
-                    .push(format!("{}{}{}", before_curly_brace, i as char, after_curly_brace));
-            }
-        } else {
-            push_direct_output();
-            continue;
+        }
+
+        for i in
+            begin.parse::<char>().unwrap() as u8..end.parse::<char>().unwrap() as u8 + 1
+        {
+            output
+                .push(format!("{}{}{}", before_curly_brace, i as char, after_curly_brace));
         }
     }
     output
