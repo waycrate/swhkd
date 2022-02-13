@@ -157,7 +157,7 @@ fn extract_curly_brace(line: &str) -> Vec<String> {
         }
 
         for i in
-            begin.parse::<char>().unwrap() as u8..end.parse::<char>().unwrap() as u8 + 1
+            begin.parse::<char>().unwrap() as u8..=end.parse::<char>().unwrap() as u8
         {
             output
                 .push(format!("{}{}{}", before_curly_brace, i as char, after_curly_brace));
