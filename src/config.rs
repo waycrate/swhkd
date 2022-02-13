@@ -93,47 +93,6 @@ fn load_file_contents(path: path::PathBuf) -> Result<String, Error> {
     Ok(contents)
 }
 
-// We need to get the reference to key_to_evdev_key
-// and mod_to_mod enum instead of recreating them
-// after each function call because it's too expensive
-fn parse_keybind(
-    line: &str,
-    line_nr: u32,
-    key_to_evdev_key: &HashMap<&str, evdev::Key>,
-    mod_to_mod_enum: &HashMap<&str, Modifier>,
-) -> Result<(evdev::Key, Vec<Modifier>), Error> {
-    let line = line.split('#').next().unwrap();
-    let tokens: Vec<String> = line.split('+').map(|s| s.trim().to_lowercase()).collect();
-    let last_token = tokens.last().unwrap().trim();
-
-    // Check if each token is valid
-    for token in &tokens {
-        if key_to_evdev_key.contains_key(token.as_str()) {
-            // Can't have a key that's like a modifier
-            if token != last_token {
-                return Err(Error::InvalidConfig(ParseError::InvalidModifier(line_nr)));
-            }
-        } else if mod_to_mod_enum.contains_key(token.as_str()) {
-            // Can't have a modifier that's like a modifier
-            if token == last_token {
-                return Err(Error::InvalidConfig(ParseError::InvalidKeysym(line_nr)));
-            }
-        } else {
-            return Err(Error::InvalidConfig(ParseError::UnknownSymbol(line_nr)));
-        }
-    }
-
-    // Translate keypress into evdev key
-    let keysym = key_to_evdev_key.get(last_token).unwrap();
-
-    let modifiers: Vec<Modifier> = tokens[0..(tokens.len() - 1)]
-        .iter()
-        .map(|token| *mod_to_mod_enum.get(token.as_str()).unwrap())
-        .collect();
-
-    Ok((*keysym, modifiers))
-}
-
 fn parse_contents(contents: String) -> Result<Vec<Hotkey>, Error> {
     let key_to_evdev_key: HashMap<&str, evdev::Key> = HashMap::from([
         ("q", evdev::Key::KEY_Q),
@@ -295,37 +254,160 @@ fn parse_contents(contents: String) -> Result<Vec<Hotkey>, Error> {
         let line_type = item.0;
         let line_number = item.1;
         let line = &item.2;
-        if line_type == "keysym" {
-            let mut current_command = String::new();
+
+        if line_type != "keysym" {
+            continue;
+        }
+
+        let next_line = actual_lines.get(i + 1);
+        if next_line.is_none() {
+            break;
+        }
+        let next_line = next_line.unwrap();
+
+        if next_line.0 != "command" {
+            continue; // this should ignore keysyms that are not followed by a command
+        }
+
+        let extracted_keys = extract_curly_brace(line);
+        let extracted_commands = extract_curly_brace(&next_line.2);
+
+        'hotkey_parse: for (key, command) in extracted_keys.iter().zip(extracted_commands.iter()) {
+            println!("{} {}", key, command);
             let (keysym, modifiers) =
-                parse_keybind(line, line_number + 1, &key_to_evdev_key, &mod_to_mod_enum)?;
-            if let Some(next_line) = actual_lines.get(i + 1) {
-                if next_line.0 == "command" {
-                    current_command.push_str(&next_line.2.clone());
-                } else {
-                    continue; // this should ignore keysyms that are not followed by a command
+                parse_keybind(key, line_number + 1, &key_to_evdev_key, &mod_to_mod_enum)?;
+            let hotkey = Hotkey { keysym, modifiers, command: command.to_string() };
+
+            // Ignore duplicate hotkeys
+            for i in hotkeys.iter() {
+                if i.keysym == hotkey.keysym && i.modifiers == hotkey.modifiers {
+                    continue 'hotkey_parse;
                 }
-            } else {
-                continue;
             }
 
-            // check if hotkeys already contains a hotkey with the same keysym and modifiers. If
-            // so, ignore this keysym.
-            let mut flag = false;
-            for hotkey in hotkeys.iter() {
-                if hotkey.keysym == keysym && hotkey.modifiers == modifiers {
-                    flag = true;
-                    break;
-                }
-            }
-            if flag {
-                continue;
-            } else {
-                hotkeys.push(Hotkey::new(keysym, modifiers, current_command));
-            }
+            hotkeys.push(hotkey);
         }
     }
     Ok(hotkeys)
+}
+
+// We need to get the reference to key_to_evdev_key
+// and mod_to_mod enum instead of recreating them
+// after each function call because it's too expensive
+fn parse_keybind(
+    line: &str,
+    line_nr: u32,
+    key_to_evdev_key: &HashMap<&str, evdev::Key>,
+    mod_to_mod_enum: &HashMap<&str, Modifier>,
+) -> Result<(evdev::Key, Vec<Modifier>), Error> {
+    let line = line.split('#').next().unwrap();
+    let tokens: Vec<String> = line.split('+').map(|s| s.trim().to_lowercase()).collect();
+    let last_token = tokens.last().unwrap().trim();
+
+    // Check if each token is valid
+    for token in &tokens {
+        if key_to_evdev_key.contains_key(token.as_str()) {
+            // Can't have a key that's like a modifier
+            if token != last_token {
+                return Err(Error::InvalidConfig(ParseError::InvalidModifier(line_nr)));
+            }
+        } else if mod_to_mod_enum.contains_key(token.as_str()) {
+            // Can't have a modifier that's like a modifier
+            if token == last_token {
+                return Err(Error::InvalidConfig(ParseError::InvalidKeysym(line_nr)));
+            }
+        } else {
+            return Err(Error::InvalidConfig(ParseError::UnknownSymbol(line_nr)));
+        }
+    }
+
+    // Translate keypress into evdev key
+    let keysym = key_to_evdev_key.get(last_token).unwrap();
+
+    let modifiers: Vec<Modifier> = tokens[0..(tokens.len() - 1)]
+        .iter()
+        .map(|token| *mod_to_mod_enum.get(token.as_str()).unwrap())
+        .collect();
+
+    Ok((*keysym, modifiers))
+}
+
+fn extract_curly_brace(line: &str) -> Vec<String> {
+    if !line.is_ascii() {
+        return vec![line.to_string()];
+    }
+    let mut output: Vec<String> = Vec::new();
+
+    let index_open_brace = line.chars().position(|c| c == '{');
+    let index_close_brace = line.chars().position(|c| c == '}');
+
+    if index_open_brace.is_none() || index_close_brace.is_none() {
+        return vec![line.to_string()];
+    }
+
+    let start_index = index_open_brace.unwrap();
+    let end_index = index_close_brace.unwrap();
+
+    // There are no expansions to build if } is earlier than {
+    if start_index >= end_index {
+        return vec![line.to_string()];
+    }
+
+    let str_before_braces = line[..start_index].to_string();
+    let str_after_braces = line[end_index + 1..].to_string();
+
+    let comma_separated_items = line[start_index + 1..end_index].split(',');
+
+    for item in comma_separated_items {
+        let mut push_one_item = || {
+            output.push(format!("{}{}{}", str_before_braces, item.trim(), str_after_braces));
+        };
+
+        if !item.contains('-') {
+            push_one_item();
+            continue;
+        }
+
+        // Parse dash ranges like {1-5} and {a-f}
+
+        let mut range = item.split('-').map(|s| s.trim());
+        let begin_char: &str;
+        let end_char: &str;
+
+        if let Some(b) = range.next() {
+            begin_char = b;
+        } else {
+            push_one_item();
+            continue;
+        }
+
+        if let Some(e) = range.next() {
+            end_char = e;
+        } else {
+            push_one_item();
+            continue;
+        }
+
+        // Do not accept range values that are longer than one char
+        // Example invalid: {ef,p} {3,56}
+        // Beginning of the range cannot be greater than end
+        // Example invalid: {9,4} {3,2}
+        if begin_char.len() != 1 || end_char.len() != 1 || begin_char > end_char {
+            push_one_item();
+            continue;
+        }
+
+        // In swhkd we will parse the full range using ASCII values.
+
+        let begin_ascii_val = begin_char.parse::<char>().unwrap() as u8;
+        let end_ascii_val = end_char.parse::<char>().unwrap() as u8;
+
+        for ascii_number in begin_ascii_val..=end_ascii_val {
+            output
+                .push(format!("{}{}{}", str_before_braces, ascii_number as char, str_after_braces));
+        }
+    }
+    output
 }
 
 #[cfg(test)]
@@ -643,16 +725,6 @@ w
                 "xbacklight -inc 10 -fps 30 -time 200".to_string(),
             )],
         )
-    }
-
-    #[test]
-    fn test_nonsensical_file() -> std::io::Result<()> {
-        let contents = "
-WE WISH YOU A MERRY RUSTMAS
-
-                    ";
-
-        eval_invalid_config_test(contents, ParseError::UnknownSymbol(2))
     }
 
     #[test]
@@ -1050,6 +1122,176 @@ super + shift + b
     #[ignore]
     fn test_multiple_brackets_only_one_in_command() -> std::io::Result<()> {
         Ok(())
+    }
+
+    #[test]
+    fn test_extract_curly_brace() -> std::io::Result<()> {
+        let keybind_with_curly_brace = "super + {a,b,c}";
+        assert_eq!(
+            extract_curly_brace(keybind_with_curly_brace),
+            vec!["super + a", "super + b", "super + c",]
+        );
+        let command_with_curly_brace = "bspc node -p {west,south,north,west}";
+        assert_eq!(
+            extract_curly_brace(command_with_curly_brace),
+            vec![
+                "bspc node -p west",
+                "bspc node -p south",
+                "bspc node -p north",
+                "bspc node -p west",
+            ]
+        );
+        let wrong_format = "super + }a, b, c{";
+        assert_eq!(extract_curly_brace(wrong_format), vec![wrong_format]);
+        let single_sym = "super + {a}";
+        assert_eq!(extract_curly_brace(single_sym), vec!["super + a"]);
+        Ok(())
+    }
+
+    #[test]
+    fn test_curly_brace() -> std::io::Result<()> {
+        let contents = "
+super + {a,b,c}
+    {firefox, brave, chrome}";
+        eval_config_test(
+            contents,
+            vec![
+                Hotkey::new(evdev::Key::KEY_A, vec![Modifier::Super], "firefox".to_string()),
+                Hotkey::new(evdev::Key::KEY_B, vec![Modifier::Super], "brave".to_string()),
+                Hotkey::new(evdev::Key::KEY_C, vec![Modifier::Super], "chrome".to_string()),
+            ],
+        )
+    }
+
+    #[test]
+    fn test_curly_brace_less_commands() -> std::io::Result<()> {
+        let contents = "
+super + {a,b,c}
+    {firefox, brave}";
+        eval_config_test(
+            contents,
+            vec![
+                Hotkey::new(evdev::Key::KEY_A, vec![Modifier::Super], "firefox".to_string()),
+                Hotkey::new(evdev::Key::KEY_B, vec![Modifier::Super], "brave".to_string()),
+            ],
+        )
+    }
+
+    #[test]
+    fn test_curly_brace_less_keysyms() -> std::io::Result<()> {
+        let contents = "
+super + {a, b}
+    {firefox, brave, chrome}";
+        eval_config_test(
+            contents,
+            vec![
+                Hotkey::new(evdev::Key::KEY_A, vec![Modifier::Super], "firefox".to_string()),
+                Hotkey::new(evdev::Key::KEY_B, vec![Modifier::Super], "brave".to_string()),
+            ],
+        )
+    }
+
+    #[test]
+    fn test_range_syntax() -> std::io::Result<()> {
+        let contents = "
+super + {1-9,0}
+    bspc desktop -f '{1-9,0}'";
+        eval_config_test(
+            contents,
+            vec![
+                Hotkey::new(
+                    evdev::Key::KEY_1,
+                    vec![Modifier::Super],
+                    "bspc desktop -f '1'".to_string(),
+                ),
+                Hotkey::new(
+                    evdev::Key::KEY_2,
+                    vec![Modifier::Super],
+                    "bspc desktop -f '2'".to_string(),
+                ),
+                Hotkey::new(
+                    evdev::Key::KEY_3,
+                    vec![Modifier::Super],
+                    "bspc desktop -f '3'".to_string(),
+                ),
+                Hotkey::new(
+                    evdev::Key::KEY_4,
+                    vec![Modifier::Super],
+                    "bspc desktop -f '4'".to_string(),
+                ),
+                Hotkey::new(
+                    evdev::Key::KEY_5,
+                    vec![Modifier::Super],
+                    "bspc desktop -f '5'".to_string(),
+                ),
+                Hotkey::new(
+                    evdev::Key::KEY_6,
+                    vec![Modifier::Super],
+                    "bspc desktop -f '6'".to_string(),
+                ),
+                Hotkey::new(
+                    evdev::Key::KEY_7,
+                    vec![Modifier::Super],
+                    "bspc desktop -f '7'".to_string(),
+                ),
+                Hotkey::new(
+                    evdev::Key::KEY_8,
+                    vec![Modifier::Super],
+                    "bspc desktop -f '8'".to_string(),
+                ),
+                Hotkey::new(
+                    evdev::Key::KEY_9,
+                    vec![Modifier::Super],
+                    "bspc desktop -f '9'".to_string(),
+                ),
+                Hotkey::new(
+                    evdev::Key::KEY_0,
+                    vec![Modifier::Super],
+                    "bspc desktop -f '0'".to_string(),
+                ),
+            ],
+        )
+    }
+
+    #[test]
+    fn test_range_syntax_ascii_character() -> std::io::Result<()> {
+        let contents = "
+super + {a-c}
+    {firefox, brave, chrome}";
+        eval_config_test(
+            contents,
+            vec![
+                Hotkey::new(evdev::Key::KEY_A, vec![Modifier::Super], "firefox".to_string()),
+                Hotkey::new(evdev::Key::KEY_B, vec![Modifier::Super], "brave".to_string()),
+                Hotkey::new(evdev::Key::KEY_C, vec![Modifier::Super], "chrome".to_string()),
+            ],
+        )
+    }
+
+    #[test]
+    fn test_range_syntax_not_ascii() -> std::io::Result<()> {
+        let contents = "
+super + {a-是}
+    {firefox, brave}
+    ";
+        eval_invalid_config_test(contents, ParseError::UnknownSymbol(2))
+    }
+
+    #[test]
+    fn test_range_syntax_invalid_range() -> std::io::Result<()> {
+        let contents = "
+super + {bc-ad}
+    {firefox, brave}
+    ";
+        eval_invalid_config_test(contents, ParseError::UnknownSymbol(2))
+    }
+
+    #[test]
+    fn test_ranger_syntax_not_full_range() -> std::io::Result<()> {
+        let contents = "
+super + {a-}
+    {firefox, brave}";
+        eval_invalid_config_test(contents, ParseError::UnknownSymbol(2))
     }
 }
 
