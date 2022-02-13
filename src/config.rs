@@ -94,6 +94,9 @@ fn load_file_contents(path: path::PathBuf) -> Result<String, Error> {
 }
 
 fn extract_curly_brace(line: &str) -> Vec<String> {
+    if !line.is_ascii() {
+        return vec![line.to_string()];
+    }
     let mut before_curly_brace = String::new();
     let mut after_curly_brace = String::new();
     let mut start: usize = usize::MAX;
@@ -114,18 +117,40 @@ fn extract_curly_brace(line: &str) -> Vec<String> {
         return vec![line.to_string()];
     }
     for item in line[start + 1..end].split(',') {
+        let mut direct_output = || {
+            output.push(format!("{}{}{}", before_curly_brace, item.trim(), after_curly_brace));
+        };
         if item.contains('-') {
             let mut range = item.split('-').map(|s| s.trim());
-            let begin = range.next().unwrap().parse::<char>().unwrap() as u8;
-            let end = range.next().unwrap().parse::<char>().unwrap() as u8;
-            if begin > end {
+            let begin: &str;
+            let end: &str;
+            // let end = range.next().unwrap().parse::<char>().unwrap() as u8;
+            if let Some(b) = range.next() {
+                begin = b;
+            } else {
+                direct_output();
                 continue;
             }
-            for i in begin..end + 1 {
-                output.push(format!("{}{}{}", before_curly_brace, i as char, after_curly_brace));
+            if let Some(e) = range.next() {
+                end = e;
+            } else {
+                direct_output();
+                continue;
+            }
+            if begin.len() == 1 && end.len() == 1 {
+                if begin > end {
+                    direct_output();
+                    continue;
+                }
+                for i in begin.parse::<char>().unwrap() as u8..end.parse::<char>().unwrap() as u8 + 1 {
+                    output.push(format!("{}{}{}", before_curly_brace, i as char, after_curly_brace));
+                }
+            } else {
+                direct_output();
+                continue;
             }
         } else {
-            output.push(format!("{}{}{}", before_curly_brace, item.trim(), after_curly_brace));
+            direct_output();
         }
     }
     output
@@ -1225,11 +1250,18 @@ super + {a-c}
     }
 
     #[test]
-    #[ignore]
-    // TODO: check if range is valid
     fn test_range_syntax_not_ascii() -> std::io::Result<()> {
         let contents = "
-super + {ab-cd}
+super + {a-是}
+    {firefox, brave}
+    ";
+        eval_invalid_config_test(contents, ParseError::UnknownSymbol(2))
+    }
+
+    #[test]
+    fn test_range_syntax_invalid_range() -> std::io::Result<()> {
+        let contents = "
+super + {bc-ad}
     {firefox, brave}
     ";
         eval_invalid_config_test(contents, ParseError::UnknownSymbol(2))
