@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::Read;
-use std::{path, fmt};
+use std::{fmt, path};
 
 #[derive(Debug)]
 pub enum Error {
@@ -33,21 +33,19 @@ impl fmt::Display for Error {
         match &*self {
             Error::ConfigNotFound => "Config file not found.".fmt(f),
 
-            Error::Io(io_err) =>
-                format!("I/O Error while parsing config file: {}", io_err)
-                .fmt(f),
+            Error::Io(io_err) => format!("I/O Error while parsing config file: {}", io_err).fmt(f),
 
             Error::InvalidConfig(parse_err) => match parse_err {
-                ParseError::UnknownSymbol(line_nr) =>
-                    format!("Unknown symbol at line {}.", line_nr)
-                    .fmt(f),
-                ParseError::InvalidKeysym(line_nr) =>
-                    format!("Invalid keysym at line {}.", line_nr)
-                    .fmt(f),
-                ParseError::InvalidModifier(line_nr) =>
-                    format!("Invalid modifier at line {}.", line_nr)
-                    .fmt(f),
-            }
+                ParseError::UnknownSymbol(line_nr) => {
+                    format!("Unknown symbol at line {}.", line_nr).fmt(f)
+                }
+                ParseError::InvalidKeysym(line_nr) => {
+                    format!("Invalid keysym at line {}.", line_nr).fmt(f)
+                }
+                ParseError::InvalidModifier(line_nr) => {
+                    format!("Invalid modifier at line {}.", line_nr).fmt(f)
+                }
+            },
         }
     }
 }
