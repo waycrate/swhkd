@@ -161,9 +161,9 @@ fn extract_curly_brace(line: &str) -> Vec<String> {
         let beginning_char_ascii = begin.parse::<char>().unwrap() as u8;
         let end_char_ascii = end.parse::<char>().unwrap() as u8;
 
-        for i in beginning_char_ascii..=end_char_ascii {
+        for ascii_number in beginning_char_ascii..=end_char_ascii {
             output
-                .push(format!("{}{}{}", before_curly_brace, i as char, after_curly_brace));
+                .push(format!("{}{}{}", before_curly_brace, ascii_number as char, after_curly_brace));
         }
     }
     output
