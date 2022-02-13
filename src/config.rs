@@ -368,23 +368,21 @@ fn parse_contents(contents: String) -> Result<Vec<Hotkey>, Error> {
                 }
                 let extracted_keys = extract_curly_brace(line);
                 let extracted_commands = extract_curly_brace(&next_line.2);
-                for (key, command) in extracted_keys.iter().zip(extracted_commands.iter()) {
+
+                'hotkey_parse: for (key, command) in extracted_keys.iter().zip(extracted_commands.iter()) {
                     println!("{} {}", key, command);
                     let (keysym, modifiers) =
                         parse_keybind(key, line_number + 1, &key_to_evdev_key, &mod_to_mod_enum)?;
                     let hotkey = Hotkey { keysym, modifiers, command: command.to_string() };
-                    let mut flag: bool = false;
+
+                    // Ignore duplicate hotkeys
                     for i in hotkeys.iter() {
                         if i.keysym == hotkey.keysym && i.modifiers == hotkey.modifiers {
-                            flag = true;
-                            break;
+                            continue 'hotkey_parse;
                         }
                     }
-                    if !flag {
-                        hotkeys.push(hotkey);
-                    } else {
-                        continue;
-                    }
+
+                    hotkeys.push(hotkey);
                 }
             }
         } else {
