@@ -93,125 +93,6 @@ fn load_file_contents(path: path::PathBuf) -> Result<String, Error> {
     Ok(contents)
 }
 
-fn extract_curly_brace(line: &str) -> Vec<String> {
-    if !line.is_ascii() {
-        return vec![line.to_string()];
-    }
-    let mut output: Vec<String> = Vec::new();
-
-    let index_open_brace = line.chars().position(|c| c == '{');
-    let index_close_brace = line.chars().position(|c| c == '}');
-
-    if index_open_brace.is_none() || index_close_brace.is_none() {
-        return vec![line.to_string()];
-    }
-
-    let start_index = index_open_brace.unwrap();
-    let end_index = index_close_brace.unwrap();
-
-    // There are no expansions to build if } is earlier than {
-    if start_index >= end_index {
-        return vec![line.to_string()];
-    }
-
-    let str_before_braces = line[..start_index].to_string();
-    let str_after_braces = line[end_index + 1..].to_string();
-
-    let comma_separated_items = line[start_index + 1..end_index].split(',');
-
-    for item in comma_separated_items {
-        let mut push_one_item = || {
-            output.push(format!("{}{}{}", str_before_braces, item.trim(), str_after_braces));
-        };
-
-        if !item.contains('-') {
-            push_one_item();
-            continue;
-        }
-
-        // Parse dash ranges like {1-5} and {a-f}
-
-        let mut range = item.split('-').map(|s| s.trim());
-        let begin_char: &str;
-        let end_char: &str;
-
-        if let Some(b) = range.next() {
-            begin_char = b;
-        } else {
-            push_one_item();
-            continue;
-        }
-
-        if let Some(e) = range.next() {
-            end_char = e;
-        } else {
-            push_one_item();
-            continue;
-        }
-
-        // Do not accept range values that are longer than one char
-        // Example invalid: {ef,p} {3,56}
-        // Beginning of the range cannot be greater than end
-        // Example invalid: {9,4} {3,2}
-        if begin_char.len() != 1 || end_char.len() != 1 || begin_char > end_char {
-            push_one_item();
-            continue;
-        }
-
-        // In swhkd we will parse the full range using ASCII values.
-
-        let begin_ascii_val = begin_char.parse::<char>().unwrap() as u8;
-        let end_ascii_val = end_char.parse::<char>().unwrap() as u8;
-
-        for ascii_number in begin_ascii_val..=end_ascii_val {
-            output
-                .push(format!("{}{}{}", str_before_braces, ascii_number as char, str_after_braces));
-        }
-    }
-    output
-}
-
-// We need to get the reference to key_to_evdev_key
-// and mod_to_mod enum instead of recreating them
-// after each function call because it's too expensive
-fn parse_keybind(
-    line: &str,
-    line_nr: u32,
-    key_to_evdev_key: &HashMap<&str, evdev::Key>,
-    mod_to_mod_enum: &HashMap<&str, Modifier>,
-) -> Result<(evdev::Key, Vec<Modifier>), Error> {
-    let line = line.split('#').next().unwrap();
-    let tokens: Vec<String> = line.split('+').map(|s| s.trim().to_lowercase()).collect();
-    let last_token = tokens.last().unwrap().trim();
-
-    // Check if each token is valid
-    for token in &tokens {
-        if key_to_evdev_key.contains_key(token.as_str()) {
-            // Can't have a key that's like a modifier
-            if token != last_token {
-                return Err(Error::InvalidConfig(ParseError::InvalidModifier(line_nr)));
-            }
-        } else if mod_to_mod_enum.contains_key(token.as_str()) {
-            // Can't have a modifier that's like a modifier
-            if token == last_token {
-                return Err(Error::InvalidConfig(ParseError::InvalidKeysym(line_nr)));
-            }
-        } else {
-            return Err(Error::InvalidConfig(ParseError::UnknownSymbol(line_nr)));
-        }
-    }
-
-    // Translate keypress into evdev key
-    let keysym = key_to_evdev_key.get(last_token).unwrap();
-
-    let modifiers: Vec<Modifier> = tokens[0..(tokens.len() - 1)]
-        .iter()
-        .map(|token| *mod_to_mod_enum.get(token.as_str()).unwrap())
-        .collect();
-
-    Ok((*keysym, modifiers))
-}
-
 fn parse_contents(contents: String) -> Result<Vec<Hotkey>, Error> {
     let key_to_evdev_key: HashMap<&str, evdev::Key> = HashMap::from([
         ("q", evdev::Key::KEY_Q),
@@ -408,6 +289,125 @@ fn parse_contents(contents: String) -> Result<Vec<Hotkey>, Error> {
         }
     }
     Ok(hotkeys)
+}
+
+// We need to get the reference to key_to_evdev_key
+// and mod_to_mod enum instead of recreating them
+// after each function call because it's too expensive
+fn parse_keybind(
+    line: &str,
+    line_nr: u32,
+    key_to_evdev_key: &HashMap<&str, evdev::Key>,
+    mod_to_mod_enum: &HashMap<&str, Modifier>,
+) -> Result<(evdev::Key, Vec<Modifier>), Error> {
+    let line = line.split('#').next().unwrap();
+    let tokens: Vec<String> = line.split('+').map(|s| s.trim().to_lowercase()).collect();
+    let last_token = tokens.last().unwrap().trim();
+
+    // Check if each token is valid
+    for token in &tokens {
+        if key_to_evdev_key.contains_key(token.as_str()) {
+            // Can't have a key that's like a modifier
+            if token != last_token {
+                return Err(Error::InvalidConfig(ParseError::InvalidModifier(line_nr)));
+            }
+        } else if mod_to_mod_enum.contains_key(token.as_str()) {
+            // Can't have a modifier that's like a modifier
+            if token == last_token {
+                return Err(Error::InvalidConfig(ParseError::InvalidKeysym(line_nr)));
+            }
+        } else {
+            return Err(Error::InvalidConfig(ParseError::UnknownSymbol(line_nr)));
+        }
+    }
+
+    // Translate keypress into evdev key
+    let keysym = key_to_evdev_key.get(last_token).unwrap();
+
+    let modifiers: Vec<Modifier> = tokens[0..(tokens.len() - 1)]
+        .iter()
+        .map(|token| *mod_to_mod_enum.get(token.as_str()).unwrap())
+        .collect();
+
+    Ok((*keysym, modifiers))
+}
+
+fn extract_curly_brace(line: &str) -> Vec<String> {
+    if !line.is_ascii() {
+        return vec![line.to_string()];
+    }
+    let mut output: Vec<String> = Vec::new();
+
+    let index_open_brace = line.chars().position(|c| c == '{');
+    let index_close_brace = line.chars().position(|c| c == '}');
+
+    if index_open_brace.is_none() || index_close_brace.is_none() {
+        return vec![line.to_string()];
+    }
+
+    let start_index = index_open_brace.unwrap();
+    let end_index = index_close_brace.unwrap();
+
+    // There are no expansions to build if } is earlier than {
+    if start_index >= end_index {
+        return vec![line.to_string()];
+    }
+
+    let str_before_braces = line[..start_index].to_string();
+    let str_after_braces = line[end_index + 1..].to_string();
+
+    let comma_separated_items = line[start_index + 1..end_index].split(',');
+
+    for item in comma_separated_items {
+        let mut push_one_item = || {
+            output.push(format!("{}{}{}", str_before_braces, item.trim(), str_after_braces));
+        };
+
+        if !item.contains('-') {
+            push_one_item();
+            continue;
+        }
+
+        // Parse dash ranges like {1-5} and {a-f}
+
+        let mut range = item.split('-').map(|s| s.trim());
+        let begin_char: &str;
+        let end_char: &str;
+
+        if let Some(b) = range.next() {
+            begin_char = b;
+        } else {
+            push_one_item();
+            continue;
+        }
+
+        if let Some(e) = range.next() {
+            end_char = e;
+        } else {
+            push_one_item();
+            continue;
+        }
+
+        // Do not accept range values that are longer than one char
+        // Example invalid: {ef,p} {3,56}
+        // Beginning of the range cannot be greater than end
+        // Example invalid: {9,4} {3,2}
+        if begin_char.len() != 1 || end_char.len() != 1 || begin_char > end_char {
+            push_one_item();
+            continue;
+        }
+
+        // In swhkd we will parse the full range using ASCII values.
+
+        let begin_ascii_val = begin_char.parse::<char>().unwrap() as u8;
+        let end_ascii_val = end_char.parse::<char>().unwrap() as u8;
+
+        for ascii_number in begin_ascii_val..=end_ascii_val {
+            output
+                .push(format!("{}{}{}", str_before_braces, ascii_number as char, str_after_braces));
+        }
+    }
+    output
 }
 
 #[cfg(test)]
