@@ -114,12 +114,12 @@ fn extract_curly_brace(line: &str) -> Vec<String> {
         return vec![line.to_string()];
     }
 
-    let before_curly_brace = line[..start].to_string();
-    let after_curly_brace = line[end + 1..].to_string();
+    let str_before_braces = line[..start].to_string();
+    let str_after_braces = line[end + 1..].to_string();
 
     for item in line[start + 1..end].split(',') {
         let mut push_direct_output = || {
-            output.push(format!("{}{}{}", before_curly_brace, item.trim(), after_curly_brace));
+            output.push(format!("{}{}{}", str_before_braces, item.trim(), str_after_braces));
         };
 
         if !item.contains('-') {
@@ -163,7 +163,7 @@ fn extract_curly_brace(line: &str) -> Vec<String> {
 
         for ascii_number in beginning_char_ascii..=end_char_ascii {
             output
-                .push(format!("{}{}{}", before_curly_brace, ascii_number as char, after_curly_brace));
+                .push(format!("{}{}{}", str_before_braces, ascii_number as char, str_after_braces));
         }
     }
     output
