@@ -36,20 +36,21 @@ pub struct Hotkey {
 }
 
 #[derive(Debug, PartialEq, Copy, Clone)]
+// TODO: make the commented-out modifiers available
 pub enum Modifier {
     Super,
-    Hyper,
-    Meta,
+    // Hyper,
+    // Meta,
     Alt,
     Control,
     Shift,
-    ModeSwitch,
-    Lock,
-    Mod1,
-    Mod2,
-    Mod3,
-    Mod4,
-    Mod5,
+    // ModeSwitch,
+    // Lock,
+    // Mod1,
+    // Mod2,
+    // Mod3,
+    // Mod4,
+    // Mod5,
 }
 
 impl Hotkey {
@@ -150,6 +151,7 @@ fn parse_contents(contents: String) -> Result<Vec<Hotkey>, Error> {
         ("9", evdev::Key::KEY_9),
         ("0", evdev::Key::KEY_0),
         ("escape", evdev::Key::KEY_ESC),
+        ("delete", evdev::Key::KEY_DELETE),
         ("backspace", evdev::Key::KEY_BACKSPACE),
         ("return", evdev::Key::KEY_ENTER),
         ("enter", evdev::Key::KEY_ENTER),
@@ -162,8 +164,13 @@ fn parse_contents(contents: String) -> Result<Vec<Hotkey>, Error> {
         ("`", evdev::Key::KEY_GRAVE),
         ("print", evdev::Key::KEY_SYSRQ),
         ("volumeup", evdev::Key::KEY_VOLUMEUP),
+        ("xf86audioraisevolume", evdev::Key::KEY_VOLUMEUP),
         ("volumedown", evdev::Key::KEY_VOLUMEDOWN),
+        ("xf86audiolowervolume", evdev::Key::KEY_VOLUMEDOWN),
         ("mute", evdev::Key::KEY_MUTE),
+        ("xf86audiomute", evdev::Key::KEY_MUTE),
+        ("brightnessup", evdev::Key::KEY_BRIGHTNESSUP),
+        ("brightnessdown", evdev::Key::KEY_BRIGHTNESSDOWN),
         (",", evdev::Key::KEY_COMMA),
         ("comma", evdev::Key::KEY_COMMA),
         (".", evdev::Key::KEY_DOT),
@@ -231,7 +238,7 @@ fn parse_contents(contents: String) -> Result<Vec<Hotkey>, Error> {
     }
 
     // Edge case: return a blank vector if no lines detected
-    if lines_with_types.len() == 0 {
+    if lines_with_types.is_empty() {
         return Ok(vec![]);
     }
 
