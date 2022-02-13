@@ -137,6 +137,7 @@ fn parse_contents(contents: String) -> Result<Vec<Hotkey>, Error> {
         ("return", evdev::Key::KEY_ENTER),
         ("enter", evdev::Key::KEY_ENTER),
         ("tab", evdev::Key::KEY_TAB),
+        ("space", evdev::Key::KEY_SPACE),
         ("minus", evdev::Key::KEY_MINUS),
         ("-", evdev::Key::KEY_MINUS),
         ("equal", evdev::Key::KEY_EQUAL),
@@ -324,11 +325,15 @@ fn parse_keybind(
     mod_to_mod_enum: &HashMap<&str, Modifier>,
 ) -> Result<(evdev::Key, Vec<Modifier>), Error> {
     let line = line.split('#').next().unwrap();
-    let tokens: Vec<String> = line.split('+').map(|s| s.trim().to_lowercase()).collect();
+    let tokens: Vec<String> =
+        line.split('+').map(|s| s.trim().to_lowercase()).filter(|s| s != "_").collect();
     let last_token = tokens.last().unwrap().trim();
 
     // Check if each token is valid
     for token in &tokens {
+        if token == "_" {
+            continue;
+        }
         if key_to_evdev_key.contains_key(token.as_str()) {
             // Can't have a key that's like a modifier
             if token != last_token {
@@ -1397,6 +1402,24 @@ ctals + b
                     evdev::Key::KEY_B,
                     vec![Modifier::Control, Modifier::Alt, Modifier::Shift],
                     "brave  #hello".to_string(),
+                ),
+            ],
+        )
+    }
+
+    #[test]
+    fn test_none() -> std::io::Result<()> {
+        let contents = "
+super + {_, shift} + b
+    {firefox, brave}";
+        eval_config_test(
+            contents,
+            vec![
+                Hotkey::new(evdev::Key::KEY_B, vec![Modifier::Super], "firefox".to_string()),
+                Hotkey::new(
+                    evdev::Key::KEY_B,
+                    vec![Modifier::Super, Modifier::Shift],
+                    "brave".to_string(),
                 ),
             ],
         )
