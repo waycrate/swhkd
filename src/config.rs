@@ -366,28 +366,33 @@ fn parse_contents(contents: String) -> Result<Vec<Hotkey>, Error> {
             continue;
         }
 
-        if let Some(next_line) = actual_lines.get(i + 1) {
-            if next_line.0 != "command" {
-                continue; // this should ignore keysyms that are not followed by a command
-            }
-            let extracted_keys = extract_curly_brace(line);
-            let extracted_commands = extract_curly_brace(&next_line.2);
+        let next_line = actual_lines.get(i + 1);
+        if next_line.is_none() {
+            break;
+        }
+        let next_line = next_line.unwrap();
 
-            'hotkey_parse: for (key, command) in extracted_keys.iter().zip(extracted_commands.iter()) {
-                println!("{} {}", key, command);
-                let (keysym, modifiers) =
-                    parse_keybind(key, line_number + 1, &key_to_evdev_key, &mod_to_mod_enum)?;
-                let hotkey = Hotkey { keysym, modifiers, command: command.to_string() };
+        if next_line.0 != "command" {
+            continue; // this should ignore keysyms that are not followed by a command
+        }
 
-                // Ignore duplicate hotkeys
-                for i in hotkeys.iter() {
-                    if i.keysym == hotkey.keysym && i.modifiers == hotkey.modifiers {
-                        continue 'hotkey_parse;
-                    }
+        let extracted_keys = extract_curly_brace(line);
+        let extracted_commands = extract_curly_brace(&next_line.2);
+
+        'hotkey_parse: for (key, command) in extracted_keys.iter().zip(extracted_commands.iter()) {
+            println!("{} {}", key, command);
+            let (keysym, modifiers) =
+                parse_keybind(key, line_number + 1, &key_to_evdev_key, &mod_to_mod_enum)?;
+            let hotkey = Hotkey { keysym, modifiers, command: command.to_string() };
+
+            // Ignore duplicate hotkeys
+            for i in hotkeys.iter() {
+                if i.keysym == hotkey.keysym && i.modifiers == hotkey.modifiers {
+                    continue 'hotkey_parse;
                 }
-
-                hotkeys.push(hotkey);
             }
+
+            hotkeys.push(hotkey);
         }
     }
     Ok(hotkeys)
