@@ -106,18 +106,18 @@ fn extract_curly_brace(line: &str) -> Vec<String> {
         return vec![line.to_string()];
     }
 
-    let start = index_open_brace.unwrap();
-    let end = index_close_brace.unwrap();
+    let start_index = index_open_brace.unwrap();
+    let end_index = index_close_brace.unwrap();
 
     // There are no expansions to build if } is earlier than {
-    if start >= end {
+    if start_index >= end_index {
         return vec![line.to_string()];
     }
 
-    let str_before_braces = line[..start].to_string();
-    let str_after_braces = line[end + 1..].to_string();
+    let str_before_braces = line[..start_index].to_string();
+    let str_after_braces = line[end_index + 1..].to_string();
 
-    for item in line[start + 1..end].split(',') {
+    for item in line[start_index + 1..end_index].split(',') {
         let mut push_direct_output = || {
             output.push(format!("{}{}{}", str_before_braces, item.trim(), str_after_braces));
         };
