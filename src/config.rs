@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::Read;
-use std::path;
+use std::{fmt, path};
 
 #[derive(Debug)]
 pub enum Error {
@@ -24,6 +24,28 @@ impl From<std::io::Error> for Error {
             Error::ConfigNotFound
         } else {
             Error::Io(val)
+        }
+    }
+}
+
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match &*self {
+            Error::ConfigNotFound => "Config file not found.".fmt(f),
+
+            Error::Io(io_err) => format!("I/O Error while parsing config file: {}", io_err).fmt(f),
+
+            Error::InvalidConfig(parse_err) => match parse_err {
+                ParseError::UnknownSymbol(line_nr) => {
+                    format!("Unknown symbol at line {}.", line_nr).fmt(f)
+                }
+                ParseError::InvalidKeysym(line_nr) => {
+                    format!("Invalid keysym at line {}.", line_nr).fmt(f)
+                }
+                ParseError::InvalidModifier(line_nr) => {
+                    format!("Invalid modifier at line {}.", line_nr).fmt(f)
+                }
+            },
         }
     }
 }
@@ -1211,5 +1233,48 @@ super + {ab-cd}
     {firefox, brave}
     ";
         eval_invalid_config_test(contents, ParseError::UnknownSymbol(2))
+    }
+}
+
+#[cfg(test)]
+mod display_test {
+    use super::*;
+    use std::io;
+
+    #[test]
+    fn test_display_config_not_found_error() {
+        let error = Error::ConfigNotFound;
+
+        assert_eq!(format!("{}", error), "Config file not found.");
+    }
+
+    #[test]
+    fn test_display_io_error() {
+        let error = Error::Io(io::Error::from(io::ErrorKind::UnexpectedEof));
+
+        if !format!("{}", error).contains("unexpected end of file") {
+            panic!("Error message was '{}", error);
+        }
+    }
+
+    #[test]
+    fn test_display_unknown_symbol_error() {
+        let error = Error::InvalidConfig(ParseError::UnknownSymbol(10));
+
+        assert_eq!(format!("{}", error), "Unknown symbol at line 10.");
+    }
+
+    #[test]
+    fn test_display_invalid_modifier_error() {
+        let error = Error::InvalidConfig(ParseError::InvalidModifier(25));
+
+        assert_eq!(format!("{}", error), "Invalid modifier at line 25.");
+    }
+
+    #[test]
+    fn test_invalid_keysm_error() {
+        let error = Error::InvalidConfig(ParseError::InvalidKeysym(7));
+
+        assert_eq!(format!("{}", error), "Invalid keysym at line 7.");
     }
 }
