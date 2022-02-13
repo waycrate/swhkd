@@ -121,23 +121,26 @@ fn extract_curly_brace(line: &str) -> Vec<String> {
         let mut direct_output = || {
             output.push(format!("{}{}{}", before_curly_brace, item.trim(), after_curly_brace));
         };
+
         if item.contains('-') {
             let mut range = item.split('-').map(|s| s.trim());
             let begin: &str;
             let end: &str;
-            // let end = range.next().unwrap().parse::<char>().unwrap() as u8;
+
             if let Some(b) = range.next() {
                 begin = b;
             } else {
                 direct_output();
                 continue;
             }
+
             if let Some(e) = range.next() {
                 end = e;
             } else {
                 direct_output();
                 continue;
             }
+
             if begin.len() == 1 && end.len() == 1 {
                 if begin > end {
                     direct_output();
