@@ -1145,16 +1145,56 @@ super + {1-9,0}
         eval_config_test(
             contents,
             vec![
-                Hotkey::new(evdev::Key::KEY_1, vec![Modifier::Super], "bspc desktop -f '1'".to_string()),
-                Hotkey::new(evdev::Key::KEY_2, vec![Modifier::Super], "bspc desktop -f '2'".to_string()),
-                Hotkey::new(evdev::Key::KEY_3, vec![Modifier::Super], "bspc desktop -f '3'".to_string()),
-                Hotkey::new(evdev::Key::KEY_4, vec![Modifier::Super], "bspc desktop -f '4'".to_string()),
-                Hotkey::new(evdev::Key::KEY_5, vec![Modifier::Super], "bspc desktop -f '5'".to_string()),
-                Hotkey::new(evdev::Key::KEY_6, vec![Modifier::Super], "bspc desktop -f '6'".to_string()),
-                Hotkey::new(evdev::Key::KEY_7, vec![Modifier::Super], "bspc desktop -f '7'".to_string()),
-                Hotkey::new(evdev::Key::KEY_8, vec![Modifier::Super], "bspc desktop -f '8'".to_string()),
-                Hotkey::new(evdev::Key::KEY_9, vec![Modifier::Super], "bspc desktop -f '9'".to_string()),
-                Hotkey::new(evdev::Key::KEY_0, vec![Modifier::Super], "bspc desktop -f '0'".to_string()),
+                Hotkey::new(
+                    evdev::Key::KEY_1,
+                    vec![Modifier::Super],
+                    "bspc desktop -f '1'".to_string(),
+                ),
+                Hotkey::new(
+                    evdev::Key::KEY_2,
+                    vec![Modifier::Super],
+                    "bspc desktop -f '2'".to_string(),
+                ),
+                Hotkey::new(
+                    evdev::Key::KEY_3,
+                    vec![Modifier::Super],
+                    "bspc desktop -f '3'".to_string(),
+                ),
+                Hotkey::new(
+                    evdev::Key::KEY_4,
+                    vec![Modifier::Super],
+                    "bspc desktop -f '4'".to_string(),
+                ),
+                Hotkey::new(
+                    evdev::Key::KEY_5,
+                    vec![Modifier::Super],
+                    "bspc desktop -f '5'".to_string(),
+                ),
+                Hotkey::new(
+                    evdev::Key::KEY_6,
+                    vec![Modifier::Super],
+                    "bspc desktop -f '6'".to_string(),
+                ),
+                Hotkey::new(
+                    evdev::Key::KEY_7,
+                    vec![Modifier::Super],
+                    "bspc desktop -f '7'".to_string(),
+                ),
+                Hotkey::new(
+                    evdev::Key::KEY_8,
+                    vec![Modifier::Super],
+                    "bspc desktop -f '8'".to_string(),
+                ),
+                Hotkey::new(
+                    evdev::Key::KEY_9,
+                    vec![Modifier::Super],
+                    "bspc desktop -f '9'".to_string(),
+                ),
+                Hotkey::new(
+                    evdev::Key::KEY_0,
+                    vec![Modifier::Super],
+                    "bspc desktop -f '0'".to_string(),
+                ),
             ],
         )
     }
