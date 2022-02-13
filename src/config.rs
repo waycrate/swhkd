@@ -120,12 +120,12 @@ fn extract_curly_brace(line: &str) -> Vec<String> {
     let comma_separated_items = line[start_index + 1..end_index].split(',');
 
     for item in comma_separated_items {
-        let mut push_direct_output = || {
+        let mut push_one_item = || {
             output.push(format!("{}{}{}", str_before_braces, item.trim(), str_after_braces));
         };
 
         if !item.contains('-') {
-            push_direct_output();
+            push_one_item();
             continue;
         }
 
@@ -138,14 +138,14 @@ fn extract_curly_brace(line: &str) -> Vec<String> {
         if let Some(b) = range.next() {
             begin_char = b;
         } else {
-            push_direct_output();
+            push_one_item();
             continue;
         }
 
         if let Some(e) = range.next() {
             end_char = e;
         } else {
-            push_direct_output();
+            push_one_item();
             continue;
         }
 
@@ -154,7 +154,7 @@ fn extract_curly_brace(line: &str) -> Vec<String> {
         // Beginning of the range cannot be greater than end
         // Example invalid: {9,4} {3,2}
         if begin_char.len() != 1 || end_char.len() != 1 || begin_char > end_char {
-            push_direct_output();
+            push_one_item();
             continue;
         }
 
