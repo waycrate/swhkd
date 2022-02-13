@@ -361,32 +361,33 @@ fn parse_contents(contents: String) -> Result<Vec<Hotkey>, Error> {
         let line_type = item.0;
         let line_number = item.1;
         let line = &item.2;
-        if line_type == "keysym" {
-            if let Some(next_line) = actual_lines.get(i + 1) {
-                if next_line.0 != "command" {
-                    continue; // this should ignore keysyms that are not followed by a command
-                }
-                let extracted_keys = extract_curly_brace(line);
-                let extracted_commands = extract_curly_brace(&next_line.2);
 
-                'hotkey_parse: for (key, command) in extracted_keys.iter().zip(extracted_commands.iter()) {
-                    println!("{} {}", key, command);
-                    let (keysym, modifiers) =
-                        parse_keybind(key, line_number + 1, &key_to_evdev_key, &mod_to_mod_enum)?;
-                    let hotkey = Hotkey { keysym, modifiers, command: command.to_string() };
-
-                    // Ignore duplicate hotkeys
-                    for i in hotkeys.iter() {
-                        if i.keysym == hotkey.keysym && i.modifiers == hotkey.modifiers {
-                            continue 'hotkey_parse;
-                        }
-                    }
-
-                    hotkeys.push(hotkey);
-                }
-            }
-        } else {
+        if line_type != "keysym" {
             continue;
+        }
+
+        if let Some(next_line) = actual_lines.get(i + 1) {
+            if next_line.0 != "command" {
+                continue; // this should ignore keysyms that are not followed by a command
+            }
+            let extracted_keys = extract_curly_brace(line);
+            let extracted_commands = extract_curly_brace(&next_line.2);
+
+            'hotkey_parse: for (key, command) in extracted_keys.iter().zip(extracted_commands.iter()) {
+                println!("{} {}", key, command);
+                let (keysym, modifiers) =
+                    parse_keybind(key, line_number + 1, &key_to_evdev_key, &mod_to_mod_enum)?;
+                let hotkey = Hotkey { keysym, modifiers, command: command.to_string() };
+
+                // Ignore duplicate hotkeys
+                for i in hotkeys.iter() {
+                    if i.keysym == hotkey.keysym && i.modifiers == hotkey.modifiers {
+                        continue 'hotkey_parse;
+                    }
+                }
+
+                hotkeys.push(hotkey);
+            }
         }
     }
     Ok(hotkeys)
