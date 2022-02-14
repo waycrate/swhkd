@@ -1301,7 +1301,6 @@ super + {a-}
     {firefox, brave}";
         eval_invalid_config_test(contents, ParseError::UnknownSymbol(2))
     }
-<<<<<<< HEAD
 
     #[test]
     fn test_alias() -> std::io::Result<()> {
