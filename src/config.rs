@@ -198,7 +198,9 @@ fn parse_contents(contents: String) -> Result<Vec<Hotkey>, Error> {
         ("ctrl", Modifier::Control),
         ("control", Modifier::Control),
         ("super", Modifier::Super),
+        ("mod4", Modifier::Super),
         ("alt", Modifier::Alt),
+        ("mod1", Modifier::Alt),
         ("shift", Modifier::Shift),
     ]);
 
