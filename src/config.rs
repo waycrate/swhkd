@@ -214,20 +214,12 @@ fn parse_contents(contents: String) -> Result<Vec<Hotkey>, Error> {
     // as commands, and mark the other lines as keysyms. Mark means storing a line's type and the
     // line number in a vector.
     let mut lines_with_types: Vec<(&str, u32)> = Vec::new();
-    let mut aliases: Vec<(&str, &str)> = Vec::new();
     for (line_number, line) in lines.iter().enumerate() {
         if line.trim().starts_with('#') || line.trim().is_empty() {
             continue;
         }
         if line.starts_with(' ') || line.starts_with('\t') {
             lines_with_types.push(("command", line_number as u32));
-        } else if line.starts_with("alias ") && line.contains('=') {
-            // things behind the alias and before the first equal sign are the alias name
-            // everything behind the first equal sign is the alias value
-            // store each name and value in aliases
-            let alias_name = &line[6..line.find('=').unwrap()].trim();
-            let alias_value = &line[line.find('=').unwrap() + 1..];
-            aliases.push((alias_name, alias_value));
         } else {
             lines_with_types.push(("keysym", line_number as u32));
         }
@@ -268,21 +260,7 @@ fn parse_contents(contents: String) -> Result<Vec<Hotkey>, Error> {
     for (i, item) in actual_lines.iter().enumerate() {
         let line_type = item.0;
         let line_number = item.1;
-        let line = item.2.to_owned();
-        // match all the aliases for the line
-        let match_aliases = |mut line: String| {
-            for alias in aliases.iter().rev() {
-                if line.contains(alias.0) {
-                    line.replace_range(
-                        line.find(alias.0).unwrap()..line.find(alias.0).unwrap() + alias.0.len(),
-                        alias.1,
-                    );
-                }
-            }
-            line
-        };
-
-        let line = match_aliases(line.to_owned());
+        let line = &item.2;
 
         if line_type != "keysym" {
             continue;
@@ -292,14 +270,13 @@ fn parse_contents(contents: String) -> Result<Vec<Hotkey>, Error> {
         if next_line.is_none() {
             break;
         }
-        let mut next_line = next_line.unwrap().to_owned();
-        next_line.2 = match_aliases(next_line.2.to_owned());
+        let next_line = next_line.unwrap();
 
         if next_line.0 != "command" {
             continue; // this should ignore keysyms that are not followed by a command
         }
 
-        let extracted_keys = extract_curly_brace(&line);
+        let extracted_keys = extract_curly_brace(line);
         let extracted_commands = extract_curly_brace(&next_line.2);
 
         'hotkey_parse: for (key, command) in extracted_keys.iter().zip(extracted_commands.iter()) {
@@ -1323,109 +1300,6 @@ super + {bc-ad}
 super + {a-}
     {firefox, brave}";
         eval_invalid_config_test(contents, ParseError::UnknownSymbol(2))
-    }
-
-    #[test]
-    fn test_alias() -> std::io::Result<()> {
-        let contents = "
-alias ctal = control + alt
-alias pls =doas
-ctal + t
-    pls firefox # why always firefox
-alias ctals = ctal + shift
-ctals + t
-    brave";
-        eval_config_test(
-            contents,
-            vec![
-                Hotkey::new(
-                    evdev::Key::KEY_T,
-                    vec![Modifier::Control, Modifier::Alt],
-                    "doas firefox # why always firefox".to_string(),
-                ),
-                Hotkey::new(
-                    evdev::Key::KEY_T,
-                    vec![Modifier::Control, Modifier::Alt, Modifier::Shift],
-                    "brave".to_string(),
-                ),
-            ],
-        )
-    }
-
-    #[test]
-    fn test_invalid_alias() -> std::io::Result<()> {
-        let contents = "
-alias ctal = control + alt =
-ctal +t
-    firefox";
-        eval_invalid_config_test(contents, ParseError::UnknownSymbol(3))
-    }
-
-    #[test]
-    fn test_not_an_alias() -> std::io::Result<()> {
-        let contents = "
-alias ctal # nothing here
-ctal + t
-    firefox";
-        eval_invalid_config_test(contents, ParseError::UnknownSymbol(2))
-    }
-
-    #[test]
-    fn test_alias_comment() -> std::io::Result<()> {
-        let contents = "
-alias ctal = # no inline comment support for alias statement yet.
-
-# will be '# no inline comment support for alias statement yet. + t' here
-ctal + t
-    firefox";
-        eval_invalid_config_test(contents, ParseError::UnknownSymbol(5))
-    }
-
-    #[test]
-    fn test_longer_alias_example() -> std::io::Result<()> {
-        let contents = "
-# Longer example
-alias pls=doas
-alias ctal = control + alt
-alias ctals = ctal + shift
-alias hello = #hello
-ctal + f hello
-    firefox
-ctals + b
-    brave hello";
-        eval_config_test(
-            contents,
-            vec![
-                Hotkey::new(
-                    evdev::Key::KEY_F,
-                    vec![Modifier::Control, Modifier::Alt],
-                    "firefox".to_string(),
-                ),
-                Hotkey::new(
-                    evdev::Key::KEY_B,
-                    vec![Modifier::Control, Modifier::Alt, Modifier::Shift],
-                    "brave  #hello".to_string(),
-                ),
-            ],
-        )
-    }
-
-    #[test]
-    fn test_none() -> std::io::Result<()> {
-        let contents = "
-super + {_, shift} + b
-    {firefox, brave}";
-        eval_config_test(
-            contents,
-            vec![
-                Hotkey::new(evdev::Key::KEY_B, vec![Modifier::Super], "firefox".to_string()),
-                Hotkey::new(
-                    evdev::Key::KEY_B,
-                    vec![Modifier::Super, Modifier::Shift],
-                    "brave".to_string(),
-                ),
-            ],
-        )
     }
 }
 
