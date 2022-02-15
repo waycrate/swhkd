@@ -1209,6 +1209,38 @@ super + {shift,alt} + {c,d}
             ],
         )
     }
+
+    #[test]
+    fn test_multiple_ranges_numbers() -> std::io::Result<()> {
+        let contents = "
+{control,super} + {1-3}
+    {notify-send, echo} {hello,how,are}
+            ";
+
+        eval_config_test(
+            contents,
+            vec![
+                Hotkey::new(
+                    evdev::Key::KEY_1,
+                    vec![Modifier::Control],
+                    "notify-send hello".to_string(),
+                ),
+                Hotkey::new(
+                    evdev::Key::KEY_2,
+                    vec![Modifier::Control],
+                    "notify-send how".to_string(),
+                ),
+                Hotkey::new(
+                    evdev::Key::KEY_3,
+                    vec![Modifier::Control],
+                    "notify-send are".to_string(),
+                ),
+                Hotkey::new(evdev::Key::KEY_1, vec![Modifier::Super], "echo hello".to_string()),
+                Hotkey::new(evdev::Key::KEY_2, vec![Modifier::Super], "echo how".to_string()),
+                Hotkey::new(evdev::Key::KEY_3, vec![Modifier::Super], "echo are".to_string()),
+            ],
+        )
+    }
 }
 
 #[cfg(test)]
