@@ -1175,6 +1175,40 @@ super + {a-}
     {firefox, brave}";
         eval_invalid_config_test(contents, ParseError::UnknownSymbol(2))
     }
+
+    #[test]
+    fn test_multiple_ranges() -> std::io::Result<()> {
+        let contents = "
+super + {shift,alt} + {c,d}
+    {librewolf, firefox} {--sync, --help}
+            ";
+
+        eval_config_test(
+            contents,
+            vec![
+                Hotkey::new(
+                    evdev::Key::KEY_C,
+                    vec![Modifier::Super, Modifier::Shift],
+                    "librewolf --sync".to_string(),
+                ),
+                Hotkey::new(
+                    evdev::Key::KEY_D,
+                    vec![Modifier::Super, Modifier::Shift],
+                    "librewolf --help".to_string(),
+                ),
+                Hotkey::new(
+                    evdev::Key::KEY_C,
+                    vec![Modifier::Super, Modifier::Alt],
+                    "firefox --sync".to_string(),
+                ),
+                Hotkey::new(
+                    evdev::Key::KEY_D,
+                    vec![Modifier::Super, Modifier::Alt],
+                    "firefox --help".to_string(),
+                ),
+            ],
+        )
+    }
 }
 
 #[cfg(test)]
