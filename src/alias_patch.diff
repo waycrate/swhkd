@@ -1,5 +1,5 @@
---- config.rs	2022-02-15 13:51:59.999932162 +0800
-+++ alias.rs	2022-02-15 13:55:47.202938653 +0800
+--- config.rs	2022-02-15 14:03:04.796951155 +0800
++++ config.rs.alias	2022-02-15 14:02:58.122950964 +0800
 @@ -214,12 +214,20 @@
      // as commands, and mark the other lines as keysyms. Mark means storing a line's type and the
      // line number in a vector.
@@ -61,7 +61,7 @@
          let extracted_commands = extract_curly_brace(&next_line.2);
  
          'hotkey_parse: for (key, command) in extracted_keys.iter().zip(extracted_commands.iter()) {
-@@ -1246,6 +1269,80 @@
+@@ -1264,6 +1287,80 @@
              ],
          )
      }
