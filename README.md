@@ -42,7 +42,7 @@ sudo killall swhkd
 pkexec swhkd
 ```
 
-Mark it as executeable using `chmod +x <path_to_refresh_script>`.
+Mark it as executable using `chmod +x <path_to_refresh_script>`.
 
 Then call it using `setsid -f <path_to_refresh_script>`. 
 
