@@ -1179,6 +1179,24 @@ super + {a-}
     }
 
     #[test]
+    fn test_none() -> std::io::Result<()> {
+        let contents = "
+super + {_, shift} + b
+    {firefox, brave}";
+        eval_config_test(
+            contents,
+            vec![
+                Hotkey::new(evdev::Key::KEY_B, vec![Modifier::Super], "firefox".to_string()),
+                Hotkey::new(
+                    evdev::Key::KEY_B,
+                    vec![Modifier::Super, Modifier::Shift],
+                    "brave".to_string(),
+                ),
+            ],
+        )
+    }
+
+    #[test]
     #[ignore]
     // TODO: handle multiple ranges
     fn test_multiple_ranges() -> std::io::Result<()> {
