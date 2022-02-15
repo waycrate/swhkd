@@ -476,23 +476,39 @@ mod tests {
     fn eval_config_test(contents: &str, expected_hotkeys: Vec<Hotkey>) -> std::io::Result<()> {
         let result = parse_contents(contents.to_string());
 
+        let mut expected_hotkeys_mut = expected_hotkeys;
+
         if result.is_err() {
             panic!("Expected Ok config, found Err {:?}", result.unwrap_err());
         }
 
         let actual_hotkeys = result.unwrap();
 
-        assert_eq!(actual_hotkeys.len(), expected_hotkeys.len());
+        assert_eq!(actual_hotkeys.len(), expected_hotkeys_mut.len());
 
-        for i in 0..actual_hotkeys.len() {
-            assert_eq!(actual_hotkeys[i].keysym, expected_hotkeys[i].keysym);
-
-            assert_eq!(actual_hotkeys[i].modifiers.len(), expected_hotkeys[i].modifiers.len());
-            for j in 0..expected_hotkeys[i].modifiers.len() {
-                assert!(actual_hotkeys[i].modifiers.contains(&expected_hotkeys[i].modifiers[j]));
+        // Go through each actual hotkey, and pop a corresponding
+        // hotkey from the expected hotkeys
+        // to make sure that order does not matter
+        for hotkey in actual_hotkeys {
+            if let Some(index) = expected_hotkeys_mut.iter().position(|key| {
+                key.keysym == hotkey.keysym
+                    && key.command == hotkey.command
+                    && key.modifiers == key.modifiers
+            }) {
+                expected_hotkeys_mut.remove(index);
+            } else {
+                panic!(
+                    "unexpected hotkey {:#?} found in result\nExpected result:\n{:#?}",
+                    hotkey, expected_hotkeys_mut
+                );
             }
+        }
 
-            assert_eq!(actual_hotkeys[i].command, expected_hotkeys[i].command);
+        if expected_hotkeys_mut.len() != 0 {
+            panic!(
+                "Some hotkeys were not returned by the actual result:\n{:#?}",
+                expected_hotkeys_mut
+            );
         }
 
         Ok(())
