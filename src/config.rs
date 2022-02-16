@@ -1197,8 +1197,6 @@ super + {_, shift} + b
     }
 
     #[test]
-    #[ignore]
-    // TODO: handle multiple ranges
     fn test_multiple_ranges() -> std::io::Result<()> {
         let contents = "
 super + {shift,alt} + {c,d}
@@ -1233,7 +1231,6 @@ super + {shift,alt} + {c,d}
     }
 
     #[test]
-    #[ignore]
     fn test_multiple_ranges_numbers() -> std::io::Result<()> {
         let contents = "
 {control,super} + {1-3}
