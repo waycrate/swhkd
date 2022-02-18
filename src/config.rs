@@ -313,7 +313,7 @@ fn parse_keybind(
 
     let mut tokens_new = Vec::new();
     for mut token in tokens {
-        if token.starts_with('_') {
+        while token.starts_with('_') {
             token = token.strip_prefix('_').unwrap().to_string();
         }
         tokens_new.push(token);
