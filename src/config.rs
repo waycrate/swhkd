@@ -442,7 +442,7 @@ fn extract_curly_brace(line: &str) -> Vec<String> {
             line_to_push.push_str(&remaining_line[i]);
             line_to_push.push_str(tokens[i]);
         }
-        if brace_positions[brace_positions.len() - 1] < line.len() -1 {
+        if brace_positions[brace_positions.len() - 1] < line.len() - 1 {
             line_to_push.push_str(&line[brace_positions[brace_positions.len() - 1] + 1..]);
         }
         println!("{}", line_to_push);
