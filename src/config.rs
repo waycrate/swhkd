@@ -1,4 +1,4 @@
-use itertools::{iproduct, Itertools};
+use itertools::Itertools;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::Read;
@@ -310,10 +310,19 @@ fn parse_keybind(
     let line = line.split('#').next().unwrap();
     let tokens: Vec<String> =
         line.split('+').map(|s| s.trim().to_lowercase()).filter(|s| s != "_").collect();
-    let last_token = tokens.last().unwrap().trim();
+
+    let mut tokens_new = Vec::new();
+    for mut token in tokens {
+        if token.starts_with('_') {
+            token = token.strip_prefix('_').unwrap().to_string();
+        }
+        tokens_new.push(token);
+    }
+
+    let last_token = tokens_new.last().unwrap().trim();
 
     // Check if each token is valid
-    for token in &tokens {
+    for token in &tokens_new {
         if key_to_evdev_key.contains_key(token.as_str()) {
             // Can't have a key that's like a modifier
             if token != last_token {
@@ -332,7 +341,7 @@ fn parse_keybind(
     // Translate keypress into evdev key
     let keysym = key_to_evdev_key.get(last_token).unwrap();
 
-    let modifiers: Vec<Modifier> = tokens[0..(tokens.len() - 1)]
+    let modifiers: Vec<Modifier> = tokens_new[0..(tokens_new.len() - 1)]
         .iter()
         .map(|token| *mod_to_mod_enum.get(token.as_str()).unwrap())
         .collect();
@@ -445,7 +454,6 @@ fn extract_curly_brace(line: &str) -> Vec<String> {
         if brace_positions[brace_positions.len() - 1] < line.len() - 1 {
             line_to_push.push_str(&line[brace_positions[brace_positions.len() - 1] + 1..]);
         }
-        println!("{}", line_to_push);
         output.push(line_to_push);
     }
     output
@@ -1291,6 +1299,59 @@ super + {shift,alt} + {c,d}
                 Hotkey::new(evdev::Key::KEY_1, vec![Modifier::Super], "echo hello".to_string()),
                 Hotkey::new(evdev::Key::KEY_2, vec![Modifier::Super], "echo how".to_string()),
                 Hotkey::new(evdev::Key::KEY_3, vec![Modifier::Super], "echo are".to_string()),
+            ],
+        )
+    }
+
+    #[test]
+    fn test_bspwm_multiple_curly_brace() -> std::io::Result<()> {
+        let contents = "
+super + {_,shift + }{h,j,k,l}
+	bspc node -{f,s} {west,south,north,east}";
+
+        eval_config_test(
+            contents,
+            vec![
+                Hotkey::new(
+                    evdev::Key::KEY_H,
+                    vec![Modifier::Super],
+                    "bspc node -f west".to_string(),
+                ),
+                Hotkey::new(
+                    evdev::Key::KEY_J,
+                    vec![Modifier::Super],
+                    "bspc node -f south".to_string(),
+                ),
+                Hotkey::new(
+                    evdev::Key::KEY_K,
+                    vec![Modifier::Super],
+                    "bspc node -f north".to_string(),
+                ),
+                Hotkey::new(
+                    evdev::Key::KEY_L,
+                    vec![Modifier::Super],
+                    "bspc node -f east".to_string(),
+                ),
+                Hotkey::new(
+                    evdev::Key::KEY_H,
+                    vec![Modifier::Super, Modifier::Shift],
+                    "bspc node -s west".to_string(),
+                ),
+                Hotkey::new(
+                    evdev::Key::KEY_J,
+                    vec![Modifier::Super, Modifier::Shift],
+                    "bspc node -s south".to_string(),
+                ),
+                Hotkey::new(
+                    evdev::Key::KEY_K,
+                    vec![Modifier::Super, Modifier::Shift],
+                    "bspc node -s north".to_string(),
+                ),
+                Hotkey::new(
+                    evdev::Key::KEY_L,
+                    vec![Modifier::Super, Modifier::Shift],
+                    "bspc node -s east".to_string(),
+                ),
             ],
         )
     }
