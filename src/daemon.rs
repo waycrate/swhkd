@@ -1,4 +1,4 @@
-use clap::{arg, App};
+use clap::{arg, Command};
 use evdev::{AttributeSet, Device, Key};
 use nix::unistd::{Group, Uid};
 use std::{
@@ -243,8 +243,8 @@ pub fn check_keyboard(device: &Device) -> bool {
     }
 }
 
-pub fn set_flags() -> App<'static> {
-    let app = App::new("swhkd")
+pub fn set_flags() -> Command<'static> {
+    let app = Command::new("swhkd")
         .version(env!("CARGO_PKG_VERSION"))
         .author(env!("CARGO_PKG_AUTHORS"))
         .about("Simple Wayland HotKey Daemon")
