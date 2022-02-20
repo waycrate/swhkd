@@ -14,12 +14,29 @@ use std::{
 };
 use sysinfo::{ProcessExt, System, SystemExt};
 
+use crate::config::Hotkey;
+
 mod config;
 
 #[derive(PartialEq)]
 pub struct LastHotkey {
     hotkey: config::Hotkey,
     ran_at: SystemTime,
+}
+
+#[derive(PartialEq)]
+pub enum LastHotkeyOption {
+    Some(LastHotkey),
+    None,
+}
+
+impl LastHotkeyOption {
+    pub fn unwrap(&self) -> &LastHotkey {
+        match &self {
+            LastHotkeyOption::Some(last_hotkey) => last_hotkey,
+            LastHotkeyOption::None => panic!("Last hotkey is None"),
+        }
+    }
 }
 
 pub fn main() {
@@ -127,16 +144,16 @@ pub fn main() {
     let mut key_states: Vec<AttributeSet<Key>> = Vec::new();
     let mut possible_hotkeys: Vec<config::Hotkey> = Vec::new();
 
-    let default_test_modifier: Vec<config::Modifier> = vec![config::Modifier::Super];
-    let mut last_hotkey = LastHotkey {
-        // just a dummy last_hotkey so I don't need to mess with Option<T>. TODO: Change this to Option<T>
-        hotkey: config::Hotkey::new(
-            evdev::Key::KEY_A,
-            default_test_modifier,
-            String::from("notify-send \"it works\""),
-        ),
-        ran_at: SystemTime::now(),
-    };
+    let mut last_hotkey = LastHotkeyOption::None;
+
+    fn send_command(hotkey: Hotkey) {
+        log::info!("Hotkey pressed: {:#?}", hotkey);
+        if let Err(e) = sock_send(&hotkey.command) {
+            log::error!("Failed to send command over IPC.");
+            log::error!("Is swhks running?");
+            log::error!("{:#?}", e)
+        }
+    }
 
     loop {
         for device in &keyboard_devices {
@@ -174,37 +191,42 @@ pub fn main() {
                     && state_modifiers.len() == hotkey.modifiers.len()
                     && state_keysyms.contains(&hotkey.keysym)
                 {
-                    if last_hotkey.hotkey == hotkey.clone() {
-                        let time_since_ran_at =
-                            match SystemTime::now().duration_since(last_hotkey.ran_at) {
-                                Ok(n) => n.as_millis(),
-                                Err(e) => {
-                                    log::error!("Error: {:#?}", e);
-                                    exit(1);
-                                }
-                            };
-                        if time_since_ran_at <= repeat_cooldown_duration {
-                            log::error!(
-                                "In cooldown: {:#?} \nTime Remaining: {:#?}ms",
-                                hotkey,
-                                repeat_cooldown_duration - time_since_ran_at
-                            );
-                            continue;
-                        } else {
-                            last_hotkey =
-                                LastHotkey { hotkey: hotkey.clone(), ran_at: SystemTime::now() };
-                        }
+                    if last_hotkey == LastHotkeyOption::None {
+                        last_hotkey = LastHotkeyOption::Some(LastHotkey {
+                            hotkey: hotkey.clone(),
+                            ran_at: SystemTime::now(),
+                        });
+                        send_command(hotkey.clone());
+                    }
+                    if last_hotkey.unwrap().hotkey != hotkey.clone() {
+                        last_hotkey = LastHotkeyOption::Some(LastHotkey {
+                            hotkey: hotkey.clone(),
+                            ran_at: SystemTime::now(),
+                        });
+                        send_command(hotkey.clone());
+                    }
+                    let time_since_ran_at =
+                        match SystemTime::now().duration_since(last_hotkey.unwrap().ran_at) {
+                            Ok(n) => n.as_millis(),
+                            Err(e) => {
+                                log::error!("Error: {:#?}", e);
+                                exit(1);
+                            }
+                        };
+                    if time_since_ran_at <= repeat_cooldown_duration {
+                        log::error!(
+                            "In cooldown: {:#?} \nTime Remaining: {:#?}ms",
+                            hotkey,
+                            repeat_cooldown_duration - time_since_ran_at
+                        );
+                        continue;
                     } else {
-                        last_hotkey =
-                            LastHotkey { hotkey: hotkey.clone(), ran_at: SystemTime::now() };
+                        last_hotkey = LastHotkeyOption::Some(LastHotkey {
+                            hotkey: hotkey.clone(),
+                            ran_at: SystemTime::now(),
+                        });
                     }
-
-                    log::info!("Hotkey pressed: {:#?}", hotkey);
-                    if let Err(e) = sock_send(&hotkey.command) {
-                        log::error!("Failed to send command over IPC.");
-                        log::error!("Is swhks running?");
-                        log::error!("{:#?}", e)
-                    }
+                    send_command(hotkey.clone());
                 }
             }
         }
