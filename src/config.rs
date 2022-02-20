@@ -313,10 +313,10 @@ fn parse_keybind(
 
     let mut tokens_new = Vec::new();
     for mut token in tokens {
-        while token.starts_with('_') {
-            token = token.strip_prefix('_').unwrap().to_string();
+        while token.trim().starts_with('_') {
+            token = token.trim().strip_prefix('_').unwrap().to_string();
         }
-        tokens_new.push(token);
+        tokens_new.push(token.trim().to_string());
     }
 
     let last_token = tokens_new.last().unwrap().trim();
@@ -384,8 +384,6 @@ fn extract_curly_brace(line: &str) -> Vec<String> {
         remaining_line.push(line[start_index..i[0]].to_string());
         start_index = i[1] + 1;
     }
-    println!("{:?}", items);
-    println!("{:?}", remaining_line);
 
     // now we have a list of items between each pair of braces
     // we should extract the items between each comma and store them in a vector
@@ -1351,6 +1349,58 @@ super + {_,shift + }{h,j,k,l}
                     evdev::Key::KEY_L,
                     vec![Modifier::Super, Modifier::Shift],
                     "bspc node -s east".to_string(),
+                ),
+            ],
+        )
+    }
+
+    #[test]
+    fn test_longer_multiple_curly_brace() -> std::io::Result<()> {
+        let contents = "
+super + {_, ctrl +} {_, shift +} {1-2}
+    riverctl {set, toggle}-{focused, view}-tags {1-2}";
+        eval_config_test(
+            contents,
+            vec![
+                Hotkey::new(
+                    evdev::Key::KEY_1,
+                    vec![Modifier::Super],
+                    "riverctl set-focused-tags 1".to_string(),
+                ),
+                Hotkey::new(
+                    evdev::Key::KEY_2,
+                    vec![Modifier::Super],
+                    "riverctl set-focused-tags 2".to_string(),
+                ),
+                Hotkey::new(
+                    evdev::Key::KEY_1,
+                    vec![Modifier::Super, Modifier::Control],
+                    "riverctl toggle-focused-tags 1".to_string(),
+                ),
+                Hotkey::new(
+                    evdev::Key::KEY_2,
+                    vec![Modifier::Super, Modifier::Control],
+                    "riverctl toggle-focused-tags 2".to_string(),
+                ),
+                Hotkey::new(
+                    evdev::Key::KEY_1,
+                    vec![Modifier::Super, Modifier::Shift],
+                    "riverctl set-view-tags 1".to_string(),
+                ),
+                Hotkey::new(
+                    evdev::Key::KEY_2,
+                    vec![Modifier::Super, Modifier::Shift],
+                    "riverctl set-view-tags 2".to_string(),
+                ),
+                Hotkey::new(
+                    evdev::Key::KEY_1,
+                    vec![Modifier::Super, Modifier::Control, Modifier::Shift],
+                    "riverctl toggle-view-tags 1".to_string(),
+                ),
+                Hotkey::new(
+                    evdev::Key::KEY_2,
+                    vec![Modifier::Super, Modifier::Control, Modifier::Shift],
+                    "riverctl toggle-view-tags 2".to_string(),
                 ),
             ],
         )
