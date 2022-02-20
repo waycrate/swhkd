@@ -14,8 +14,6 @@ use std::{
 };
 use sysinfo::{ProcessExt, System, SystemExt};
 
-use crate::config::Hotkey;
-
 mod config;
 
 #[derive(PartialEq)]
@@ -146,7 +144,7 @@ pub fn main() {
 
     let mut last_hotkey = LastHotkeyOption::None;
 
-    fn send_command(hotkey: Hotkey) {
+    fn send_command(hotkey: config::Hotkey) {
         log::info!("Hotkey pressed: {:#?}", hotkey);
         if let Err(e) = sock_send(&hotkey.command) {
             log::error!("Failed to send command over IPC.");
