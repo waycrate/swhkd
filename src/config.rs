@@ -220,7 +220,6 @@ fn parse_contents(contents: String) -> Result<Vec<Hotkey>, Error> {
         }
     }
 
-
     // Edge case: return a blank vector if no lines detected
     if lines_with_types.is_empty() {
         return Ok(vec![]);
@@ -492,7 +491,6 @@ mod tests {
             Hotkey { keysym, modifiers, command }
         }
     }
-
 
     // Wrapper for config tests
     fn eval_config_test(contents: &str, expected_hotkeys: Vec<Hotkey>) -> std::io::Result<()> {
