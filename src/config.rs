@@ -76,12 +76,6 @@ pub enum Modifier {
     // Mod5,
 }
 
-impl Hotkey {
-    pub fn new(keysym: evdev::Key, modifiers: Vec<Modifier>, command: String) -> Self {
-        Hotkey { keysym, modifiers, command }
-    }
-}
-
 pub fn load(path: path::PathBuf) -> Result<Vec<Hotkey>, Error> {
     let file_contents = load_file_contents(path)?;
     parse_contents(file_contents)
@@ -226,6 +220,7 @@ fn parse_contents(contents: String) -> Result<Vec<Hotkey>, Error> {
         }
     }
 
+
     // Edge case: return a blank vector if no lines detected
     if lines_with_types.is_empty() {
         return Ok(vec![]);
@@ -255,6 +250,8 @@ fn parse_contents(contents: String) -> Result<Vec<Hotkey>, Error> {
             current_line_string = String::new();
         }
     }
+
+    drop(lines);
 
     let mut hotkeys: Vec<Hotkey> = Vec::new();
 
@@ -489,6 +486,13 @@ mod tests {
             }
         }
     }
+
+    impl Hotkey {
+        fn new(keysym: evdev::Key, modifiers: Vec<Modifier>, command: String) -> Self {
+            Hotkey { keysym, modifiers, command }
+        }
+    }
+
 
     // Wrapper for config tests
     fn eval_config_test(contents: &str, expected_hotkeys: Vec<Hotkey>) -> std::io::Result<()> {
