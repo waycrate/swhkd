@@ -22,21 +22,6 @@ pub struct LastHotkey {
     ran_at: SystemTime,
 }
 
-#[derive(PartialEq)]
-pub enum LastHotkeyOption {
-    Some(LastHotkey),
-    None,
-}
-
-impl LastHotkeyOption {
-    pub fn unwrap(&self) -> &LastHotkey {
-        match &self {
-            LastHotkeyOption::Some(last_hotkey) => last_hotkey,
-            LastHotkeyOption::None => panic!("Last hotkey is None"),
-        }
-    }
-}
-
 pub fn main() {
     let args = set_flags().get_matches();
     env::set_var("RUST_LOG", "swhkd=warn");
@@ -142,7 +127,7 @@ pub fn main() {
     let mut key_states: Vec<AttributeSet<Key>> = Vec::new();
     let mut possible_hotkeys: Vec<config::Hotkey> = Vec::new();
 
-    let mut last_hotkey = LastHotkeyOption::None;
+    let mut last_hotkey: Option<LastHotkey> = None;
 
     fn send_command(hotkey: config::Hotkey) {
         log::info!("Hotkey pressed: {:#?}", hotkey);
@@ -189,28 +174,27 @@ pub fn main() {
                     && state_modifiers.len() == hotkey.modifiers.len()
                     && state_keysyms.contains(&hotkey.keysym)
                 {
-                    if last_hotkey == LastHotkeyOption::None {
-                        last_hotkey = LastHotkeyOption::Some(LastHotkey {
-                            hotkey: hotkey.clone(),
-                            ran_at: SystemTime::now(),
-                        });
+                    if last_hotkey == None {
+                        last_hotkey =
+                            Some(LastHotkey { hotkey: hotkey.clone(), ran_at: SystemTime::now() });
                         send_command(hotkey.clone());
+                        continue;
                     }
-                    if last_hotkey.unwrap().hotkey != hotkey.clone() {
-                        last_hotkey = LastHotkeyOption::Some(LastHotkey {
-                            hotkey: hotkey.clone(),
-                            ran_at: SystemTime::now(),
-                        });
+                    if last_hotkey.as_ref().unwrap().hotkey != hotkey.clone() {
+                        last_hotkey =
+                            Some(LastHotkey { hotkey: hotkey.clone(), ran_at: SystemTime::now() });
                         send_command(hotkey.clone());
+                        continue;
                     }
-                    let time_since_ran_at =
-                        match SystemTime::now().duration_since(last_hotkey.unwrap().ran_at) {
-                            Ok(n) => n.as_millis(),
-                            Err(e) => {
-                                log::error!("Error: {:#?}", e);
-                                exit(1);
-                            }
-                        };
+                    let time_since_ran_at = match SystemTime::now()
+                        .duration_since(last_hotkey.as_ref().unwrap().ran_at)
+                    {
+                        Ok(n) => n.as_millis(),
+                        Err(e) => {
+                            log::error!("Error: {:#?}", e);
+                            exit(1);
+                        }
+                    };
                     if time_since_ran_at <= repeat_cooldown_duration {
                         log::error!(
                             "In cooldown: {:#?} \nTime Remaining: {:#?}ms",
@@ -219,10 +203,8 @@ pub fn main() {
                         );
                         continue;
                     } else {
-                        last_hotkey = LastHotkeyOption::Some(LastHotkey {
-                            hotkey: hotkey.clone(),
-                            ran_at: SystemTime::now(),
-                        });
+                        last_hotkey =
+                            Some(LastHotkey { hotkey: hotkey.clone(), ran_at: SystemTime::now() });
                     }
                     send_command(hotkey.clone());
                 }
