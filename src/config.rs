@@ -1,3 +1,4 @@
+use itertools::Itertools;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::Read;
@@ -280,7 +281,6 @@ fn parse_contents(contents: String) -> Result<Vec<Hotkey>, Error> {
         let extracted_commands = extract_curly_brace(&next_line.2);
 
         'hotkey_parse: for (key, command) in extracted_keys.iter().zip(extracted_commands.iter()) {
-            println!("{} {}", key, command);
             let (keysym, modifiers) =
                 parse_keybind(key, line_number + 1, &key_to_evdev_key, &mod_to_mod_enum)?;
             let hotkey = Hotkey { keysym, modifiers, command: command.to_string() };
@@ -310,10 +310,19 @@ fn parse_keybind(
     let line = line.split('#').next().unwrap();
     let tokens: Vec<String> =
         line.split('+').map(|s| s.trim().to_lowercase()).filter(|s| s != "_").collect();
-    let last_token = tokens.last().unwrap().trim();
+
+    let mut tokens_new = Vec::new();
+    for mut token in tokens {
+        while token.trim().starts_with('_') {
+            token = token.trim().strip_prefix('_').unwrap().to_string();
+        }
+        tokens_new.push(token.trim().to_string());
+    }
+
+    let last_token = tokens_new.last().unwrap().trim();
 
     // Check if each token is valid
-    for token in &tokens {
+    for token in &tokens_new {
         if key_to_evdev_key.contains_key(token.as_str()) {
             // Can't have a key that's like a modifier
             if token != last_token {
@@ -332,7 +341,7 @@ fn parse_keybind(
     // Translate keypress into evdev key
     let keysym = key_to_evdev_key.get(last_token).unwrap();
 
-    let modifiers: Vec<Modifier> = tokens[0..(tokens.len() - 1)]
+    let modifiers: Vec<Modifier> = tokens_new[0..(tokens_new.len() - 1)]
         .iter()
         .map(|token| *mod_to_mod_enum.get(token.as_str()).unwrap())
         .collect();
@@ -341,79 +350,109 @@ fn parse_keybind(
 }
 
 fn extract_curly_brace(line: &str) -> Vec<String> {
-    if !line.is_ascii() {
+    if !line.contains('{') || !line.contains('}') || !line.is_ascii() {
         return vec![line.to_string()];
     }
+
+    // go through each character in the line and mark the position of each { and }
+    // if a { is not followed by a  }, return the line as is
+    let mut brace_positions: Vec<usize> = Vec::new();
+    let mut flag = false;
+    for (i, c) in line.chars().enumerate() {
+        if c == '{' {
+            if flag {
+                return vec![line.to_string()];
+            }
+            brace_positions.push(i);
+            flag = true;
+        } else if c == '}' {
+            if !flag {
+                return vec![line.to_string()];
+            }
+            brace_positions.push(i);
+            flag = false;
+        }
+    }
+
+    // now we have a list of positions of { and }
+    // we should extract the items between each pair of braces and store them in a vector
+    let mut items: Vec<String> = Vec::new();
+    let mut remaining_line: Vec<String> = Vec::new();
+    let mut start_index = 0;
+    for i in brace_positions.chunks(2) {
+        items.push(line[i[0] + 1..i[1]].to_string());
+        remaining_line.push(line[start_index..i[0]].to_string());
+        start_index = i[1] + 1;
+    }
+
+    // now we have a list of items between each pair of braces
+    // we should extract the items between each comma and store them in a vector
+    let mut tokens_vec: Vec<Vec<String>> = Vec::new();
+    for item in items {
+        let items: Vec<String> = item.split(',').map(|s| s.trim().to_string()).collect();
+        tokens_vec.push(handle_ranges(items));
+    }
+
+    fn handle_ranges(items: Vec<String>) -> Vec<String> {
+        let mut output: Vec<String> = Vec::new();
+        for item in items {
+            if !item.contains('-') {
+                output.push(item);
+                continue;
+            }
+            let mut range = item.split('-').map(|s| s.trim());
+            let begin_char: &str;
+            let end_char: &str;
+
+            if let Some(b) = range.next() {
+                begin_char = b;
+            } else {
+                output.push(item);
+                continue;
+            }
+
+            if let Some(e) = range.next() {
+                end_char = e;
+            } else {
+                output.push(item);
+                continue;
+            }
+
+            // Do not accept range values that are longer than one char
+            // Example invalid: {ef-p} {3-56}
+            // Beginning of the range cannot be greater than end
+            // Example invalid: {9-4} {3-2}
+            if begin_char.len() != 1 || end_char.len() != 1 || begin_char > end_char {
+                output.push(item);
+                continue;
+            }
+
+            // In swhkd we will parse the full range using ASCII values.
+
+            let begin_ascii_val = begin_char.parse::<char>().unwrap() as u8;
+            let end_ascii_val = end_char.parse::<char>().unwrap() as u8;
+
+            for ascii_number in begin_ascii_val..=end_ascii_val {
+                output.push((ascii_number as char).to_string());
+            }
+        }
+        output
+    }
+
+    // now write the tokens back to the line and output a vector
     let mut output: Vec<String> = Vec::new();
-
-    let index_open_brace = line.chars().position(|c| c == '{');
-    let index_close_brace = line.chars().position(|c| c == '}');
-
-    if index_open_brace.is_none() || index_close_brace.is_none() {
-        return vec![line.to_string()];
-    }
-
-    let start_index = index_open_brace.unwrap();
-    let end_index = index_close_brace.unwrap();
-
-    // There are no expansions to build if } is earlier than {
-    if start_index >= end_index {
-        return vec![line.to_string()];
-    }
-
-    let str_before_braces = line[..start_index].to_string();
-    let str_after_braces = line[end_index + 1..].to_string();
-
-    let comma_separated_items = line[start_index + 1..end_index].split(',');
-
-    for item in comma_separated_items {
-        let mut push_one_item = || {
-            output.push(format!("{}{}{}", str_before_braces, item.trim(), str_after_braces));
-        };
-
-        if !item.contains('-') {
-            push_one_item();
-            continue;
+    // generate a cartesian product iterator for all the vectors in tokens_vec
+    let cartesian_product_iter = tokens_vec.iter().multi_cartesian_product();
+    for tokens in cartesian_product_iter.collect_vec() {
+        let mut line_to_push = String::new();
+        for i in 0..remaining_line.len() {
+            line_to_push.push_str(&remaining_line[i]);
+            line_to_push.push_str(tokens[i]);
         }
-
-        // Parse dash ranges like {1-5} and {a-f}
-
-        let mut range = item.split('-').map(|s| s.trim());
-        let begin_char: &str;
-        let end_char: &str;
-
-        if let Some(b) = range.next() {
-            begin_char = b;
-        } else {
-            push_one_item();
-            continue;
+        if brace_positions[brace_positions.len() - 1] < line.len() - 1 {
+            line_to_push.push_str(&line[brace_positions[brace_positions.len() - 1] + 1..]);
         }
-
-        if let Some(e) = range.next() {
-            end_char = e;
-        } else {
-            push_one_item();
-            continue;
-        }
-
-        // Do not accept range values that are longer than one char
-        // Example invalid: {ef-p} {3-56}
-        // Beginning of the range cannot be greater than end
-        // Example invalid: {9-4} {3-2}
-        if begin_char.len() != 1 || end_char.len() != 1 || begin_char > end_char {
-            push_one_item();
-            continue;
-        }
-
-        // In swhkd we will parse the full range using ASCII values.
-
-        let begin_ascii_val = begin_char.parse::<char>().unwrap() as u8;
-        let end_ascii_val = end_char.parse::<char>().unwrap() as u8;
-
-        for ascii_number in begin_ascii_val..=end_ascii_val {
-            output
-                .push(format!("{}{}{}", str_before_braces, ascii_number as char, str_after_braces));
-        }
+        output.push(line_to_push);
     }
     output
 }
@@ -1197,8 +1236,6 @@ super + {_, shift} + b
     }
 
     #[test]
-    #[ignore]
-    // TODO: handle multiple ranges
     fn test_multiple_ranges() -> std::io::Result<()> {
         let contents = "
 super + {shift,alt} + {c,d}
@@ -1233,7 +1270,6 @@ super + {shift,alt} + {c,d}
     }
 
     #[test]
-    #[ignore]
     fn test_multiple_ranges_numbers() -> std::io::Result<()> {
         let contents = "
 {control,super} + {1-3}
@@ -1261,6 +1297,111 @@ super + {shift,alt} + {c,d}
                 Hotkey::new(evdev::Key::KEY_1, vec![Modifier::Super], "echo hello".to_string()),
                 Hotkey::new(evdev::Key::KEY_2, vec![Modifier::Super], "echo how".to_string()),
                 Hotkey::new(evdev::Key::KEY_3, vec![Modifier::Super], "echo are".to_string()),
+            ],
+        )
+    }
+
+    #[test]
+    fn test_bspwm_multiple_curly_brace() -> std::io::Result<()> {
+        let contents = "
+super + {_,shift + }{h,j,k,l}
+	bspc node -{f,s} {west,south,north,east}";
+
+        eval_config_test(
+            contents,
+            vec![
+                Hotkey::new(
+                    evdev::Key::KEY_H,
+                    vec![Modifier::Super],
+                    "bspc node -f west".to_string(),
+                ),
+                Hotkey::new(
+                    evdev::Key::KEY_J,
+                    vec![Modifier::Super],
+                    "bspc node -f south".to_string(),
+                ),
+                Hotkey::new(
+                    evdev::Key::KEY_K,
+                    vec![Modifier::Super],
+                    "bspc node -f north".to_string(),
+                ),
+                Hotkey::new(
+                    evdev::Key::KEY_L,
+                    vec![Modifier::Super],
+                    "bspc node -f east".to_string(),
+                ),
+                Hotkey::new(
+                    evdev::Key::KEY_H,
+                    vec![Modifier::Super, Modifier::Shift],
+                    "bspc node -s west".to_string(),
+                ),
+                Hotkey::new(
+                    evdev::Key::KEY_J,
+                    vec![Modifier::Super, Modifier::Shift],
+                    "bspc node -s south".to_string(),
+                ),
+                Hotkey::new(
+                    evdev::Key::KEY_K,
+                    vec![Modifier::Super, Modifier::Shift],
+                    "bspc node -s north".to_string(),
+                ),
+                Hotkey::new(
+                    evdev::Key::KEY_L,
+                    vec![Modifier::Super, Modifier::Shift],
+                    "bspc node -s east".to_string(),
+                ),
+            ],
+        )
+    }
+
+    #[test]
+    fn test_longer_multiple_curly_brace() -> std::io::Result<()> {
+        let contents = "
+super + {_, ctrl +} {_, shift +} {1-2}
+    riverctl {set, toggle}-{focused, view}-tags {1-2}";
+        eval_config_test(
+            contents,
+            vec![
+                Hotkey::new(
+                    evdev::Key::KEY_1,
+                    vec![Modifier::Super],
+                    "riverctl set-focused-tags 1".to_string(),
+                ),
+                Hotkey::new(
+                    evdev::Key::KEY_2,
+                    vec![Modifier::Super],
+                    "riverctl set-focused-tags 2".to_string(),
+                ),
+                Hotkey::new(
+                    evdev::Key::KEY_1,
+                    vec![Modifier::Super, Modifier::Control],
+                    "riverctl toggle-focused-tags 1".to_string(),
+                ),
+                Hotkey::new(
+                    evdev::Key::KEY_2,
+                    vec![Modifier::Super, Modifier::Control],
+                    "riverctl toggle-focused-tags 2".to_string(),
+                ),
+                Hotkey::new(
+                    evdev::Key::KEY_1,
+                    vec![Modifier::Super, Modifier::Shift],
+                    "riverctl set-view-tags 1".to_string(),
+                ),
+                Hotkey::new(
+                    evdev::Key::KEY_2,
+                    vec![Modifier::Super, Modifier::Shift],
+                    "riverctl set-view-tags 2".to_string(),
+                ),
+                Hotkey::new(
+                    evdev::Key::KEY_1,
+                    vec![Modifier::Super, Modifier::Control, Modifier::Shift],
+                    "riverctl toggle-view-tags 1".to_string(),
+                ),
+                Hotkey::new(
+                    evdev::Key::KEY_2,
+                    vec![Modifier::Super, Modifier::Control, Modifier::Shift],
+                    "riverctl toggle-view-tags 2".to_string(),
+                ),
             ],
         )
     }
