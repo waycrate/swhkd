@@ -225,28 +225,35 @@ fn parse_contents(contents: String) -> Result<Vec<Hotkey>, Error> {
         return Ok(vec![]);
     }
 
-    // Go through lines_with_types, and add the next line over and over until the current line no
-    // longer ends with backslash. (Only if the lines have the same type)
     let mut actual_lines: Vec<(&str, u32, String)> = Vec::new();
-    let mut current_line_type = lines_with_types[0].0;
-    let mut current_line_number = lines_with_types[0].1;
-    let mut current_line_string = String::new();
-    for (line_type, line_number) in lines_with_types {
-        if line_type != current_line_type {
-            current_line_type = line_type;
-            current_line_number = line_number;
-            current_line_string = String::new();
+
+    if contents.contains('\\') {
+        // Go through lines_with_types, and add the next line over and over until the current line no
+        // longer ends with backslash. (Only if the lines have the same type)
+        let mut current_line_type = lines_with_types[0].0;
+        let mut current_line_number = lines_with_types[0].1;
+        let mut current_line_string = String::new();
+        for (line_type, line_number) in lines_with_types {
+            if line_type != current_line_type {
+                current_line_type = line_type;
+                current_line_number = line_number;
+                current_line_string = String::new();
+            }
+            current_line_string.push_str(lines[line_number as usize].trim());
+            if !current_line_string.ends_with('\\') {
+                actual_lines.push((
+                    current_line_type,
+                    current_line_number,
+                    current_line_string.replace("\\", ""),
+                ));
+                current_line_type = line_type;
+                current_line_number = line_number;
+                current_line_string = String::new();
+            }
         }
-        current_line_string.push_str(lines[line_number as usize].trim());
-        if !current_line_string.ends_with('\\') {
-            actual_lines.push((
-                current_line_type,
-                current_line_number,
-                current_line_string.replace("\\", ""),
-            ));
-            current_line_type = line_type;
-            current_line_number = line_number;
-            current_line_string = String::new();
+    } else {
+        for (line_type, line_number) in lines_with_types {
+            actual_lines.push((line_type, line_number, lines[line_number as usize].trim().to_string()));
         }
     }
 
