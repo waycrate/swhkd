@@ -253,7 +253,11 @@ fn parse_contents(contents: String) -> Result<Vec<Hotkey>, Error> {
         }
     } else {
         for (line_type, line_number) in lines_with_types {
-            actual_lines.push((line_type, line_number, lines[line_number as usize].trim().to_string()));
+            actual_lines.push((
+                line_type,
+                line_number,
+                lines[line_number as usize].trim().to_string(),
+            ));
         }
     }
 
