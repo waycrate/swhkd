@@ -1,8 +1,11 @@
 # This goes in /etc/swhkd/swhkdrc
 
 # terminal
-super + ReTuRn
+super + ReTuRn # case insensitive
 	alacritty
+
+super + shift + enter # enter = return
+	kitty
 
 # file manager
 super + shift + f
@@ -11,3 +14,26 @@ super + shift + f
 # web-browser
 super + w 
 	firefox
+
+# bspwm
+super + {_,shift + }{h,j,k,l}
+	bspc node -{f,s} {west,south,north,east}
+
+super + ctrl + alt + {Left\
+,Down\
+,Up\
+,Right}
+  n=10; \
+  { d1=left;   d2=right;  dx=-$n; dy=0;   \
+  , d1=bottom; d2=top;    dx=0;   dy=$n;  \
+  , d1=top;    d2=bottom; dx=0;   dy=-$n; \
+  , d1=right;  d2=left;   dx=$n;  dy=0;   \
+  } \
+  bspc node --resize $d1 $dx $dy || bspc node --resize $d2 $dx $dy
+
+# screenshot
+print
+	scrot
+
+ctrl + print
+	scrot -s
