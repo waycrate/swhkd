@@ -15,6 +15,7 @@ use std::{
 use sysinfo::{ProcessExt, System, SystemExt};
 
 mod config;
+mod tests;
 
 #[derive(PartialEq)]
 pub struct LastHotkey {
