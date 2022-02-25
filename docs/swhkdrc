@@ -1,5 +1,9 @@
 # This goes in /etc/swhkd/swhkdrc
 
+# temporarily pause swhkd (use 'pkill -USR2 swhkd' to resume)
+super + escape
+	pkill -USR1 swhkd
+
 # terminal
 super + ReTuRn # case insensitive
 	alacritty
