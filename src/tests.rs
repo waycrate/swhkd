@@ -1,4 +1,3 @@
-#[cfg(test)]
 mod test_config {
     use crate::config::{
         extract_curly_brace, load_file_contents, parse_contents, Error, Hotkey, Modifier,
@@ -958,7 +957,6 @@ super + {_, ctrl +} {_, shift +} {1-2}
     }
 }
 
-#[cfg(test)]
 mod test_config_display {
     use crate::config::{Error, ParseError};
     use std::io;

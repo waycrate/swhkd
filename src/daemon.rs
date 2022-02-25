@@ -15,6 +15,8 @@ use std::{
 use sysinfo::{ProcessExt, System, SystemExt};
 
 mod config;
+
+#[cfg(test)]
 mod tests;
 
 #[derive(PartialEq)]
