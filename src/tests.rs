@@ -1,9 +1,12 @@
 #[cfg(test)]
 mod test_config {
-    use crate::config::{ParseError, Modifier, Hotkey, Error, parse_contents, load_file_contents, extract_curly_brace};
-    use std::{fs::File, path};
+    use crate::config::{
+        extract_curly_brace, load_file_contents, parse_contents, Error, Hotkey, Modifier,
+        ParseError,
+    };
     use std::fs;
     use std::io::Write;
+    use std::{fs::File, path};
 
     // Implement a struct for a path used in tests
     // so that the test file will be automatically removed
