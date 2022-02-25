@@ -1,6 +1,9 @@
 use clap::{arg, Command};
 use evdev::{AttributeSet, Device, Key};
 use nix::unistd::{Group, Uid};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
+use std::time::Duration;
 use std::{
     collections::HashMap,
     env, fs,
@@ -9,12 +12,17 @@ use std::{
     path::Path,
     process::{exit, id},
     thread::sleep,
-    time::Duration,
     time::SystemTime,
 };
 use sysinfo::{ProcessExt, System, SystemExt};
 
+use signal_hook::consts::signal::*;
+use signal_hook::flag as signal_flag;
+
 mod config;
+
+#[cfg(test)]
+mod tests;
 
 #[derive(PartialEq)]
 pub struct LastHotkey {
@@ -22,7 +30,7 @@ pub struct LastHotkey {
     ran_at: SystemTime,
 }
 
-pub fn main() {
+pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = set_flags().get_matches();
     env::set_var("RUST_LOG", "swhkd=warn");
 
@@ -136,82 +144,105 @@ pub fn main() {
         }
     }
 
-    loop {
-        for device in &keyboard_devices {
-            key_states.push(device.get_key_state().unwrap());
-        }
-        // check if a hotkey in hotkeys is pressed
-        for state in &key_states {
-            for hotkey in &hotkeys {
-                if hotkey.modifiers.len() < state.iter().count() {
-                    possible_hotkeys.push(hotkey.clone());
-                } else {
+    let pause = Arc::new(AtomicBool::new(false));
+    let resume = Arc::new(AtomicBool::new(false));
+    signal_flag::register(SIGUSR1, Arc::clone(&pause))?;
+    signal_flag::register(SIGUSR2, Arc::clone(&resume))?;
+
+    let mut main_loop = || {
+        loop {
+            if pause.load(Ordering::Relaxed) {
+                break;
+            }
+            for device in &keyboard_devices {
+                key_states.push(device.get_key_state().unwrap());
+            }
+            // check if a hotkey in hotkeys is pressed
+            for state in &key_states {
+                for hotkey in &hotkeys {
+                    if hotkey.modifiers.len() < state.iter().count() {
+                        possible_hotkeys.push(hotkey.clone());
+                    } else {
+                        continue;
+                    }
+                }
+
+                if possible_hotkeys.is_empty() {
                     continue;
                 }
-            }
 
-            if possible_hotkeys.is_empty() {
-                continue;
-            }
-
-            let mut state_modifiers: Vec<config::Modifier> = Vec::new();
-            let mut state_keysyms: Vec<evdev::Key> = Vec::new();
-            for key in state.iter() {
-                if let Some(modifier) = modifiers_map.get(&key) {
-                    state_modifiers.push(*modifier);
-                } else {
-                    state_keysyms.push(key);
-                }
-            }
-            log::debug!("state_modifiers: {:#?}", state_modifiers);
-            log::debug!("state_keysyms: {:#?}", state_keysyms);
-            log::debug!("hotkey: {:#?}", possible_hotkeys);
-            for hotkey in &possible_hotkeys {
-                // this should check if state_modifiers and hotkey.modifiers have the same elements
-                if state_modifiers.iter().all(|x| hotkey.modifiers.contains(x))
-                    && state_modifiers.len() == hotkey.modifiers.len()
-                    && state_keysyms.contains(&hotkey.keysym)
-                {
-                    if last_hotkey == None {
-                        last_hotkey =
-                            Some(LastHotkey { hotkey: hotkey.clone(), ran_at: SystemTime::now() });
-                        send_command(hotkey.clone());
-                        continue;
-                    }
-                    if last_hotkey.as_ref().unwrap().hotkey != hotkey.clone() {
-                        last_hotkey =
-                            Some(LastHotkey { hotkey: hotkey.clone(), ran_at: SystemTime::now() });
-                        send_command(hotkey.clone());
-                        continue;
-                    }
-                    let time_since_ran_at = match SystemTime::now()
-                        .duration_since(last_hotkey.as_ref().unwrap().ran_at)
-                    {
-                        Ok(n) => n.as_millis(),
-                        Err(e) => {
-                            log::error!("Error: {:#?}", e);
-                            exit(1);
-                        }
-                    };
-                    if time_since_ran_at <= repeat_cooldown_duration {
-                        log::error!(
-                            "In cooldown: {:#?} \nTime Remaining: {:#?}ms",
-                            hotkey,
-                            repeat_cooldown_duration - time_since_ran_at
-                        );
-                        continue;
+                let mut state_modifiers: Vec<config::Modifier> = Vec::new();
+                let mut state_keysyms: Vec<evdev::Key> = Vec::new();
+                for key in state.iter() {
+                    if let Some(modifier) = modifiers_map.get(&key) {
+                        state_modifiers.push(*modifier);
                     } else {
-                        last_hotkey =
-                            Some(LastHotkey { hotkey: hotkey.clone(), ran_at: SystemTime::now() });
+                        state_keysyms.push(key);
                     }
-                    send_command(hotkey.clone());
+                }
+                log::debug!("state_modifiers: {:#?}", state_modifiers);
+                log::debug!("state_keysyms: {:#?}", state_keysyms);
+                log::debug!("hotkey: {:#?}", possible_hotkeys);
+                for hotkey in &possible_hotkeys {
+                    // this should check if state_modifiers and hotkey.modifiers have the same elements
+                    if state_modifiers.iter().all(|x| hotkey.modifiers.contains(x))
+                        && state_modifiers.len() == hotkey.modifiers.len()
+                        && state_keysyms.contains(&hotkey.keysym)
+                    {
+                        if last_hotkey == None {
+                            last_hotkey = Some(LastHotkey {
+                                hotkey: hotkey.clone(),
+                                ran_at: SystemTime::now(),
+                            });
+                            send_command(hotkey.clone());
+                            continue;
+                        }
+                        if last_hotkey.as_ref().unwrap().hotkey != hotkey.clone() {
+                            last_hotkey = Some(LastHotkey {
+                                hotkey: hotkey.clone(),
+                                ran_at: SystemTime::now(),
+                            });
+                            send_command(hotkey.clone());
+                            continue;
+                        }
+                        let time_since_ran_at = match SystemTime::now()
+                            .duration_since(last_hotkey.as_ref().unwrap().ran_at)
+                        {
+                            Ok(n) => n.as_millis(),
+                            Err(e) => {
+                                log::error!("Error: {:#?}", e);
+                                exit(1);
+                            }
+                        };
+                        if time_since_ran_at <= repeat_cooldown_duration {
+                            log::error!(
+                                "In cooldown: {:#?} \nTime Remaining: {:#?}ms",
+                                hotkey,
+                                repeat_cooldown_duration - time_since_ran_at
+                            );
+                            continue;
+                        } else {
+                            last_hotkey = Some(LastHotkey {
+                                hotkey: hotkey.clone(),
+                                ran_at: SystemTime::now(),
+                            });
+                        }
+                        send_command(hotkey.clone());
+                    }
                 }
             }
-        }
 
-        key_states.clear();
-        possible_hotkeys.clear();
-        sleep(Duration::from_millis(10)); // without this, swhkd will start to chew through your cpu.
+            key_states.clear();
+            possible_hotkeys.clear();
+            sleep(Duration::from_millis(10)); // without this, swhkd will start to chew through your cpu.
+        }
+    };
+
+    loop {
+        main_loop();
+        while !resume.load(Ordering::Relaxed) {}
+        pause.store(false, Ordering::Relaxed);
+        resume.store(false, Ordering::Relaxed);
     }
 }
 pub fn permission_check() {
