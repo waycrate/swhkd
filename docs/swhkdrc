@@ -1,8 +1,11 @@
 # This goes in /etc/swhkd/swhkdrc
 
-# temporarily pause swhkd (use 'pkill -USR2 swhkd' to resume)
+# pause swhkd (use 'pkill -USR2 swhkd' to resume)
 super + escape
 	sudo pkill -USR1 swhkd
+# pause swhkd temporarily (press super+shift+escape to resume)
+super + ctrl + escape
+	sudo pkill -INT swhkd
 # reload config
 super + ctrl + r
 	sudo pkill -HUP swhkd
