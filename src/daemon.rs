@@ -146,9 +146,11 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     let pause = Arc::new(AtomicBool::new(false));
     let resume = Arc::new(AtomicBool::new(false));
     let reload = Arc::new(AtomicBool::new(false));
+    let pause_temp = Arc::new(AtomicBool::new(false));
     signal_flag::register(SIGUSR1, Arc::clone(&pause))?;
     signal_flag::register(SIGUSR2, Arc::clone(&resume))?;
     signal_flag::register(SIGHUP, Arc::clone(&reload))?;
+    signal_flag::register(SIGINT, Arc::clone(&pause_temp))?;
 
     let mut key_states: Vec<AttributeSet<Key>> = Vec::new();
     let mut possible_hotkeys: Vec<config::Hotkey> = Vec::new();
@@ -192,6 +194,16 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
                 log::debug!("state_modifiers: {:#?}", state_modifiers);
                 log::debug!("state_keysyms: {:#?}", state_keysyms);
                 log::debug!("hotkey: {:#?}", possible_hotkeys);
+                if pause_temp.load(Ordering::Relaxed) {
+                    if state_modifiers
+                        .iter()
+                        .all(|x| vec![config::Modifier::Shift, config::Modifier::Super].contains(x))
+                        && state_keysyms.contains(&evdev::Key::KEY_ESC)
+                    {
+                        pause_temp.store(false, Ordering::Relaxed);
+                    }
+                    continue;
+                }
                 for hotkey in &possible_hotkeys {
                     // this should check if state_modifiers and hotkey.modifiers have the same elements
                     if state_modifiers.iter().all(|x| hotkey.modifiers.contains(x))
