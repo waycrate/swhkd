@@ -2,7 +2,10 @@
 
 # temporarily pause swhkd (use 'pkill -USR2 swhkd' to resume)
 super + escape
-	pkill -USR1 swhkd
+	sudo pkill -USR1 swhkd
+# reload config
+super + ctrl + r
+	sudo pkill -HUP swhkd
 
 # terminal
 super + ReTuRn # case insensitive

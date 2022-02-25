@@ -148,7 +148,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     let reload = Arc::new(AtomicBool::new(false));
     signal_flag::register(SIGUSR1, Arc::clone(&pause))?;
     signal_flag::register(SIGUSR2, Arc::clone(&resume))?;
-    signal_flag::register(SIGINT, Arc::clone(&reload))?;
+    signal_flag::register(SIGHUP, Arc::clone(&reload))?;
 
     let mut key_states: Vec<AttributeSet<Key>> = Vec::new();
     let mut possible_hotkeys: Vec<config::Hotkey> = Vec::new();
