@@ -65,12 +65,11 @@ pub fn main() {
 
     permission_check();
 
-    let config_file_path: std::path::PathBuf;
-    if args.is_present("config") {
-        config_file_path = Path::new(args.value_of("config").unwrap()).to_path_buf();
+    let config_file_path: std::path::PathBuf = if args.is_present("config") {
+        Path::new(args.value_of("config").unwrap()).to_path_buf()
     } else {
-        config_file_path = check_config_xdg();
-    }
+        check_config_xdg()
+    };
     log::debug!("Using config file path: {:#?}", config_file_path);
 
     if !config_file_path.exists() {
@@ -117,12 +116,11 @@ pub fn main() {
         (Key::KEY_RIGHTSHIFT, config::Modifier::Shift),
     ]);
 
-    let repeat_cooldown_duration: u128;
-    if args.is_present("cooldown") {
-        repeat_cooldown_duration = args.value_of("cooldown").unwrap().parse::<u128>().unwrap();
+    let repeat_cooldown_duration: u128 = if args.is_present("cooldown") {
+        args.value_of("cooldown").unwrap().parse::<u128>().unwrap()
     } else {
-        repeat_cooldown_duration = 250;
-    }
+        250
+    };
 
     let mut key_states: Vec<AttributeSet<Key>> = Vec::new();
     let mut possible_hotkeys: Vec<config::Hotkey> = Vec::new();
