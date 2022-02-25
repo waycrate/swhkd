@@ -73,17 +73,33 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     permission_check();
 
-    let config_file_path: std::path::PathBuf = if args.is_present("config") {
-        Path::new(args.value_of("config").unwrap()).to_path_buf()
-    } else {
-        check_config_xdg()
-    };
-    log::debug!("Using config file path: {:#?}", config_file_path);
+    let load_config = || {
+        let config_file_path: std::path::PathBuf = if args.is_present("config") {
+            Path::new(args.value_of("config").unwrap()).to_path_buf()
+        } else {
+            check_config_xdg()
+        };
+        log::debug!("Using config file path: {:#?}", config_file_path);
 
-    if !config_file_path.exists() {
-        log::error!("{:#?} doesn't exist", config_file_path);
-        exit(1);
-    }
+        if !config_file_path.exists() {
+            log::error!("{:#?} doesn't exist", config_file_path);
+            exit(1);
+        }
+
+        let hotkeys = match config::load(config_file_path) {
+            Err(e) => {
+                log::error!("Config Error: {}", e);
+                exit(1);
+            }
+            Ok(out) => out,
+        };
+        for hotkey in &hotkeys {
+            log::debug!("hotkey: {:#?}", hotkey);
+        }
+        hotkeys
+    };
+
+    let mut hotkeys = load_config();
 
     log::trace!("Attempting to find all keyboard file descriptors.");
     let mut keyboard_devices: Vec<Device> = Vec::new();
@@ -98,18 +114,6 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         exit(1);
     }
     log::debug!("{} Keyboard device(s) detected.", keyboard_devices.len());
-
-    let hotkeys = match config::load(config_file_path) {
-        Err(e) => {
-            log::error!("Config Error: {}", e);
-            exit(1);
-        }
-        Ok(out) => out,
-    };
-
-    for hotkey in &hotkeys {
-        log::debug!("hotkey: {:#?}", hotkey);
-    }
 
     let modifiers_map: HashMap<Key, config::Modifier> = HashMap::from([
         (Key::KEY_LEFTMETA, config::Modifier::Super),
@@ -130,11 +134,6 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         250
     };
 
-    let mut key_states: Vec<AttributeSet<Key>> = Vec::new();
-    let mut possible_hotkeys: Vec<config::Hotkey> = Vec::new();
-
-    let mut last_hotkey: Option<LastHotkey> = None;
-
     fn send_command(hotkey: config::Hotkey) {
         log::info!("Hotkey pressed: {:#?}", hotkey);
         if let Err(e) = sock_send(&hotkey.command) {
@@ -146,13 +145,23 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let pause = Arc::new(AtomicBool::new(false));
     let resume = Arc::new(AtomicBool::new(false));
+    let reload = Arc::new(AtomicBool::new(false));
     signal_flag::register(SIGUSR1, Arc::clone(&pause))?;
     signal_flag::register(SIGUSR2, Arc::clone(&resume))?;
+    signal_flag::register(SIGINT, Arc::clone(&reload))?;
+
+    let mut key_states: Vec<AttributeSet<Key>> = Vec::new();
+    let mut possible_hotkeys: Vec<config::Hotkey> = Vec::new();
+    let mut last_hotkey: Option<LastHotkey> = None;
 
     let mut main_loop = || {
         loop {
             if pause.load(Ordering::Relaxed) {
                 break;
+            }
+            if reload.load(Ordering::Relaxed) {
+                hotkeys = load_config();
+                reload.store(false, Ordering::Relaxed);
             }
             for device in &keyboard_devices {
                 key_states.push(device.get_key_state().unwrap());
