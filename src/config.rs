@@ -244,7 +244,7 @@ fn parse_contents(contents: String) -> Result<Vec<Hotkey>, Error> {
                 actual_lines.push((
                     current_line_type,
                     current_line_number,
-                    current_line_string.replace("\\", ""),
+                    current_line_string.replace('\\', ""),
                 ));
                 current_line_type = line_type;
                 current_line_number = line_number;
@@ -408,22 +408,20 @@ fn extract_curly_brace(line: &str) -> Vec<String> {
                 continue;
             }
             let mut range = item.split('-').map(|s| s.trim());
-            let begin_char: &str;
-            let end_char: &str;
 
-            if let Some(b) = range.next() {
-                begin_char = b;
+            let begin_char: &str = if let Some(b) = range.next() {
+                b
             } else {
                 output.push(item);
                 continue;
-            }
+            };
 
-            if let Some(e) = range.next() {
-                end_char = e;
+            let end_char: &str = if let Some(e) = range.next() {
+                e
             } else {
                 output.push(item);
                 continue;
-            }
+            };
 
             // Do not accept range values that are longer than one char
             // Example invalid: {ef-p} {3-56}
