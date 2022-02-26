@@ -209,20 +209,12 @@ pub fn parse_contents(contents: String) -> Result<Vec<Hotkey>, Error> {
     // as commands, and mark the other lines as keysyms. Mark means storing a line's type and the
     // line number in a vector.
     let mut lines_with_types: Vec<(&str, u32)> = Vec::new();
-    let mut aliases: Vec<(&str, &str)> = Vec::new();
     for (line_number, line) in lines.iter().enumerate() {
         if line.trim().starts_with('#') || line.trim().is_empty() {
             continue;
         }
         if line.starts_with(' ') || line.starts_with('\t') {
             lines_with_types.push(("command", line_number as u32));
-        } else if line.starts_with("alias ") && line.contains('=') {
-            // things behind the alias and before the first equal sign are the alias name
-            // everything behind the first equal sign is the alias value
-            // store each name and value in aliases
-            let alias_name = &line[6..line.find('=').unwrap()].trim();
-            let alias_value = &line[line.find('=').unwrap() + 1..];
-            aliases.push((alias_name, alias_value));
         } else {
             lines_with_types.push(("keysym", line_number as u32));
         }
@@ -276,21 +268,7 @@ pub fn parse_contents(contents: String) -> Result<Vec<Hotkey>, Error> {
     for (i, item) in actual_lines.iter().enumerate() {
         let line_type = item.0;
         let line_number = item.1;
-        let line = item.2.to_owned();
-        // match all the aliases for the line
-        let match_aliases = |mut line: String| {
-            for alias in aliases.iter().rev() {
-                if line.contains(alias.0) {
-                    line.replace_range(
-                        line.find(alias.0).unwrap()..line.find(alias.0).unwrap() + alias.0.len(),
-                        alias.1,
-                    );
-                }
-            }
-            line
-        };
-
-        let line = match_aliases(line.to_owned());
+        let line = &item.2;
 
         if line_type != "keysym" {
             continue;
@@ -300,14 +278,13 @@ pub fn parse_contents(contents: String) -> Result<Vec<Hotkey>, Error> {
         if next_line.is_none() {
             break;
         }
-        let mut next_line = next_line.unwrap().to_owned();
-        next_line.2 = match_aliases(next_line.2.to_owned());
+        let next_line = next_line.unwrap();
 
         if next_line.0 != "command" {
             continue; // this should ignore keysyms that are not followed by a command
         }
 
-        let extracted_keys = extract_curly_brace(&line);
+        let extracted_keys = extract_curly_brace(line);
         let extracted_commands = extract_curly_brace(&next_line.2);
 
         'hotkey_parse: for (key, command) in extracted_keys.iter().zip(extracted_commands.iter()) {
