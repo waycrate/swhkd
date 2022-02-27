@@ -1,54 +1,41 @@
 use clap::{arg, Command};
 use evdev::{AttributeSet, AutoRepeat, Device, InputEventKind, Key};
 use nix::unistd::{Group, Uid};
-use nix::{
-    fcntl::{fcntl, FcntlArg, OFlag},
-    poll::{PollFd, PollFlags},
-};
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
+use signal_hook_tokio::Signals;
 use std::{
     collections::{HashMap, HashSet},
     env, fs,
     io::prelude::*,
-    os::unix::{net::UnixStream, prelude::AsRawFd},
+    os::unix::net::UnixStream,
     path::Path,
     process::{exit, id},
-    time::SystemTime,
 };
 use sysinfo::{ProcessExt, System, SystemExt};
+use tokio::select;
+use tokio::time::Duration;
+use tokio::time::{sleep, Instant};
+use tokio_stream::{StreamExt, StreamMap};
 
 use signal_hook::consts::signal::*;
-use signal_hook::flag as signal_flag;
 
 mod config;
 
 #[cfg(test)]
 mod tests;
 
-#[derive(PartialEq)]
-pub struct LastHotkey {
-    hotkey: config::Hotkey,
-    ran_at: SystemTime,
-}
-
-struct KeyboardDevice {
-    device: Device,
+struct KeyboardState {
     state_modifiers: HashSet<config::Modifier>,
     state_keysyms: AttributeSet<evdev::Key>,
 }
 
-impl KeyboardDevice {
-    fn new(device: Device) -> KeyboardDevice {
-        KeyboardDevice {
-            device,
-            state_modifiers: HashSet::new(),
-            state_keysyms: AttributeSet::new(),
-        }
+impl KeyboardState {
+    fn new() -> KeyboardState {
+        KeyboardState { state_modifiers: HashSet::new(), state_keysyms: AttributeSet::new() }
     }
 }
 
-pub fn main() -> Result<(), Box<dyn std::error::Error>> {
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = set_flags().get_matches();
     env::set_var("RUST_LOG", "swhkd=warn");
 
@@ -120,16 +107,11 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut hotkeys = load_config();
 
     log::trace!("Attempting to find all keyboard file descriptors.");
-    let mut keyboard_devices: Vec<KeyboardDevice> =
-        evdev::enumerate().filter(check_keyboard).map(KeyboardDevice::new).collect();
+    let keyboard_devices: Vec<Device> = evdev::enumerate().filter(check_keyboard).collect();
 
     if keyboard_devices.is_empty() {
         log::error!("No valid keyboard device was detected!");
         exit(1);
-    }
-    for device in keyboard_devices.iter_mut() {
-        fcntl(device.device.as_raw_fd(), FcntlArg::F_SETFL(OFlag::O_NONBLOCK)).unwrap();
-        device.device.update_auto_repeat(&AutoRepeat { delay: 0, period: 0 }).unwrap();
     }
     log::debug!("{} Keyboard device(s) detected.", keyboard_devices.len());
 
@@ -146,8 +128,8 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         (Key::KEY_RIGHTSHIFT, config::Modifier::Shift),
     ]);
 
-    let repeat_cooldown_duration: u128 = if args.is_present("cooldown") {
-        args.value_of("cooldown").unwrap().parse::<u128>().unwrap()
+    let repeat_cooldown_duration: u64 = if args.is_present("cooldown") {
+        args.value_of("cooldown").unwrap().parse::<u64>().unwrap()
     } else {
         250
     };
@@ -161,151 +143,121 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    let pause = Arc::new(AtomicBool::new(false));
-    let resume = Arc::new(AtomicBool::new(false));
-    let reload = Arc::new(AtomicBool::new(false));
-    let pause_temp = Arc::new(AtomicBool::new(false));
-    signal_flag::register(SIGUSR1, Arc::clone(&pause))?;
-    signal_flag::register(SIGUSR2, Arc::clone(&resume))?;
-    signal_flag::register(SIGHUP, Arc::clone(&reload))?;
-    signal_flag::register(SIGINT, Arc::clone(&pause_temp))?;
+    let mut signals = Signals::new(&[SIGUSR1, SIGUSR2, SIGHUP, SIGINT])?;
+    let mut paused = false;
+    let mut temp_paused = false;
 
-    let mut possible_hotkeys: Vec<config::Hotkey> = Vec::new();
-    let mut last_hotkey: Option<LastHotkey> = None;
-    let mut pollfds = keyboard_devices
-        .iter()
-        .map(|device| PollFd::new(device.device.as_raw_fd(), PollFlags::POLLIN))
-        .collect::<Vec<_>>();
+    let mut last_hotkey: Option<config::Hotkey> = None;
+    let mut keyboard_states: Vec<KeyboardState> = Vec::new();
+    let mut keyboard_stream_map = StreamMap::new();
+    for (i, mut device) in keyboard_devices.into_iter().enumerate() {
+        device.update_auto_repeat(&AutoRepeat { delay: 0, period: 0 })?;
+        keyboard_stream_map.insert(i, device.into_event_stream()?);
+        keyboard_states.push(KeyboardState::new());
+    }
 
-    let mut poll_timeout: i32 = -1;
-    let mut main_loop = || {
-        loop {
-            if pause.load(Ordering::Relaxed) {
-                break;
-            }
-            if reload.load(Ordering::Relaxed) {
-                hotkeys = load_config();
-                reload.store(false, Ordering::Relaxed);
-            }
-            match nix::poll::poll(&mut pollfds, poll_timeout) {
-                Ok(_) => {}
-                Err(_) => {
-                    continue;
-                }
-            }
-            for (i, _) in pollfds
-                .iter()
-                .enumerate()
-                .filter(|(_, pollfd)| pollfd.revents() == Some(PollFlags::POLLIN))
-            {
-                let device = &mut keyboard_devices[i];
-                for event in device.device.fetch_events().unwrap() {
-                    if let InputEventKind::Key(key) = event.kind() {
-                        match event.value() {
-                            1 => {
-                                if let Some(modifier) = modifiers_map.get(&key) {
-                                    device.state_modifiers.insert(*modifier);
-                                } else {
-                                    device.state_keysyms.insert(key);
-                                }
-                            }
-                            0 => {
-                                if let Some(modifier) = modifiers_map.get(&key) {
-                                    if let Some(hotkey) = &last_hotkey {
-                                        if hotkey.hotkey.modifiers.contains(modifier) {
-                                            last_hotkey = None;
-                                        }
-                                    }
-                                    device.state_modifiers.remove(modifier);
-                                } else if device.state_keysyms.contains(key) {
-                                    if let Some(hotkey) = &last_hotkey {
-                                        if key == hotkey.hotkey.keysym {
-                                            last_hotkey = None;
-                                        }
-                                    }
-                                    device.state_keysyms.remove(key);
-                                }
-                            }
-                            _ => {}
-                        }
-
-                        if last_hotkey.is_some() {
-                            continue;
-                        }
-
-                        for hotkey in &hotkeys {
-                            if hotkey.modifiers.len() == device.state_modifiers.len() {
-                                possible_hotkeys.push(hotkey.clone());
-                            } else {
-                                continue;
-                            }
-                        }
-
-                        if possible_hotkeys.is_empty() {
-                            continue;
-                        }
-
-                        log::error!("state_modifiers: {:#?}", device.state_modifiers);
-                        log::error!("state_keysyms: {:#?}", device.state_keysyms);
-                        log::error!("hotkey: {:#?}", possible_hotkeys);
-                        if pause_temp.load(Ordering::Relaxed) {
-                            if device.state_modifiers.iter().all(|x| {
-                                vec![config::Modifier::Shift, config::Modifier::Super].contains(x)
-                            }) && device.state_keysyms.contains(evdev::Key::KEY_ESC)
-                            {
-                                pause_temp.store(false, Ordering::Relaxed);
-                            }
-                            continue;
-                        }
-
-                        for hotkey in &possible_hotkeys {
-                            // this should check if state_modifiers and hotkey.modifiers have the same elements
-                            if device.state_modifiers.iter().all(|x| hotkey.modifiers.contains(x))
-                                && device.state_modifiers.len() == hotkey.modifiers.len()
-                                && device.state_keysyms.contains(hotkey.keysym)
-                            {
-                                last_hotkey = Some(LastHotkey {
-                                    hotkey: hotkey.clone(),
-                                    ran_at: SystemTime::now(),
-                                });
-                                send_command(hotkey.clone());
-                                break;
-                            }
-                        }
-                    }
-                }
-            }
-
-            if let Some(hotkey) = &mut last_hotkey {
-                let time_since_ran_at = match SystemTime::now().duration_since(hotkey.ran_at) {
-                    Ok(n) => n.as_millis(),
-                    Err(e) => {
-                        log::error!("Error: {:#?}", e);
-                        exit(1);
-                    }
-                };
-                if time_since_ran_at < repeat_cooldown_duration {
-                    poll_timeout = (repeat_cooldown_duration - time_since_ran_at) as i32;
-                } else {
-                    send_command(hotkey.hotkey.clone());
-                    poll_timeout = repeat_cooldown_duration as i32;
-                    hotkey.ran_at = SystemTime::now();
-                }
-            } else {
-                poll_timeout = -1;
-            }
-
-            possible_hotkeys.clear();
-        }
-    };
+    // the initial sleep duration is never read because last_hotkey is initialized to None
+    let hotkey_repeat_timer = sleep(Duration::from_millis(0));
+    tokio::pin!(hotkey_repeat_timer);
 
     loop {
-        main_loop();
-        while !resume.load(Ordering::Relaxed) {}
-        pause.store(false, Ordering::Relaxed);
-        resume.store(false, Ordering::Relaxed);
+        select! {
+            _ = &mut hotkey_repeat_timer, if &last_hotkey.is_some() => {
+                let hotkey = last_hotkey.clone().unwrap();
+                send_command(hotkey.clone());
+                hotkey_repeat_timer.as_mut().reset(Instant::now() + Duration::from_millis(repeat_cooldown_duration));
+            }
+            Some(signal) = signals.next() => {
+                match signal {
+                    SIGUSR1 => {
+                        paused = true;
+                    }
+                    SIGUSR2 => {
+                        paused = false;
+                    }
+                    SIGHUP => {
+                        hotkeys = load_config();
+                    }
+                    SIGINT => {
+                        temp_paused = true;
+                    }
+                    _ => unreachable!()
+                }
+            }
+            Some((i, Ok(event))) = keyboard_stream_map.next() => {
+            let keyboard_state = &mut keyboard_states[i];
+            if let InputEventKind::Key(key) = event.kind() {
+                match event.value() {
+                    1 => {
+                        if let Some(modifier) = modifiers_map.get(&key) {
+                            keyboard_state.state_modifiers.insert(*modifier);
+                        } else {
+                            keyboard_state.state_keysyms.insert(key);
+                        }
+                    }
+                    0 => {
+                        if let Some(modifier) = modifiers_map.get(&key) {
+                            if let Some(hotkey) = &last_hotkey {
+                                if hotkey.modifiers.contains(modifier) {
+                                    last_hotkey = None;
+                                }
+                            }
+                            keyboard_state.state_modifiers.remove(modifier);
+                        } else if keyboard_state.state_keysyms.contains(key) {
+                            if let Some(hotkey) = &last_hotkey {
+                                if key == hotkey.keysym {
+                                    last_hotkey = None;
+                                }
+                            }
+                            keyboard_state.state_keysyms.remove(key);
+                        }
+                    }
+                    _ => {}
+                }
+
+                if paused || last_hotkey.is_some() {
+                    continue;
+                }
+
+                let possible_hotkeys: Vec<&config::Hotkey> = hotkeys.iter()
+                    .filter(|hotkey| hotkey.modifiers.len() == keyboard_state.state_modifiers.len())
+                    .collect();
+
+                if possible_hotkeys.is_empty() {
+                    continue;
+                }
+
+                log::error!("state_modifiers: {:#?}", keyboard_state.state_modifiers);
+                log::error!("state_keysyms: {:#?}", keyboard_state.state_keysyms);
+                log::error!("hotkey: {:#?}", possible_hotkeys);
+                if temp_paused {
+                    if keyboard_state.state_modifiers.iter().all(|x| {
+                        vec![config::Modifier::Shift, config::Modifier::Super].contains(x)
+                    }) && keyboard_state.state_keysyms.contains(evdev::Key::KEY_ESC)
+                    {
+                        temp_paused = false;
+                    }
+                    continue;
+                }
+
+                for hotkey in possible_hotkeys {
+                    // this should check if state_modifiers and hotkey.modifiers have the same elements
+                    if keyboard_state.state_modifiers.iter().all(|x| hotkey.modifiers.contains(x))
+                        && keyboard_state.state_modifiers.len() == hotkey.modifiers.len()
+                        && keyboard_state.state_keysyms.contains(hotkey.keysym)
+                    {
+                        last_hotkey = Some(hotkey.clone());
+                        send_command(hotkey.clone());
+                        hotkey_repeat_timer.as_mut().reset(Instant::now() + Duration::from_millis(repeat_cooldown_duration));
+                        break;
+                    }
+                }
+            }
+        }
+        }
     }
 }
+
 pub fn permission_check() {
     if !Uid::current().is_root() {
         let groups = nix::unistd::getgroups();
