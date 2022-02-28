@@ -48,6 +48,14 @@ Then call it using `setsid -f <path_to_refresh_script>`.
 
 A better implementation using signals will be developed later.
 
+## Runtime signals
+
+After opening swhkd, you can control the program through signals:
+
+- `sudo pkill -USR1 swhkd` - Pause key checking
+- `sudo pkill -USR2 swhkd` - Resume key checking
+- `sudo pkill -HUP swhkd` - Reload config file
+
 ## Support server:
 
 https://discord.gg/KKZRDYrRYW
