@@ -63,6 +63,7 @@ After opening swhkd, you can control the program through signals:
 - `sudo pkill -USR1 swhkd` - Pause key checking
 - `sudo pkill -USR2 swhkd` - Resume key checking
 - `sudo pkill -HUP swhkd` - Reload config file
+- `sudo pkill -INT swhkd` - Pause key checking temporarily (resume by pressing `super+shift+escape`)
 
 ## Support server:
 
