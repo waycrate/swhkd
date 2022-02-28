@@ -978,6 +978,29 @@ super + {comma, period}
             ],
         )
     }
+
+    #[test]
+    fn test_period_escape_binding() -> std::io::Result<()> {
+        let contents = "
+super + {\\,, .}
+	riverctl focus-output {previous, next}";
+
+        eval_config_test(
+            contents,
+            vec![
+                Hotkey::new(
+                    evdev::Key::KEY_COMMA,
+                    vec![Modifier::Super],
+                    "riverctl focus-output previous".to_string(),
+                ),
+                Hotkey::new(
+                    evdev::Key::KEY_DOT,
+                    vec![Modifier::Super],
+                    "riverctl focus-output next".to_string(),
+                ),
+            ],
+        )
+    }
 }
 
 mod test_config_display {

@@ -234,19 +234,24 @@ pub fn parse_contents(contents: String) -> Result<Vec<Hotkey>, Error> {
         let mut current_line_type = lines_with_types[0].0;
         let mut current_line_number = lines_with_types[0].1;
         let mut current_line_string = String::new();
+        let mut continue_backslash;
+
         for (line_type, line_number) in lines_with_types {
             if line_type != current_line_type {
                 current_line_type = line_type;
                 current_line_number = line_number;
                 current_line_string = String::new();
             }
-            current_line_string.push_str(lines[line_number as usize].trim());
-            if !current_line_string.ends_with('\\') {
-                actual_lines.push((
-                    current_line_type,
-                    current_line_number,
-                    current_line_string.replace('\\', ""),
-                ));
+
+            let line_to_add = lines[line_number as usize].trim();
+            continue_backslash = line_to_add.ends_with('\\');
+
+            let line_to_add = line_to_add.strip_suffix('\\').unwrap_or(line_to_add);
+
+            current_line_string.push_str(line_to_add);
+
+            if !continue_backslash {
+                actual_lines.push((current_line_type, current_line_number, current_line_string));
                 current_line_type = line_type;
                 current_line_number = line_number;
                 current_line_string = String::new();
@@ -397,6 +402,14 @@ pub fn extract_curly_brace(line: &str) -> Vec<String> {
     // we should extract the items between each comma and store them in a vector
     let mut tokens_vec: Vec<Vec<String>> = Vec::new();
     for item in items {
+        // Edge case: escape periods
+        // example:
+        // ```
+        // super + {\,, .}
+        //    riverctl focus-output {previous, next}
+        // ```
+        let item = item.replace("\\,", "comma");
+
         let items: Vec<String> = item.split(',').map(|s| s.trim().to_string()).collect();
         tokens_vec.push(handle_ranges(items));
     }

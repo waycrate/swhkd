@@ -31,6 +31,9 @@ super + ctrl + alt + {Left\
   } \
   bspc node --resize $d1 $dx $dy || bspc node --resize $d2 $dx $dy
 
+super + {\,, .}
+  bspc node -f {next.local,prev.local}
+
 # screenshot
 print
 	scrot
