@@ -33,19 +33,14 @@ Note: `swhks` is not a typo, it is the server process of the program.
 swhks &
 pkexec swhkd
 ```
-To refresh the config at runtime, make a script like so:
 
-```bash
-#!/bin/sh
-sudo killall swhkd
-pkexec swhkd
-```
+## Runtime signals
 
-Mark it as executable using `chmod +x <path_to_refresh_script>`.
+After opening swhkd, you can control the program through signals:
 
-Then call it using `setsid -f <path_to_refresh_script>`. 
-
-A better implementation using signals will be developed later.
+- `sudo pkill -USR1 swhkd` - Pause key checking
+- `sudo pkill -USR2 swhkd` - Resume key checking
+- `sudo pkill -HUP swhkd` - Reload config file
 
 ## Configuration
 
