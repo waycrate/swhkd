@@ -29,6 +29,8 @@ Because swhkd can be used anywhere, the same swhkd config can be used across Xor
 
 See [INSTALL.md](./docs/INSTALL.md) for installing swhkd.
 
+Note: `swhks` is not a typo, it is the server process of the program.
+
 ## Running:
 ```bash
 swhks &
@@ -47,6 +49,12 @@ Mark it as executable using `chmod +x <path_to_refresh_script>`.
 Then call it using `setsid -f <path_to_refresh_script>`. 
 
 A better implementation using signals will be developed later.
+
+## Configuration
+
+Swhkd closely follows sxhkd syntax, so most existing sxhkd configs should be functional with swhkd.
+
+The default configuration directory is `/etc/swhkd/swhkdrc`. If you don't like having to edit the file as root every single time, you can create a symlink from `~/.config/swhkd/swhkdrc` to `/etc/swhkd/swhkdrc`.
 
 ## Runtime signals
 
