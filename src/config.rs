@@ -152,6 +152,7 @@ pub fn parse_contents(contents: String) -> Result<Vec<Hotkey>, Error> {
         ("comma", evdev::Key::KEY_COMMA),
         (".", evdev::Key::KEY_DOT),
         ("dot", evdev::Key::KEY_DOT),
+        ("period", evdev::Key::KEY_DOT),
         ("/", evdev::Key::KEY_SLASH),
         ("slash", evdev::Key::KEY_SLASH),
         ("backslash", evdev::Key::KEY_BACKSLASH),
