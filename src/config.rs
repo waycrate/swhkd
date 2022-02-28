@@ -58,7 +58,7 @@ pub struct Hotkey {
     pub command: String,
 }
 
-#[derive(Debug, PartialEq, Copy, Clone)]
+#[derive(Debug, PartialEq, Eq, Copy, Clone, Hash)]
 // TODO: make the commented-out modifiers available
 pub enum Modifier {
     Super,
