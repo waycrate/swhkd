@@ -227,9 +227,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     continue;
                 }
 
-                log::error!("state_modifiers: {:#?}", keyboard_state.state_modifiers);
-                log::error!("state_keysyms: {:#?}", keyboard_state.state_keysyms);
-                log::error!("hotkey: {:#?}", possible_hotkeys);
+                log::debug!("state_modifiers: {:#?}", keyboard_state.state_modifiers);
+                log::debug!("state_keysyms: {:#?}", keyboard_state.state_keysyms);
+                log::debug!("hotkey: {:#?}", possible_hotkeys);
                 if temp_paused {
                     if keyboard_state.state_modifiers.iter().all(|x| {
                         vec![config::Modifier::Shift, config::Modifier::Super].contains(x)
