@@ -22,31 +22,31 @@ It also attempts to be a drop-in replacement for sxhkd, meaning, your sxhkd conf
 
 Because swhkd can be used anywhere, the same swhkd config can be used across Xorg or Wayland desktops, and you can even use swhkd in a tty.
 
-**Note: The project is a WIP.**
-**BUT!! It does work right now however it's not a drop-in replacement yet. [Example config file](./docs/swhkdrc).**
-
 ## Installation
 
 See [INSTALL.md](./docs/INSTALL.md) for installing swhkd.
+
+Note: `swhks` is not a typo, it is the server process of the program.
 
 ## Running:
 ```bash
 swhks &
 pkexec swhkd
 ```
-To refresh the config at runtime, make a script like so:
 
-```bash
-#!/bin/sh
-sudo killall swhkd
-pkexec swhkd
-```
+## Runtime signals
 
-Mark it as executable using `chmod +x <path_to_refresh_script>`.
+After opening swhkd, you can control the program through signals:
 
-Then call it using `setsid -f <path_to_refresh_script>`. 
+- `sudo pkill -USR1 swhkd` - Pause key checking
+- `sudo pkill -USR2 swhkd` - Resume key checking
+- `sudo pkill -HUP swhkd` - Reload config file
 
-A better implementation using signals will be developed later.
+## Configuration
+
+Swhkd closely follows sxhkd syntax, so most existing sxhkd configs should be functional with swhkd.
+
+The default configuration directory is `/etc/swhkd/swhkdrc`. If you don't like having to edit the file as root every single time, you can create a symlink from `~/.config/swhkd/swhkdrc` to `/etc/swhkd/swhkdrc`.
 
 ## Support server:
 
