@@ -151,7 +151,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut keyboard_states: Vec<KeyboardState> = Vec::new();
     let mut keyboard_stream_map = StreamMap::new();
     for (i, mut device) in keyboard_devices.into_iter().enumerate() {
-        device.update_auto_repeat(&AutoRepeat { delay: 0, period: 0 })?;
+        let _ = device.update_auto_repeat(&AutoRepeat { delay: 0, period: 0 });
         keyboard_stream_map.insert(i, device.into_event_stream()?);
         keyboard_states.push(KeyboardState::new());
     }
