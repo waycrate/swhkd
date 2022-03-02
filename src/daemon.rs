@@ -19,6 +19,7 @@ use tokio_stream::{StreamExt, StreamMap};
 use signal_hook::consts::signal::*;
 
 mod config;
+mod uinput;
 
 #[cfg(test)]
 mod tests;
@@ -77,6 +78,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     permission_check();
+    let mut uinput_device = match uinput::create_uinput_device() {
+        Ok(dev) => dev,
+        Err(e) => {
+            log::error!("Err: {:#?}", e);
+            exit(1);
+        }
+    };
+
+    //let code = Key::KEY_D.code();
+    //let down_event = evdev::InputEvent::new(evdev::EventType::KEY, code, 1);
+    //let up_event = evdev::InputEvent::new(evdev::EventType::KEY, code, 0);
+    //uinput_device.emit(&[down_event]).unwrap();
+    //std::thread::sleep(std::time::Duration::from_millis(50)); //I don't understand why this is required.
+    //uinput_device.emit(&[up_event]).unwrap();
+    //std::thread::sleep(std::time::Duration::from_millis(50)); //I don't understand why this is required.
+    //exit(1);
 
     let load_config = || {
         let config_file_path: std::path::PathBuf = if args.is_present("config") {
@@ -151,7 +168,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut keyboard_states: Vec<KeyboardState> = Vec::new();
     let mut keyboard_stream_map = StreamMap::new();
     for (i, mut device) in keyboard_devices.into_iter().enumerate() {
-        device.update_auto_repeat(&AutoRepeat { delay: 0, period: 0 })?;
+        let _ = &device.grab();
+        let _ = &device.ungrab();
+        let _ = device.update_auto_repeat(&AutoRepeat { delay: 0, period: 0 });
         keyboard_stream_map.insert(i, device.into_event_stream()?);
         keyboard_states.push(KeyboardState::new());
     }
