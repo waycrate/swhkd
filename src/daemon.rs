@@ -79,15 +79,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     permission_check();
 
-    //let code = Key::KEY_D.code();
-    //let down_event = evdev::InputEvent::new(evdev::EventType::KEY, code, 1);
-    //let up_event = evdev::InputEvent::new(evdev::EventType::KEY, code, 0);
-    //uinput_device.emit(&[down_event]).unwrap();
-    //std::thread::sleep(std::time::Duration::from_millis(50)); //I don't understand why this is required.
-    //uinput_device.emit(&[up_event]).unwrap();
-    //std::thread::sleep(std::time::Duration::from_millis(50)); //I don't understand why this is required.
-    //exit(1);
-
     let load_config = || {
         let config_file_path: std::path::PathBuf = if args.is_present("config") {
             Path::new(args.value_of("config").unwrap()).to_path_buf()
