@@ -31,14 +31,3 @@ jobs:
           files: |
             bin/swhkd
             bin/swhks
-
-  rustfmt:
-    runs-on: ubuntu-latest
-
-    steps:
-    - name: Checkout
-      uses: actions/checkout@v2
-
-    - name: Check formatting
-      run: |
-        cargo fmt -- --check
