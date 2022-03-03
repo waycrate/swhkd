@@ -78,13 +78,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     permission_check();
-    let mut uinput_device = match uinput::create_uinput_device() {
-        Ok(dev) => dev,
-        Err(e) => {
-            log::error!("Err: {:#?}", e);
-            exit(1);
-        }
-    };
 
     //let code = Key::KEY_D.code();
     //let down_event = evdev::InputEvent::new(evdev::EventType::KEY, code, 1);
@@ -125,6 +118,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     log::trace!("Attempting to find all keyboard file descriptors.");
     let keyboard_devices: Vec<Device> = evdev::enumerate().filter(check_keyboard).collect();
+
+    let mut uinput_device = match uinput::create_uinput_device() {
+        Ok(dev) => dev,
+        Err(e) => {
+            log::error!("Err: {:#?}", e);
+            exit(1);
+        }
+    };
 
     if keyboard_devices.is_empty() {
         log::error!("No valid keyboard device was detected!");
@@ -169,7 +170,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut keyboard_stream_map = StreamMap::new();
     for (i, mut device) in keyboard_devices.into_iter().enumerate() {
         let _ = &device.grab();
-        let _ = &device.ungrab();
         let _ = device.update_auto_repeat(&AutoRepeat { delay: 0, period: 0 });
         keyboard_stream_map.insert(i, device.into_event_stream()?);
         keyboard_states.push(KeyboardState::new());
@@ -234,13 +234,28 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     _ => {}
                 }
 
-                if paused || last_hotkey.is_some() {
-                    continue;
-                }
-
                 let possible_hotkeys: Vec<&config::Hotkey> = hotkeys.iter()
                     .filter(|hotkey| hotkey.modifiers.len() == keyboard_state.state_modifiers.len())
                     .collect();
+
+                let mut event_in_hotkeys = false;
+                for hotkey in &possible_hotkeys {
+                    if keyboard_state.state_modifiers.iter().all(|x| hotkey.modifiers.contains(x))
+                        && keyboard_state.state_modifiers.len() == hotkey.modifiers.len()
+                        && hotkey.keysym.code() == event.code() {
+                        event_in_hotkeys = true;
+                        break;
+                    }
+                }
+
+                // Don't emit event to virtual device if it's from a valid hotkey
+                if !event_in_hotkeys {
+                    uinput_device.emit(&[event]).unwrap();
+                }
+
+                if paused || last_hotkey.is_some() {
+                    continue;
+                }
 
                 if possible_hotkeys.is_empty() {
                     continue;
