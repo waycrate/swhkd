@@ -1,6 +1,6 @@
 use itertools::Itertools;
 use std::collections::HashMap;
-use std::fs::File;
+use std::fs::{canonicalize, File};
 use std::io::Read;
 use std::{fmt, path};
 
@@ -59,7 +59,6 @@ pub struct Hotkey {
 }
 
 #[derive(Debug, PartialEq, Eq, Copy, Clone, Hash)]
-// TODO: make the commented-out modifiers available
 pub enum Modifier {
     Super,
     Alt,
@@ -89,7 +88,7 @@ impl Config {
         for line in contents.lines() {
             if IMPORT_STATEMENTS.contains(&line.split(' ').next().unwrap()) {
                 if let Some(import_path) = line.split(' ').nth(1) {
-                    imports.push(path::Path::new(import_path).to_path_buf());
+                    imports.push(canonicalize(path::Path::new(import_path))?);
                 }
             }
         }
