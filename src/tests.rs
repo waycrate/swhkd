@@ -1,6 +1,6 @@
 mod test_config {
     use crate::config::{
-        extract_curly_brace, load_file_contents, parse_contents, Error, Hotkey, Modifier,
+        extract_curly_brace, load, load_file_contents, parse_contents, Error, Hotkey, Modifier,
         ParseError,
     };
     use std::fs;
@@ -110,7 +110,7 @@ mod test_config {
     fn test_nonexistent_file() {
         let path = path::PathBuf::from(r"This File Doesn't Exist");
 
-        let result = load_file_contents(path);
+        let result = load_file_contents(&path);
 
         assert!(result.is_err());
 
@@ -136,8 +136,89 @@ q
     bspc node -q",
         )?;
 
-        let result = load_file_contents(setup.path());
+        let result = load_file_contents(&setup.path());
         assert!(result.is_ok());
+        Ok(())
+    }
+
+    #[test]
+    fn test_load_multiple_config() -> std::io::Result<()> {
+        let setup = TestPath::new("/tmp/swhkd-test-file2");
+        let mut f = File::create(setup.path())?;
+        f.write_all(
+            b"
+use /tmp/swhkd-test-file3
+super + b
+   firefox",
+        )?;
+
+        let setup2 = TestPath::new("/tmp/swhkd-test-file3");
+        let mut f2 = File::create(setup2.path())?;
+        f2.write_all(
+            b"
+super + c
+    hello",
+        )?;
+
+        let hotkeys = load(setup.path());
+        assert_eq!(
+            hotkeys.unwrap(),
+            vec!(
+                Hotkey::new(evdev::Key::KEY_B, vec![Modifier::Super], String::from("firefox")),
+                Hotkey::new(evdev::Key::KEY_C, vec![Modifier::Super], String::from("hello"))
+            )
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_more_configs() -> std::io::Result<()> {
+        let setup = TestPath::new("/tmp/swhkd-test-file4");
+        let mut f = File::create(setup.path())?;
+        f.write_all(
+            b"
+a
+    a",
+        )?;
+
+        let setup2 = TestPath::new("/tmp/swhkd-test-file5");
+        let mut f2 = File::create(setup2.path())?;
+        f2.write_all(
+            b"
+use /tmp/swhkd-test-file4
+b
+    b",
+        )?;
+        let setup3 = TestPath::new("/tmp/swhkd-test-file6");
+        let mut f3 = File::create(setup3.path())?;
+        f3.write_all(
+            b"
+use /tmp/swhkd-test-file4
+use /tmp/swhkd-test-file5
+use /tmp/swhkd-test-file6
+use /tmp/swhkd-test-file7
+c
+    c",
+        )?;
+        let setup4 = TestPath::new("/tmp/swhkd-test-file7");
+        let mut f4 = File::create(setup4.path())?;
+        f4.write_all(
+            b"
+use /tmp/swhkd-test-file6
+d
+    d",
+        )?;
+
+        let hotkeys = load(setup4.path()).unwrap();
+        assert_eq!(
+            hotkeys,
+            vec!(
+                Hotkey::new(evdev::Key::KEY_D, vec![], String::from("d")),
+                Hotkey::new(evdev::Key::KEY_C, vec![], String::from("c")),
+                Hotkey::new(evdev::Key::KEY_A, vec![], String::from("a")),
+                Hotkey::new(evdev::Key::KEY_B, vec![], String::from("b")),
+            )
+        );
         Ok(())
     }
 

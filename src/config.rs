@@ -62,30 +62,80 @@ pub struct Hotkey {
 // TODO: make the commented-out modifiers available
 pub enum Modifier {
     Super,
-    // Hyper,
-    // Meta,
     Alt,
     Control,
     Shift,
-    // ModeSwitch,
-    // Lock,
-    // Mod1,
-    // Mod2,
-    // Mod3,
-    // Mod4,
-    // Mod5,
 }
 
-pub fn load(path: path::PathBuf) -> Result<Vec<Hotkey>, Error> {
-    let file_contents = load_file_contents(path)?;
-    parse_contents(file_contents)
+pub const IMPORT_STATEMENTS: [&str; 4] = ["use", "import", "include", "source"];
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct Config {
+    pub path: path::PathBuf,
+    pub contents: String,
+    pub imports: Vec<path::PathBuf>,
 }
 
-pub fn load_file_contents(path: path::PathBuf) -> Result<String, Error> {
+pub fn load_file_contents(path: &path::Path) -> Result<String, Error> {
     let mut file = File::open(path)?;
     let mut contents = String::new();
     file.read_to_string(&mut contents)?;
     Ok(contents)
+}
+
+impl Config {
+    pub fn get_imports(contents: &str) -> Result<Vec<path::PathBuf>, Error> {
+        let mut imports = Vec::new();
+        for line in contents.lines() {
+            if IMPORT_STATEMENTS.contains(&line.split(' ').next().unwrap()) {
+                if let Some(import_path) = line.split(' ').nth(1) {
+                    imports.push(path::Path::new(import_path).to_path_buf());
+                }
+            }
+        }
+        Ok(imports)
+    }
+    pub fn new(path: path::PathBuf) -> Result<Self, Error> {
+        let contents = load_file_contents(&path)?;
+        let imports = Self::get_imports(&contents)?;
+        Ok(Config { path, contents, imports })
+    }
+    pub fn load_to_configs(&self) -> Result<Vec<Self>, Error> {
+        let mut configs = Vec::new();
+        for import in &self.imports {
+            configs.push(Self::new(import.to_path_buf())?)
+        }
+        Ok(configs)
+    }
+    pub fn load_and_merge(mut configs: Vec<Self>) -> Result<Vec<Self>, Error> {
+        let mut prev_count = 0;
+        let mut current_count = configs.len();
+        while prev_count != current_count {
+            prev_count = configs.len();
+            for config in configs.clone() {
+                for import in Self::load_to_configs(&config)? {
+                    if !configs.contains(&import) {
+                        configs.push(import);
+                    }
+                }
+            }
+            current_count = configs.len();
+        }
+        Ok(configs)
+    }
+}
+
+pub fn load(path: path::PathBuf) -> Result<Vec<Hotkey>, Error> {
+    let mut hotkeys = Vec::new();
+    let configs = vec![Config::new(path)?];
+    for config in Config::load_and_merge(configs)? {
+        for hotkey in parse_contents(config.contents)? {
+            if !hotkeys.contains(&hotkey) {
+                hotkeys.push(hotkey);
+            }
+        }
+    }
+    Ok(hotkeys)
 }
 
 pub fn parse_contents(contents: String) -> Result<Vec<Hotkey>, Error> {
@@ -220,7 +270,10 @@ pub fn parse_contents(contents: String) -> Result<Vec<Hotkey>, Error> {
     // line number in a vector.
     let mut lines_with_types: Vec<(&str, u32)> = Vec::new();
     for (line_number, line) in lines.iter().enumerate() {
-        if line.trim().starts_with('#') || line.trim().is_empty() {
+        if line.trim().starts_with('#')
+            || IMPORT_STATEMENTS.contains(&line.split(' ').next().unwrap())
+            || line.trim().is_empty()
+        {
             continue;
         }
         if line.starts_with(' ') || line.starts_with('\t') {
