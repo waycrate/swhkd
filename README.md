@@ -49,6 +49,11 @@ Swhkd closely follows sxhkd syntax, so most existing sxhkd configs should be fun
 
 The default configuration directory is `/etc/swhkd/swhkdrc`. If you don't like having to edit the file as root every single time, you can create a symlink from `~/.config/swhkd/swhkdrc` to `/etc/swhkd/swhkdrc`.
 
+## Security
+We user a server-client model to keep you safe. The daemon ( swhkd - privileged process ) communicates to the server ( swhks - running as non root user ) after checking for valid keybinds. Since the daemon is totally separate from the server, no other process can read your keystrokes. As for shell commands, you might be thinking that any program can send shell commands to the server and that's true! But the server runs the commands as the currently logged in user so no extra permissions are provided ( This is essentially the same as any app on your desktop calling shell commands ). 
+
+So yes, you're safe!
+
 ## Support server:
 
 https://discord.gg/KKZRDYrRYW
