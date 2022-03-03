@@ -1,6 +1,6 @@
 use itertools::Itertools;
 use std::collections::HashMap;
-use std::fs::{canonicalize, File};
+use std::fs::File;
 use std::io::Read;
 use std::{fmt, path};
 
@@ -88,7 +88,7 @@ impl Config {
         for line in contents.lines() {
             if IMPORT_STATEMENTS.contains(&line.split(' ').next().unwrap()) {
                 if let Some(import_path) = line.split(' ').nth(1) {
-                    imports.push(canonicalize(path::Path::new(import_path))?);
+                    imports.push(path::Path::new(import_path).to_path_buf());
                 }
             }
         }
