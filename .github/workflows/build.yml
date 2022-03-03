@@ -32,5 +32,5 @@ jobs:
           prerelease: false
           title: "Swhkd ${{ env.VERSION }}"
           files: |
-            "bin/glibc-x86_64-${{ env.VERSION }}.zip"
-            "bin/musl_libc-x86_64-${{ env.VERSION }}.zip"
+            "glibc-x86_64-${{ env.VERSION }}.zip"
+            "musl_libc-x86_64-${{ env.VERSION }}.zip"
