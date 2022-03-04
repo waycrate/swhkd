@@ -248,15 +248,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     .filter(|hotkey| hotkey.modifiers.len() == keyboard_state.state_modifiers.len())
                     .collect();
 
-                let mut event_in_hotkeys = false;
-                for hotkey in &possible_hotkeys {
-                    if keyboard_state.state_modifiers.iter().all(|x| hotkey.modifiers.contains(x))
-                        && keyboard_state.state_modifiers.len() == hotkey.modifiers.len()
-                        && hotkey.keysym.code() == event.code() {
-                        event_in_hotkeys = true;
-                        break;
-                    }
-                }
+                let event_in_hotkeys = hotkeys.iter().any(|hotkey| {
+                    hotkey.keysym.code() == event.code() &&
+                    keyboard_state.state_modifiers
+                        .iter()
+                        .all(|x| hotkey.modifiers.contains(x)) &&
+                    keyboard_state.state_modifiers.len() == hotkey.modifiers.len()
+                        });
+
 
                 // Don't emit event to virtual device if it's from a valid hotkey
                 if !event_in_hotkeys {
