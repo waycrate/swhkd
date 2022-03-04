@@ -152,7 +152,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    let mut signals = Signals::new(&[SIGUSR1, SIGUSR2, SIGHUP, SIGINT])?;
+    let mut signals = Signals::new(&[
+        SIGUSR1, SIGUSR2, SIGHUP, SIGABRT, SIGBUS, SIGCHLD, SIGCONT, SIGINT, SIGPIPE, SIGQUIT,
+        SIGSYS, SIGTERM, SIGTRAP, SIGTSTP, SIGVTALRM, SIGXCPU, SIGXFSZ,
+    ])?;
     let mut paused = false;
     let mut temp_paused = false;
 
@@ -200,7 +203,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     SIGINT => {
                         temp_paused = true;
                     }
-                    _ => unreachable!()
+                    _ => {
+                        let keyboard_devices: Vec<Device> = evdev::enumerate().filter(check_keyboard).collect();
+                        for mut device in keyboard_devices.into_iter() {
+                            let _ = &device.ungrab();
+                        };
+                        log::warn!("Got signal: {:#?}", signal);
+                        exit(1);
+                    }
                 }
             }
             Some((i, Ok(event))) = keyboard_stream_map.next() => {
