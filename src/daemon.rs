@@ -159,8 +159,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut last_hotkey: Option<config::Hotkey> = None;
     let mut keyboard_states: Vec<KeyboardState> = Vec::new();
     let mut keyboard_stream_map = StreamMap::new();
+
     for (i, mut device) in keyboard_devices.into_iter().enumerate() {
-        let _ = &device.grab();
+        let _ = device.grab();
         let _ = device.update_auto_repeat(&AutoRepeat { delay: 0, period: 0 });
         keyboard_stream_map.insert(i, device.into_event_stream()?);
         keyboard_states.push(KeyboardState::new());
@@ -181,9 +182,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 match signal {
                     SIGUSR1 => {
                         paused = true;
+                        let keyboard_devices: Vec<Device> = evdev::enumerate().filter(check_keyboard).collect();
+                        for mut device in keyboard_devices.into_iter() {
+                            let _ = &device.ungrab();
+                        };
                     }
                     SIGUSR2 => {
                         paused = false;
+                        let keyboard_devices: Vec<Device> = evdev::enumerate().filter(check_keyboard).collect();
+                        for mut device in keyboard_devices.into_iter() {
+                            let _ = &device.ungrab();
+                        };
                     }
                     SIGHUP => {
                         hotkeys = load_config();
@@ -304,6 +313,9 @@ pub fn permission_check() {
 
 pub fn check_keyboard(device: &Device) -> bool {
     if device.supported_keys().map_or(false, |keys| keys.contains(Key::KEY_ENTER)) {
+        if device.name() == Some("swhkd virtual output") {
+            return false;
+        }
         log::debug!("{} is a keyboard.", device.name().unwrap(),);
         true
     } else {
@@ -344,13 +356,6 @@ pub fn check_config_xdg() -> std::path::PathBuf {
         Err(_) => {
             log::error!("XDG_CONFIG_HOME has not been set.");
             config_file_path = Path::new("/etc/swhkd/swhkdrc").to_path_buf();
-            log::warn!(
-                "Note: Due to the design of the application, the invoking user is always root."
-            );
-            log::warn!("You can set a custom config file with the -c option.");
-            log::warn!("Adding your user to the input group could solve this.");
-            log::warn!("However that's a massive security flaw and basically defeats the purpose of using wayland.");
-            log::warn!("The following issue may be addressed in the future, but it is certainly not a priority right now.");
         }
     }
     config_file_path
