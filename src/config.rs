@@ -51,21 +51,6 @@ impl fmt::Display for Error {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct Hotkey {
-    pub keysym: evdev::Key,
-    pub modifiers: Vec<Modifier>,
-    pub command: String,
-}
-
-#[derive(Debug, PartialEq, Eq, Copy, Clone, Hash)]
-pub enum Modifier {
-    Super,
-    Alt,
-    Control,
-    Shift,
-}
-
 pub const IMPORT_STATEMENTS: [&str; 4] = ["use", "import", "include", "source"];
 
 #[derive(Debug, PartialEq, Clone)]
@@ -135,6 +120,48 @@ pub fn load(path: path::PathBuf) -> Result<Vec<Hotkey>, Error> {
         }
     }
     Ok(hotkeys)
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct KeyBinding {
+    pub keysym: evdev::Key,
+    pub modifiers: Vec<Modifier>,
+    pub send: bool,
+    pub on_release: bool,
+}
+
+impl KeyBinding {
+    pub fn new(keysym: evdev::Key, modifiers: Vec<Modifier>) -> Self {
+        KeyBinding { keysym, modifiers, send: false, on_release: false }
+    }
+    pub fn send(mut self) -> Self {
+        self.send = true;
+        self
+    }
+    pub fn on_release(mut self) -> Self {
+        self.on_release = true;
+        self
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Hotkey {
+    pub keybinding: KeyBinding,
+    pub command: String,
+}
+
+#[derive(Debug, PartialEq, Eq, Copy, Clone, Hash)]
+pub enum Modifier {
+    Super,
+    Alt,
+    Control,
+    Shift,
+}
+
+impl Hotkey {
+    pub fn new(keysym: evdev::Key, modifiers: Vec<Modifier>, command: String) -> Self {
+        Hotkey { keybinding: KeyBinding::new(keysym, modifiers), command }
+    }
 }
 
 pub fn parse_contents(contents: String) -> Result<Vec<Hotkey>, Error> {
@@ -357,11 +384,11 @@ pub fn parse_contents(contents: String) -> Result<Vec<Hotkey>, Error> {
         'hotkey_parse: for (key, command) in extracted_keys.iter().zip(extracted_commands.iter()) {
             let (keysym, modifiers) =
                 parse_keybind(key, line_number + 1, &key_to_evdev_key, &mod_to_mod_enum)?;
-            let hotkey = Hotkey { keysym, modifiers, command: command.to_string() };
+            let hotkey = Hotkey::new(keysym, modifiers, command.to_string());
 
             // Ignore duplicate hotkeys
             for i in hotkeys.iter() {
-                if i.keysym == hotkey.keysym && i.modifiers == hotkey.modifiers {
+                if i.keybinding == hotkey.keybinding {
                     continue 'hotkey_parse;
                 }
             }

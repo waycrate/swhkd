@@ -34,12 +34,6 @@ mod test_config {
         }
     }
 
-    impl Hotkey {
-        fn new(keysym: evdev::Key, modifiers: Vec<Modifier>, command: String) -> Self {
-            Hotkey { keysym, modifiers, command }
-        }
-    }
-
     // Wrapper for config tests
     fn eval_config_test(contents: &str, expected_hotkeys: Vec<Hotkey>) -> std::io::Result<()> {
         let result = parse_contents(contents.to_string());
@@ -59,9 +53,7 @@ mod test_config {
         // to make sure that order does not matter
         for hotkey in actual_hotkeys {
             if let Some(index) = expected_hotkeys_mut.iter().position(|key| {
-                key.keysym == hotkey.keysym
-                    && key.command == hotkey.command
-                    && key.modifiers == hotkey.modifiers
+                key.keybinding == hotkey.keybinding && key.command == hotkey.command
             }) {
                 expected_hotkeys_mut.remove(index);
             } else {

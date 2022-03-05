@@ -220,21 +220,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     1 => {
                         if let Some(modifier) = modifiers_map.get(&key) {
                             keyboard_state.state_modifiers.insert(*modifier);
-                        } else {
-                            keyboard_state.state_keysyms.insert(key);
+                        // } else {
+                        //     keyboard_state.state_keysyms.insert(key);
                         }
                     }
                     0 => {
                         if let Some(modifier) = modifiers_map.get(&key) {
                             if let Some(hotkey) = &last_hotkey {
-                                if hotkey.modifiers.contains(modifier) {
+                                if hotkey.keybinding.modifiers.contains(modifier) {
                                     last_hotkey = None;
                                 }
                             }
                             keyboard_state.state_modifiers.remove(modifier);
                         } else if keyboard_state.state_keysyms.contains(key) {
                             if let Some(hotkey) = &last_hotkey {
-                                if key == hotkey.keysym {
+                                if key == hotkey.keybinding.keysym {
                                     last_hotkey = None;
                                 }
                             }
@@ -245,15 +245,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
 
                 let possible_hotkeys: Vec<&config::Hotkey> = hotkeys.iter()
-                    .filter(|hotkey| hotkey.modifiers.len() == keyboard_state.state_modifiers.len())
+                    .filter(|hotkey| hotkey.keybinding.modifiers.len() == keyboard_state.state_modifiers.len())
                     .collect();
 
                 let event_in_hotkeys = hotkeys.iter().any(|hotkey| {
-                    hotkey.keysym.code() == event.code() &&
+                    hotkey.keybinding.keysym.code() == event.code() &&
                     keyboard_state.state_modifiers
                         .iter()
-                        .all(|x| hotkey.modifiers.contains(x)) &&
-                    keyboard_state.state_modifiers.len() == hotkey.modifiers.len()
+                        .all(|x| hotkey.keybinding.modifiers.contains(x)) &&
+                    keyboard_state.state_modifiers.len() == hotkey.keybinding.modifiers.len()
                         });
 
 
@@ -285,9 +285,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                 for hotkey in possible_hotkeys {
                     // this should check if state_modifiers and hotkey.modifiers have the same elements
-                    if keyboard_state.state_modifiers.iter().all(|x| hotkey.modifiers.contains(x))
-                        && keyboard_state.state_modifiers.len() == hotkey.modifiers.len()
-                        && keyboard_state.state_keysyms.contains(hotkey.keysym)
+                    if keyboard_state.state_modifiers.iter().all(|x| hotkey.keybinding.modifiers.contains(x))
+                        && keyboard_state.state_modifiers.len() == hotkey.keybinding.modifiers.len()
+                        && keyboard_state.state_keysyms.contains(hotkey.keybinding.keysym)
                     {
                         last_hotkey = Some(hotkey.clone());
                         send_command(hotkey.clone());
