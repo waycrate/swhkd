@@ -185,15 +185,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 match signal {
                     SIGUSR1 => {
                         paused = true;
-                        let keyboard_devices: Vec<Device> = evdev::enumerate().filter(check_keyboard).collect();
-                        for mut device in keyboard_devices.into_iter() {
+                        let keyboard_devices = evdev::enumerate().filter(check_keyboard);
+                        for mut device in keyboard_devices {
                             let _ = &device.ungrab();
                         };
                     }
                     SIGUSR2 => {
                         paused = false;
-                        let keyboard_devices: Vec<Device> = evdev::enumerate().filter(check_keyboard).collect();
-                        for mut device in keyboard_devices.into_iter() {
+                        let keyboard_devices = evdev::enumerate().filter(check_keyboard);
+                        for mut device in keyboard_devices {
                             let _ = &device.grab();
                         };
                     }
@@ -204,8 +204,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         temp_paused = true;
                     }
                     _ => {
-                        let keyboard_devices: Vec<Device> = evdev::enumerate().filter(check_keyboard).collect();
-                        for mut device in keyboard_devices.into_iter() {
+                        let keyboard_devices = evdev::enumerate().filter(check_keyboard);
+                        for mut device in keyboard_devices {
                             let _ = &device.ungrab();
                         };
                         log::warn!("Got signal: {:#?}", signal);
