@@ -159,6 +159,10 @@ pub enum Modifier {
 }
 
 impl Hotkey {
+    pub fn from_keybinding(keybinding: KeyBinding, command: String) -> Self {
+        Hotkey { keybinding, command }
+    }
+    #[cfg(test)]
     pub fn new(keysym: evdev::Key, modifiers: Vec<Modifier>, command: String) -> Self {
         Hotkey { keybinding: KeyBinding::new(keysym, modifiers), command }
     }
@@ -382,9 +386,9 @@ pub fn parse_contents(contents: String) -> Result<Vec<Hotkey>, Error> {
         let extracted_commands = extract_curly_brace(&next_line.2);
 
         'hotkey_parse: for (key, command) in extracted_keys.iter().zip(extracted_commands.iter()) {
-            let (keysym, modifiers) =
+            let keybinding =
                 parse_keybind(key, line_number + 1, &key_to_evdev_key, &mod_to_mod_enum)?;
-            let hotkey = Hotkey::new(keysym, modifiers, command.to_string());
+            let hotkey = Hotkey::from_keybinding(keybinding, command.to_string());
 
             // Ignore duplicate hotkeys
             for i in hotkeys.iter() {
@@ -407,7 +411,7 @@ fn parse_keybind(
     line_nr: u32,
     key_to_evdev_key: &HashMap<&str, evdev::Key>,
     mod_to_mod_enum: &HashMap<&str, Modifier>,
-) -> Result<(evdev::Key, Vec<Modifier>), Error> {
+) -> Result<KeyBinding, Error> {
     let line = line.split('#').next().unwrap();
     let tokens: Vec<String> =
         line.split('+').map(|s| s.trim().to_lowercase()).filter(|s| s != "_").collect();
@@ -421,6 +425,10 @@ fn parse_keybind(
     }
 
     let last_token = tokens_new.last().unwrap().trim();
+
+    let send: bool = last_token.starts_with('~');
+
+    let on_release: bool = last_token.starts_with('@');
 
     // Check if each token is valid
     for token in &tokens_new {
@@ -447,7 +455,14 @@ fn parse_keybind(
         .map(|token| *mod_to_mod_enum.get(token.as_str()).unwrap())
         .collect();
 
-    Ok((*keysym, modifiers))
+    let mut keybinding = KeyBinding::new(*keysym, modifiers);
+    if send {
+        keybinding = keybinding.send();
+    }
+    if on_release {
+        keybinding = keybinding.on_release();
+    }
+    Ok(keybinding)
 }
 
 pub fn extract_curly_brace(line: &str) -> Vec<String> {
