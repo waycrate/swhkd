@@ -18,8 +18,11 @@ jobs:
       - name: Version tag.
         run: echo "VERSION=$(grep -E '^version' ./Cargo.toml| sed 's/version = \"\(.*\)\"/\1/g')">>$GITHUB_ENV
         
-      - name: Compile Binary.
-        run: cargo build --release --verbose
+      - name: Setup.
+        run: make setup
+
+      - name: ZIP.
+        run: ./release.sh
         
       - name: Release
         uses: "marvinpinto/action-automatic-releases@latest"
@@ -29,5 +32,4 @@ jobs:
           prerelease: false
           title: "Swhkd ${{ env.VERSION }}"
           files: |
-            bin/swhkd
-            bin/swhks
+            "*.zip"
