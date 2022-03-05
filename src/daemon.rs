@@ -194,7 +194,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         paused = false;
                         let keyboard_devices: Vec<Device> = evdev::enumerate().filter(check_keyboard).collect();
                         for mut device in keyboard_devices.into_iter() {
-                            let _ = &device.ungrab();
+                            let _ = &device.grab();
                         };
                     }
                     SIGHUP => {
