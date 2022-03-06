@@ -36,7 +36,7 @@ mod test_config {
 
     // Wrapper for config tests
     fn eval_config_test(contents: &str, expected_hotkeys: Vec<Hotkey>) -> std::io::Result<()> {
-        let result = parse_contents(contents.to_string());
+        let result = parse_contents(path::PathBuf::new(), contents.to_string());
 
         let mut expected_hotkeys_mut = expected_hotkeys;
 
@@ -79,7 +79,7 @@ mod test_config {
         contents: &str,
         parse_error_type: ParseError,
     ) -> std::io::Result<()> {
-        let result = parse_contents(contents.to_string());
+        let result = parse_contents(path::PathBuf::new(), contents.to_string());
 
         assert!(result.is_err());
         let result = result.unwrap_err();
@@ -152,7 +152,7 @@ super + c
     hello",
         )?;
 
-        let hotkeys = load(setup.path());
+        let hotkeys = load(&setup.path());
         assert_eq!(
             hotkeys.unwrap(),
             vec!(
@@ -201,7 +201,7 @@ d
     d",
         )?;
 
-        let hotkeys = load(setup4.path()).unwrap();
+        let hotkeys = load(&setup4.path()).unwrap();
         assert_eq!(
             hotkeys,
             vec!(
@@ -288,7 +288,7 @@ shift + k + m
     notify-send 'Hello world!'
             ";
 
-        eval_invalid_config_test(contents, ParseError::InvalidModifier(2))
+        eval_invalid_config_test(contents, ParseError::InvalidModifier(path::PathBuf::new(), 2))
     }
 
     #[test]
@@ -298,7 +298,7 @@ shift + k + alt
     notify-send 'Hello world!'
             ";
 
-        eval_invalid_config_test(contents, ParseError::InvalidModifier(2))
+        eval_invalid_config_test(contents, ParseError::InvalidModifier(path::PathBuf::new(), 2))
     }
 
     #[test]
@@ -310,7 +310,7 @@ shift + alt +
     notify-send 'Hello world!'
             ";
 
-        eval_invalid_config_test(contents, ParseError::UnknownSymbol(4))
+        eval_invalid_config_test(contents, ParseError::UnknownSymbol(path::PathBuf::new(), 4))
     }
 
     #[test]
@@ -320,7 +320,7 @@ shift + alt +
     notify-send 'Hello world!'
             ";
 
-        eval_invalid_config_test(contents, ParseError::UnknownSymbol(2))
+        eval_invalid_config_test(contents, ParseError::UnknownSymbol(path::PathBuf::new(), 2))
     }
 
     #[test]
@@ -391,7 +391,7 @@ pesto
     xterm
                     ";
 
-        eval_invalid_config_test(contents, ParseError::UnknownSymbol(5))
+        eval_invalid_config_test(contents, ParseError::UnknownSymbol(path::PathBuf::new(), 5))
     }
 
     #[test]
@@ -820,7 +820,7 @@ super + {a-c}
 super + {a-是}
     {firefox, brave}
     ";
-        eval_invalid_config_test(contents, ParseError::UnknownSymbol(2))
+        eval_invalid_config_test(contents, ParseError::UnknownSymbol(path::PathBuf::new(), 2))
     }
 
     #[test]
@@ -829,7 +829,7 @@ super + {a-是}
 super + {bc-ad}
     {firefox, brave}
     ";
-        eval_invalid_config_test(contents, ParseError::UnknownSymbol(2))
+        eval_invalid_config_test(contents, ParseError::UnknownSymbol(path::PathBuf::new(), 2))
     }
 
     #[test]
@@ -837,7 +837,7 @@ super + {bc-ad}
         let contents = "
 super + {a-}
     {firefox, brave}";
-        eval_invalid_config_test(contents, ParseError::UnknownSymbol(2))
+        eval_invalid_config_test(contents, ParseError::UnknownSymbol(path::PathBuf::new(), 2))
     }
 
     #[test]
@@ -1105,6 +1105,7 @@ super + ~1
 mod test_config_display {
     use crate::config::{Error, ParseError};
     use std::io;
+    use std::path;
 
     #[test]
     fn test_display_config_not_found_error() {
@@ -1124,22 +1125,22 @@ mod test_config_display {
 
     #[test]
     fn test_display_unknown_symbol_error() {
-        let error = Error::InvalidConfig(ParseError::UnknownSymbol(10));
+        let error = Error::InvalidConfig(ParseError::UnknownSymbol(path::PathBuf::new(), 10));
 
-        assert_eq!(format!("{}", error), "Unknown symbol at line 10.");
+        assert_eq!(format!("{}", error), "Config file path: \"\". Unknown symbol at line 10.");
     }
 
     #[test]
     fn test_display_invalid_modifier_error() {
-        let error = Error::InvalidConfig(ParseError::InvalidModifier(25));
+        let error = Error::InvalidConfig(ParseError::InvalidModifier(path::PathBuf::new(), 25));
 
-        assert_eq!(format!("{}", error), "Invalid modifier at line 25.");
+        assert_eq!(format!("{}", error), "Config file path: \"\". Invalid modifier at line 25.");
     }
 
     #[test]
     fn test_invalid_keysm_error() {
-        let error = Error::InvalidConfig(ParseError::InvalidKeysym(7));
+        let error = Error::InvalidConfig(ParseError::InvalidKeysym(path::PathBuf::new(), 7));
 
-        assert_eq!(format!("{}", error), "Invalid keysym at line 7.");
+        assert_eq!(format!("{}", error), "Config file path: \"\". Invalid keysym at line 7.");
     }
 }
