@@ -5,7 +5,7 @@
   
   <p align="center">
   <a href="./LICENSE.md"><img src="https://img.shields.io/github/license/waycrate/swhkd?style=flat-square&logo=appveyor"></a>
-  <img src="https://img.shields.io/badge/cargo-v1.0.0-green?style=flat-square&logo=appveyor">
+  <img src="https://img.shields.io/badge/cargo-v1.1.0-green?style=flat-square&logo=appveyor">
   <img src="https://img.shields.io/github/issues/waycrate/swhkd?style=flat-square&logo=appveyor">
   <img src="https://img.shields.io/github/forks/waycrate/swhkd?style=flat-square&logo=appveyor">
   <img src="https://img.shields.io/github/stars/waycrate/swhkd?style=flat-square&logo=appveyor">
@@ -48,6 +48,15 @@ After opening swhkd, you can control the program through signals:
 Swhkd closely follows sxhkd syntax, so most existing sxhkd configs should be functional with swhkd.
 
 The default configuration directory is `/etc/swhkd/swhkdrc`. If you don't like having to edit the file as root every single time, you can create a symlink from `~/.config/swhkd/swhkdrc` to `/etc/swhkd/swhkdrc`.
+
+If you use Vim, you can get swhkd config syntax highlighting with the
+[`swhkd-vim`](https://github.com/waycrate/swhkd-vim) plugin. Install it in
+vim-plug with `Plug 'waycrate/swhkd-vim'`.
+
+## Security
+We user a server-client model to keep you safe. The daemon ( swhkd - privileged process ) communicates to the server ( swhks - running as non root user ) after checking for valid keybinds. Since the daemon is totally separate from the server, no other process can read your keystrokes. As for shell commands, you might be thinking that any program can send shell commands to the server and that's true! But the server runs the commands as the currently logged in user so no extra permissions are provided ( This is essentially the same as any app on your desktop calling shell commands ). 
+
+So yes, you're safe!
 
 ## Support server:
 
