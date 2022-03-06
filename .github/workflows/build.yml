@@ -1,12 +1,15 @@
 name: Build Swhkd
 
-on: [push, pull_request]
+on:
+  push:
+    branches:
+      - main
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  build:
+  release:
     runs-on: ubuntu-latest
 
     permissions:
