@@ -135,6 +135,13 @@ pub trait Prefix {
     fn on_release(self) -> Self;
 }
 
+pub trait Value {
+    fn keysym(&self) -> evdev::Key;
+    fn modifiers(&self) -> Vec<Modifier>;
+    fn is_send(&self) -> bool;
+    fn is_on_release(&self) -> bool;
+}
+
 impl KeyBinding {
     pub fn new(keysym: evdev::Key, modifiers: Vec<Modifier>) -> Self {
         KeyBinding { keysym, modifiers, send: false, on_release: false }
@@ -153,6 +160,21 @@ impl Prefix for KeyBinding {
     fn on_release(mut self) -> Self {
         self.on_release = true;
         self
+    }
+}
+
+impl Value for KeyBinding {
+    fn keysym(&self) -> evdev::Key {
+        self.keysym
+    }
+    fn modifiers(&self) -> Vec<Modifier> {
+        self.clone().modifiers
+    }
+    fn is_send(&self) -> bool {
+        self.send
+    }
+    fn is_on_release(&self) -> bool {
+        self.on_release
     }
 }
 
@@ -188,6 +210,21 @@ impl Prefix for Hotkey {
     fn on_release(mut self) -> Self {
         self.keybinding.on_release = true;
         self
+    }
+}
+
+impl Value for &Hotkey {
+    fn keysym(&self) -> evdev::Key {
+        self.keybinding.keysym
+    }
+    fn modifiers(&self) -> Vec<Modifier> {
+        self.keybinding.clone().modifiers
+    }
+    fn is_send(&self) -> bool {
+        self.keybinding.send
+    }
+    fn is_on_release(&self) -> bool {
+        self.keybinding.on_release
     }
 }
 
