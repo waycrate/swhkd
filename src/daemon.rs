@@ -199,6 +199,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         hotkeys = load_config();
                     }
                     SIGINT => {
+                        log::warn!("Received SIGINT signal, exiting...");
                         exit(1);
                     }
                     _ => {
