@@ -21,8 +21,8 @@ jobs:
       - name: Setup.
         run: make setup
 
-      - name: ZIP.
-        run: ./release.sh
+      - name: Compile musl-libc.
+        run: make
         
       - name: Release
         uses: "marvinpinto/action-automatic-releases@latest"
@@ -30,6 +30,6 @@ jobs:
           repo_token: "${{ secrets.GITHUB_TOKEN }}"
           automatic_release_tag: ${{ env.VERSION }}
           prerelease: false
-          title: "Swhkd ${{ env.VERSION }}"
+          title: "swhkd musl ${{ env.VERSION }}"
           files: |
-            "*.zip"
+            bin/*
