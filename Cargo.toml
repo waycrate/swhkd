@@ -1,11 +1,22 @@
 [package]
-name = "Simple-Wayland-HotKey-Daemon"
-version = "1.1.2"
+description = "Sxhkd clone for Wayland (works on TYY and X11 too)"
 edition = "2021"
+keywords = ["wayland", "hotkey", "evdev"]
+license = "BSD-2-Clause"
+name = "Simple-Wayland-HotKey-Daemon"
+repository = "https://git.sr.ht/~shinyzenith/swhkd"
+version = "1.1.2"
 authors = [
 	"Shinyzenith <aakashsensharma@gmail.com>\n",
 	"Angelo Fallaria <ba.fallaria@gmail.com>\n",
 	"EdenQwQ <lsahlm1eden@gmail.com>\n"
+]
+exclude = [
+    "CODE_OF_CONDUCT.md",
+    "CONTRIBUTING.md",
+	"contrib/*",
+	"docs/*",
+	"release.sh",
 ]
 
 [dependencies]
