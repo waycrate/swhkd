@@ -143,14 +143,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         250
     };
 
-    fn send_command(hotkey: config::Hotkey) {
+    let send_command = |hotkey: config::Hotkey| {
         log::info!("Hotkey pressed: {:#?}", hotkey);
         if let Err(e) = sock_send(&hotkey.command) {
             log::error!("Failed to send command over IPC.");
             log::error!("Is swhks running?");
             log::error!("{:#?}", e)
         }
-    }
+    };
 
     let mut signals = Signals::new(&[
         SIGUSR1, SIGUSR2, SIGHUP, SIGABRT, SIGBUS, SIGCHLD, SIGCONT, SIGINT, SIGPIPE, SIGQUIT,
@@ -220,8 +220,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     1 => {
                         if let Some(modifier) = modifiers_map.get(&key) {
                             keyboard_state.state_modifiers.insert(*modifier);
-                        // } else {
-                        //     keyboard_state.state_keysyms.insert(key);
+                        } else {
+                            keyboard_state.state_keysyms.insert(key);
                         }
                     }
                     0 => {
@@ -243,6 +243,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     }
                     _ => {}
                 }
+                        for hotkey in &hotkeys { if hotkey.keybinding.keysym.code() == event.code() &&
+                                hotkey.keybinding.send {
+                                uinput_device.emit(&[evdev::InputEvent::new(evdev::EventType::KEY, hotkey.keybinding.keysym.code(), event.value())]).unwrap();
+                            }
+                        }
+
 
                 let possible_hotkeys: Vec<&config::Hotkey> = hotkeys.iter()
                     .filter(|hotkey| hotkey.keybinding.modifiers.len() == keyboard_state.state_modifiers.len())
@@ -255,7 +261,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         .all(|x| hotkey.keybinding.modifiers.contains(x)) &&
                     keyboard_state.state_modifiers.len() == hotkey.keybinding.modifiers.len()
                         });
-
 
                 // Don't emit event to virtual device if it's from a valid hotkey
                 if !event_in_hotkeys {
@@ -290,9 +295,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         && keyboard_state.state_keysyms.contains(hotkey.keybinding.keysym)
                     {
                         last_hotkey = Some(hotkey.clone());
-                        send_command(hotkey.clone());
-                        hotkey_repeat_timer.as_mut().reset(Instant::now() + Duration::from_millis(repeat_cooldown_duration));
-                        break;
+                        if !hotkey.keybinding.on_release {
+                            send_command(hotkey.clone());
+                            hotkey_repeat_timer.as_mut().reset(Instant::now() + Duration::from_millis(repeat_cooldown_duration));
+                            break;
+                        }
                     }
                 }
             }

@@ -1,7 +1,7 @@
 mod test_config {
     use crate::config::{
         extract_curly_brace, load, load_file_contents, parse_contents, Error, Hotkey, Modifier,
-        ParseError,
+        ParseError, Prefix,
     };
     use std::fs;
     use std::io::Write;
@@ -1072,6 +1072,32 @@ super + {\\,, .}
                     "riverctl focus-output next".to_string(),
                 ),
             ],
+        )
+    }
+
+    #[test]
+    fn test_prefix_on_release() -> std::io::Result<()> {
+        let contents = "
+super + @1
+    1";
+
+        eval_config_test(
+            contents,
+            vec![
+                Hotkey::new(evdev::Key::KEY_1, vec![Modifier::Super], "1".to_string()).on_release()
+            ],
+        )
+    }
+
+    #[test]
+    fn test_prefix_send() -> std::io::Result<()> {
+        let contents = "
+super + ~1
+    1";
+
+        eval_config_test(
+            contents,
+            vec![Hotkey::new(evdev::Key::KEY_1, vec![Modifier::Super], "1".to_string()).send()],
         )
     }
 }

@@ -130,15 +130,27 @@ pub struct KeyBinding {
     pub on_release: bool,
 }
 
+pub trait Prefix {
+    fn send(self) -> Self;
+    fn on_release(self) -> Self;
+}
+
 impl KeyBinding {
     pub fn new(keysym: evdev::Key, modifiers: Vec<Modifier>) -> Self {
         KeyBinding { keysym, modifiers, send: false, on_release: false }
     }
-    pub fn send(mut self) -> Self {
+    pub fn on_release(mut self) -> Self {
+        self.on_release = true;
+        self
+    }
+}
+
+impl Prefix for KeyBinding {
+    fn send(mut self) -> Self {
         self.send = true;
         self
     }
-    pub fn on_release(mut self) -> Self {
+    fn on_release(mut self) -> Self {
         self.on_release = true;
         self
     }
@@ -165,6 +177,17 @@ impl Hotkey {
     #[cfg(test)]
     pub fn new(keysym: evdev::Key, modifiers: Vec<Modifier>, command: String) -> Self {
         Hotkey { keybinding: KeyBinding::new(keysym, modifiers), command }
+    }
+}
+
+impl Prefix for Hotkey {
+    fn send(mut self) -> Self {
+        self.keybinding.send = true;
+        self
+    }
+    fn on_release(mut self) -> Self {
+        self.keybinding.on_release = true;
+        self
     }
 }
 
@@ -432,7 +455,9 @@ fn parse_keybind(
 
     // Check if each token is valid
     for token in &tokens_new {
-        if key_to_evdev_key.contains_key(token.as_str()) {
+        if key_to_evdev_key.contains_key(
+            token.strip_prefix('@').unwrap_or_else(|| token.strip_prefix('~').unwrap_or(token)),
+        ) {
             // Can't have a key that's like a modifier
             if token != last_token {
                 return Err(Error::InvalidConfig(ParseError::InvalidModifier(line_nr)));
@@ -448,7 +473,13 @@ fn parse_keybind(
     }
 
     // Translate keypress into evdev key
-    let keysym = key_to_evdev_key.get(last_token).unwrap();
+    let keysym = key_to_evdev_key
+        .get(
+            last_token
+                .strip_prefix('@')
+                .unwrap_or_else(|| last_token.strip_prefix('~').unwrap_or(last_token)),
+        )
+        .unwrap();
 
     let modifiers: Vec<Modifier> = tokens_new[0..(tokens_new.len() - 1)]
         .iter()
