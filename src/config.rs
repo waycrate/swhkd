@@ -149,7 +149,7 @@ pub fn parse_contents(contents: String) -> Result<Vec<Hotkey>, Error> {
         ("xf86monbrightnessup", evdev::Key::KEY_BRIGHTNESSUP),
         ("brightnessdown", evdev::Key::KEY_BRIGHTNESSDOWN),
         ("xf86monbrightnessdown", evdev::Key::KEY_BRIGHTNESSDOWN),
-        ("xf86audioplay", evdev::Key::KEY_PLAY),
+        ("xf86audioplay", evdev::Key::KEY_PLAYPAUSE),
         ("xf86audioprev", evdev::Key::KEY_PREVIOUSSONG),
         ("xf86audionext", evdev::Key::KEY_NEXTSONG),
         ("xf86audiostop", evdev::Key::KEY_STOP),
