@@ -157,8 +157,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         SIGSYS, SIGTERM, SIGTRAP, SIGTSTP, SIGVTALRM, SIGXCPU, SIGXFSZ,
     ])?;
     let mut paused = false;
-    let mut temp_paused = false;
-
     let mut last_hotkey: Option<config::Hotkey> = None;
     let mut keyboard_states: Vec<KeyboardState> = Vec::new();
     let mut keyboard_stream_map = StreamMap::new();
@@ -200,7 +198,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         hotkeys = load_config();
                     }
                     SIGINT => {
-                        temp_paused = true;
+                        log::warn!("Received SIGINT signal, exiting...");
+                        exit(1);
                     }
                     _ => {
                         let keyboard_devices = evdev::enumerate().filter(check_keyboard);
@@ -272,15 +271,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 log::debug!("state_modifiers: {:#?}", keyboard_state.state_modifiers);
                 log::debug!("state_keysyms: {:#?}", keyboard_state.state_keysyms);
                 log::debug!("hotkey: {:#?}", possible_hotkeys);
-                if temp_paused {
-                    if keyboard_state.state_modifiers.iter().all(|x| {
-                        vec![config::Modifier::Shift, config::Modifier::Super].contains(x)
-                    }) && keyboard_state.state_keysyms.contains(evdev::Key::KEY_ESC)
-                    {
-                        temp_paused = false;
-                    }
-                    continue;
-                }
 
                 for hotkey in possible_hotkeys {
                     // this should check if state_modifiers and hotkey.modifiers have the same elements
