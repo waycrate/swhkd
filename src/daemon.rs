@@ -1,5 +1,5 @@
 use clap::{arg, Command};
-use evdev::{AttributeSet, AutoRepeat, Device, InputEventKind, Key};
+use evdev::{AttributeSet, Device, InputEventKind, Key};
 use nix::unistd::{Group, Uid};
 use signal_hook_tokio::Signals;
 use std::{
@@ -165,7 +165,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     for (i, mut device) in keyboard_devices.into_iter().enumerate() {
         let _ = device.grab();
-        let _ = device.update_auto_repeat(&AutoRepeat { delay: 0, period: 0 });
         keyboard_stream_map.insert(i, device.into_event_stream()?);
         keyboard_states.push(KeyboardState::new());
     }
