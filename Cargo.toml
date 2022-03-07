@@ -5,7 +5,7 @@ keywords = ["wayland", "hotkey", "evdev"]
 license = "BSD-2-Clause"
 name = "Simple-Wayland-HotKey-Daemon"
 repository = "https://git.sr.ht/~shinyzenith/swhkd"
-version = "1.1.4"
+version = "1.1.5"
 authors = [
 	"Shinyzenith <aakashsensharma@gmail.com>\n",
 	"Angelo Fallaria <ba.fallaria@gmail.com>\n",
@@ -20,17 +20,17 @@ exclude = [
 ]
 
 [dependencies]
-clap = "3.1"
-env_logger = "0.8.4"
-evdev = { version = "0.11.3", features = ["tokio"] }
-log = "0.4.0"
+clap = "3.1.5"
+env_logger = "0.9.0"
+evdev = { version = "0.11.5", features = ["tokio"] }
+log = "0.4.14"
 nix = "0.23.1"
-sysinfo = "0.23.0"
-itertools = "0.10"
+sysinfo = "0.23.5"
+itertools = "0.10.3"
 signal-hook = "0.3.13"
-signal-hook-tokio = { version = "0.3", features = ["futures-v0_3"] }
-tokio = { version = "1", features = ["full"] }
-tokio-stream = "0.1"
+signal-hook-tokio = { version = "0.3.1", features = ["futures-v0_3"] }
+tokio = { version = "1.17.0", features = ["full"] }
+tokio-stream = "0.1.8"
 
 [[bin]]
 name = "swhkd"

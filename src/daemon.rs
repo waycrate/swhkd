@@ -108,7 +108,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut hotkeys = load_config();
 
     log::trace!("Attempting to find all keyboard file descriptors.");
-    let keyboard_devices: Vec<Device> = evdev::enumerate().filter(check_keyboard).collect();
+    let mut keyboard_devices: Vec<Device> = Vec::new();
+    for (_, device) in evdev::enumerate() {
+        if check_keyboard(&device) {
+            keyboard_devices.push(device);
+        };
+    }
 
     let mut uinput_device = match uinput::create_uinput_device() {
         Ok(dev) => dev,
@@ -182,17 +187,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 match signal {
                     SIGUSR1 => {
                         paused = true;
-                        let keyboard_devices = evdev::enumerate().filter(check_keyboard);
-                        for mut device in keyboard_devices {
-                            let _ = &device.ungrab();
-                        };
+                        for (_, mut device) in evdev::enumerate() {
+                            if check_keyboard(&device){
+                                let _ = device.ungrab();
+                            }
+                        }
                     }
                     SIGUSR2 => {
                         paused = false;
-                        let keyboard_devices = evdev::enumerate().filter(check_keyboard);
-                        for mut device in keyboard_devices {
-                            let _ = &device.grab();
-                        };
+                        for (_, mut device) in evdev::enumerate() {
+                            if check_keyboard(&device){
+                                let _ = device.grab();
+                            };
+                        }
                     }
                     SIGHUP => {
                         hotkeys = load_config();
@@ -202,10 +209,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         exit(1);
                     }
                     _ => {
-                        let keyboard_devices = evdev::enumerate().filter(check_keyboard);
-                        for mut device in keyboard_devices {
-                            let _ = &device.ungrab();
-                        };
+                        for (_, mut device) in evdev::enumerate() {
+                            if check_keyboard(&device){
+                                let _ = device.ungrab();
+                            };
+                        }
                         log::warn!("Got signal: {:#?}", signal);
                         exit(1);
                     }
