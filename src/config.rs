@@ -94,11 +94,13 @@ impl Config {
         }
         Ok(imports)
     }
+
     pub fn new(path: path::PathBuf) -> Result<Self, Error> {
         let contents = load_file_contents(&path)?;
         let imports = Self::get_imports(&contents)?;
         Ok(Config { path, contents, imports })
     }
+
     pub fn load_to_configs(&self) -> Result<Vec<Self>, Error> {
         let mut configs = Vec::new();
         for import in &self.imports {
@@ -106,6 +108,7 @@ impl Config {
         }
         Ok(configs)
     }
+
     pub fn load_and_merge(mut configs: Vec<Self>) -> Result<Vec<Self>, Error> {
         let mut prev_count = 0;
         let mut current_count = configs.len();
@@ -369,6 +372,7 @@ pub fn parse_contents(contents: String) -> Result<Vec<Hotkey>, Error> {
             hotkeys.push(hotkey);
         }
     }
+
     Ok(hotkeys)
 }
 
