@@ -172,7 +172,37 @@ super + c
     }
 
     #[test]
-    fn test_more_configs() -> std::io::Result<()> {
+    fn test_relative_import() -> std::io::Result<()> {
+        let setup = TestPath::new("/tmp/swhkd-relative-file1");
+        let mut f = File::create(setup.path())?;
+        f.write_all(
+            b"
+import swhkd-relative-file2
+super + b
+   firefox",
+        )?;
+
+        let setup2 = TestPath::new("swhkd-relative-file2");
+        let mut f2 = File::create(setup2.path())?;
+        f2.write_all(
+            b"
+super + c
+    hello",
+        )?;
+
+        let hotkeys = load(setup.path());
+        assert_eq!(
+            hotkeys.unwrap(),
+            vec!(
+                Hotkey::new(evdev::Key::KEY_B, vec![Modifier::Super], String::from("firefox")),
+                Hotkey::new(evdev::Key::KEY_C, vec![Modifier::Super], String::from("hello"))
+            )
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_more_multiple_configs() -> std::io::Result<()> {
         let setup = TestPath::new("/tmp/swhkd-test-file4");
         let mut f = File::create(setup.path())?;
         f.write_all(
