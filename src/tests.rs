@@ -147,7 +147,7 @@ q
         let mut f = File::create(setup.path())?;
         f.write_all(
             b"
-use /tmp/swhkd-test-file3
+import /tmp/swhkd-test-file3
 super + b
    firefox",
         )?;
@@ -185,7 +185,7 @@ a
         let mut f2 = File::create(setup2.path())?;
         f2.write_all(
             b"
-use /tmp/swhkd-test-file4
+import /tmp/swhkd-test-file4
 b
     b",
         )?;
@@ -193,10 +193,10 @@ b
         let mut f3 = File::create(setup3.path())?;
         f3.write_all(
             b"
-use /tmp/swhkd-test-file4
-use /tmp/swhkd-test-file5
-use /tmp/swhkd-test-file6
-use /tmp/swhkd-test-file7
+import /tmp/swhkd-test-file4
+import /tmp/swhkd-test-file5
+import /tmp/swhkd-test-file6
+import /tmp/swhkd-test-file7
 c
     c",
         )?;
@@ -204,7 +204,7 @@ c
         let mut f4 = File::create(setup4.path())?;
         f4.write_all(
             b"
-use /tmp/swhkd-test-file6
+import /tmp/swhkd-test-file6
 d
     d",
         )?;

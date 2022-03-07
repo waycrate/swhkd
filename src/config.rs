@@ -66,7 +66,7 @@ pub enum Modifier {
     Shift,
 }
 
-pub const IMPORT_STATEMENTS: [&str; 4] = ["use", "import", "include", "source"];
+pub const IMPORT_STATEMENT: &str = "import";
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Config {
@@ -86,7 +86,7 @@ impl Config {
     pub fn get_imports(contents: &str) -> Result<Vec<path::PathBuf>, Error> {
         let mut imports = Vec::new();
         for line in contents.lines() {
-            if IMPORT_STATEMENTS.contains(&line.split(' ').next().unwrap()) {
+            if line.split(' ').next().unwrap() == IMPORT_STATEMENT {
                 if let Some(import_path) = line.split(' ').nth(1) {
                     imports.push(path::Path::new(import_path).to_path_buf());
                 }
@@ -270,7 +270,7 @@ pub fn parse_contents(contents: String) -> Result<Vec<Hotkey>, Error> {
     let mut lines_with_types: Vec<(&str, u32)> = Vec::new();
     for (line_number, line) in lines.iter().enumerate() {
         if line.trim().starts_with('#')
-            || IMPORT_STATEMENTS.contains(&line.split(' ').next().unwrap())
+            || line.split(' ').next().unwrap() == IMPORT_STATEMENT
             || line.trim().is_empty()
         {
             continue;
