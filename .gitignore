@@ -2,4 +2,3 @@ target
 bin/swhkd
 bin/swhks
 *.zip
-Cargo.lock
