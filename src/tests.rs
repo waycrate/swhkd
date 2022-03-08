@@ -5,23 +5,23 @@ mod test_config {
     };
     use std::fs;
     use std::io::Write;
-    use std::{fs::File, path};
+    use std::{fs::File, path::PathBuf};
 
     // Implement a struct for a path used in tests
     // so that the test file will be automatically removed
     // no matter how the test goes
     struct TestPath {
-        path: path::PathBuf,
+        path: PathBuf,
     }
 
     impl TestPath {
         fn new(path: &str) -> Self {
-            TestPath { path: path::PathBuf::from(path) }
+            TestPath { path: PathBuf::from(path) }
         }
 
         // Create a path method for a more succinct way
         // to deal with borrowing the path value
-        fn path(&self) -> path::PathBuf {
+        fn path(&self) -> PathBuf {
             self.path.clone()
         }
     }
@@ -36,7 +36,7 @@ mod test_config {
 
     // Wrapper for config tests
     fn eval_config_test(contents: &str, expected_hotkeys: Vec<Hotkey>) -> std::io::Result<()> {
-        let result = parse_contents(path::PathBuf::new(), contents.to_string());
+        let result = parse_contents(PathBuf::new(), contents.to_string());
 
         let mut expected_hotkeys_mut = expected_hotkeys;
 
@@ -79,7 +79,7 @@ mod test_config {
         contents: &str,
         parse_error_type: ParseError,
     ) -> std::io::Result<()> {
-        let result = parse_contents(path::PathBuf::new(), contents.to_string());
+        let result = parse_contents(PathBuf::new(), contents.to_string());
 
         assert!(result.is_err());
         let result = result.unwrap_err();
@@ -100,7 +100,7 @@ mod test_config {
 
     #[test]
     fn test_nonexistent_file() {
-        let path = path::PathBuf::from(r"This File Doesn't Exist");
+        let path = PathBuf::from(r"This File Doesn't Exist");
 
         let result = load_file_contents(&path);
 
@@ -139,7 +139,7 @@ q
         let mut f = File::create(setup.path())?;
         f.write_all(
             b"
-use /tmp/swhkd-test-file3
+import /tmp/swhkd-test-file3
 super + b
    firefox",
         )?;
@@ -164,7 +164,37 @@ super + c
     }
 
     #[test]
-    fn test_more_configs() -> std::io::Result<()> {
+    fn test_relative_import() -> std::io::Result<()> {
+        let setup = TestPath::new("/tmp/swhkd-relative-file1");
+        let mut f = File::create(setup.path())?;
+        f.write_all(
+            b"
+import swhkd-relative-file2
+super + b
+   firefox",
+        )?;
+
+        let setup2 = TestPath::new("swhkd-relative-file2");
+        let mut f2 = File::create(setup2.path())?;
+        f2.write_all(
+            b"
+super + c
+    hello",
+        )?;
+
+        let hotkeys = load(&setup.path());
+        assert_eq!(
+            hotkeys.unwrap(),
+            vec!(
+                Hotkey::new(evdev::Key::KEY_B, vec![Modifier::Super], String::from("firefox")),
+                Hotkey::new(evdev::Key::KEY_C, vec![Modifier::Super], String::from("hello"))
+            )
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_more_multiple_configs() -> std::io::Result<()> {
         let setup = TestPath::new("/tmp/swhkd-test-file4");
         let mut f = File::create(setup.path())?;
         f.write_all(
@@ -177,7 +207,7 @@ a
         let mut f2 = File::create(setup2.path())?;
         f2.write_all(
             b"
-use /tmp/swhkd-test-file4
+import /tmp/swhkd-test-file4
 b
     b",
         )?;
@@ -185,10 +215,10 @@ b
         let mut f3 = File::create(setup3.path())?;
         f3.write_all(
             b"
-use /tmp/swhkd-test-file4
-use /tmp/swhkd-test-file5
-use /tmp/swhkd-test-file6
-use /tmp/swhkd-test-file7
+import /tmp/swhkd-test-file4
+import /tmp/swhkd-test-file5
+import /tmp/swhkd-test-file6
+import /tmp/swhkd-test-file7
 c
     c",
         )?;
@@ -196,7 +226,7 @@ c
         let mut f4 = File::create(setup4.path())?;
         f4.write_all(
             b"
-use /tmp/swhkd-test-file6
+import /tmp/swhkd-test-file6
 d
     d",
         )?;
@@ -288,7 +318,7 @@ shift + k + m
     notify-send 'Hello world!'
             ";
 
-        eval_invalid_config_test(contents, ParseError::InvalidModifier(path::PathBuf::new(), 2))
+        eval_invalid_config_test(contents, ParseError::InvalidModifier(PathBuf::new(), 2))
     }
 
     #[test]
@@ -298,7 +328,7 @@ shift + k + alt
     notify-send 'Hello world!'
             ";
 
-        eval_invalid_config_test(contents, ParseError::InvalidModifier(path::PathBuf::new(), 2))
+        eval_invalid_config_test(contents, ParseError::InvalidModifier(PathBuf::new(), 2))
     }
 
     #[test]
@@ -310,7 +340,7 @@ shift + alt +
     notify-send 'Hello world!'
             ";
 
-        eval_invalid_config_test(contents, ParseError::UnknownSymbol(path::PathBuf::new(), 4))
+        eval_invalid_config_test(contents, ParseError::UnknownSymbol(PathBuf::new(), 4))
     }
 
     #[test]
@@ -320,7 +350,7 @@ shift + alt +
     notify-send 'Hello world!'
             ";
 
-        eval_invalid_config_test(contents, ParseError::UnknownSymbol(path::PathBuf::new(), 2))
+        eval_invalid_config_test(contents, ParseError::UnknownSymbol(PathBuf::new(), 2))
     }
 
     #[test]
@@ -391,7 +421,7 @@ pesto
     xterm
                     ";
 
-        eval_invalid_config_test(contents, ParseError::UnknownSymbol(path::PathBuf::new(), 5))
+        eval_invalid_config_test(contents, ParseError::UnknownSymbol(PathBuf::new(), 5))
     }
 
     #[test]
@@ -820,7 +850,7 @@ super + {a-c}
 super + {a-是}
     {firefox, brave}
     ";
-        eval_invalid_config_test(contents, ParseError::UnknownSymbol(path::PathBuf::new(), 2))
+        eval_invalid_config_test(contents, ParseError::UnknownSymbol(PathBuf::new(), 2))
     }
 
     #[test]
@@ -829,7 +859,7 @@ super + {a-是}
 super + {bc-ad}
     {firefox, brave}
     ";
-        eval_invalid_config_test(contents, ParseError::UnknownSymbol(path::PathBuf::new(), 2))
+        eval_invalid_config_test(contents, ParseError::UnknownSymbol(PathBuf::new(), 2))
     }
 
     #[test]
@@ -837,7 +867,7 @@ super + {bc-ad}
         let contents = "
 super + {a-}
     {firefox, brave}";
-        eval_invalid_config_test(contents, ParseError::UnknownSymbol(path::PathBuf::new(), 2))
+        eval_invalid_config_test(contents, ParseError::UnknownSymbol(PathBuf::new(), 2))
     }
 
     #[test]
@@ -1105,14 +1135,7 @@ super + ~1
 mod test_config_display {
     use crate::config::{Error, ParseError};
     use std::io;
-    use std::path;
-
-    #[test]
-    fn test_display_config_not_found_error() {
-        let error = Error::ConfigNotFound;
-
-        assert_eq!(format!("{}", error), "Config file not found.");
-    }
+    use std::path::PathBuf;
 
     #[test]
     fn test_display_io_error() {
@@ -1125,22 +1148,31 @@ mod test_config_display {
 
     #[test]
     fn test_display_unknown_symbol_error() {
-        let error = Error::InvalidConfig(ParseError::UnknownSymbol(path::PathBuf::new(), 10));
+        let error = Error::InvalidConfig(ParseError::UnknownSymbol(PathBuf::new(), 10));
 
-        assert_eq!(format!("{}", error), "Config file path: \"\". Unknown symbol at line 10.");
+        assert_eq!(
+            format!("{}", error),
+            "Error parsing config file \"\". Unknown symbol at line 10."
+        );
     }
 
     #[test]
     fn test_display_invalid_modifier_error() {
-        let error = Error::InvalidConfig(ParseError::InvalidModifier(path::PathBuf::new(), 25));
+        let error = Error::InvalidConfig(ParseError::InvalidModifier(PathBuf::new(), 25));
 
-        assert_eq!(format!("{}", error), "Config file path: \"\". Invalid modifier at line 25.");
+        assert_eq!(
+            format!("{}", error),
+            "Error parsing config file \"\". Invalid modifier at line 25."
+        );
     }
 
     #[test]
     fn test_invalid_keysm_error() {
-        let error = Error::InvalidConfig(ParseError::InvalidKeysym(path::PathBuf::new(), 7));
+        let error = Error::InvalidConfig(ParseError::InvalidKeysym(PathBuf::new(), 7));
 
-        assert_eq!(format!("{}", error), "Config file path: \"\". Invalid keysym at line 7.");
+        assert_eq!(
+            format!("{}", error),
+            "Error parsing config file \"\". Invalid keysym at line 7."
+        );
     }
 }
