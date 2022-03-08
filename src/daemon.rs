@@ -113,12 +113,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut hotkeys = load_config();
 
     log::trace!("Attempting to find all keyboard file descriptors.");
-    let mut keyboard_devices: Vec<Device> = Vec::new();
-    for (_, device) in evdev::enumerate() {
-        if check_device_is_keyboard(&device) {
-            keyboard_devices.push(device);
-        };
-    }
+    let keyboard_devices: Vec<Device> = evdev::enumerate().filter(check_device_is_keyboard).collect();
 
     let mut uinput_device = match uinput::create_uinput_device() {
         Ok(dev) => dev,
@@ -185,19 +180,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 match signal {
                     SIGUSR1 => {
                         execution_is_paused = true;
-                        for (_, mut device) in evdev::enumerate() {
-                            if check_device_is_keyboard(&device){
-                                let _ = device.ungrab();
-                            }
+                        for mut device in evdev::enumerate().filter(check_device_is_keyboard) {
+                            let _ = device.ungrab();
                         }
                     }
 
                     SIGUSR2 => {
                         execution_is_paused = false;
-                        for (_, mut device) in evdev::enumerate() {
-                            if check_device_is_keyboard(&device){
-                                let _ = device.grab();
-                            };
+                        for mut device in evdev::enumerate().filter(check_device_is_keyboard) {
+                            let _ = device.grab();
                         }
                     }
 
@@ -206,6 +197,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     }
 
                     SIGINT => {
+                        for mut device in evdev::enumerate().filter(check_device_is_keyboard) {
+                            let _ = device.ungrab();
+                        }
                         log::warn!("Received SIGINT signal, exiting...");
                         exit(1);
                     }
