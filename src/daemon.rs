@@ -64,6 +64,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         for (pid, process) in sys.processes() {
             if pid.to_string() == swhkd_pid && process.exe() == env::current_exe().unwrap() {
                 log::error!("Swhkd is already running!");
+                log::error!("pid of existing swhkd process: {}", pid.to_string());
+                log::error!("To close the existing swhkd process, run `sudo killall swhkd`");
                 exit(1);
             }
         }
@@ -209,7 +211,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         for mut device in evdev::enumerate().filter(check_device_is_keyboard) {
                             let _ = device.ungrab();
                         }
-                        log::warn!("Got signal: {:#?}", signal);
+
+                        log::warn!("Received signal: {:#?}", signal);
+                        log::warn!("Exiting...");
                         exit(1);
                     }
                 }
@@ -306,9 +310,9 @@ fn sock_send(command: &str) -> std::io::Result<()> {
 fn send_command(hotkey: config::Hotkey) {
     log::info!("Hotkey pressed: {:#?}", hotkey);
     if let Err(e) = sock_send(&hotkey.command) {
-        log::error!("Failed to send command over IPC.");
-        log::error!("Is swhks running?");
-        log::error!("{:#?}", e)
+        log::error!("Failed to send command to swhks through IPC.");
+        log::error!("Please make sure that swhks is running.");
+        log::error!("Err: {:#?}", e)
     }
 }
 
@@ -337,10 +341,10 @@ pub fn check_device_is_keyboard(device: &Device) -> bool {
         if device.name() == Some("swhkd virtual output") {
             return false;
         }
-        log::debug!("{} is a keyboard.", device.name().unwrap(),);
+        log::debug!("Keyboard: {}", device.name().unwrap(),);
         true
     } else {
-        log::trace!("{} is not a keyboard.", device.name().unwrap(),);
+        log::trace!("Other: {}", device.name().unwrap(),);
         false
     }
 }
