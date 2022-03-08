@@ -2,7 +2,10 @@ use itertools::Itertools;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::Read;
-use std::{fmt, path};
+use std::{
+    fmt,
+    path::{Path, PathBuf},
+};
 
 #[derive(Debug)]
 pub enum Error {
@@ -14,9 +17,9 @@ pub enum Error {
 #[derive(Debug, PartialEq)]
 pub enum ParseError {
     // u32 is the line number where an error occured
-    UnknownSymbol(u32),
-    InvalidModifier(u32),
-    InvalidKeysym(u32),
+    UnknownSymbol(PathBuf, u32),
+    InvalidModifier(PathBuf, u32),
+    InvalidKeysym(PathBuf, u32),
 }
 
 impl From<std::io::Error> for Error {
@@ -37,15 +40,21 @@ impl fmt::Display for Error {
             Error::Io(io_err) => format!("I/O Error while parsing config file: {}", io_err).fmt(f),
 
             Error::InvalidConfig(parse_err) => match parse_err {
-                ParseError::UnknownSymbol(line_nr) => {
-                    format!("Unknown symbol at line {}.", line_nr).fmt(f)
-                }
-                ParseError::InvalidKeysym(line_nr) => {
-                    format!("Invalid keysym at line {}.", line_nr).fmt(f)
-                }
-                ParseError::InvalidModifier(line_nr) => {
-                    format!("Invalid modifier at line {}.", line_nr).fmt(f)
-                }
+                ParseError::UnknownSymbol(path, line_nr) => format!(
+                    "Error parsing config file {:?}. Unknown symbol at line {}.",
+                    path, line_nr
+                )
+                .fmt(f),
+                ParseError::InvalidKeysym(path, line_nr) => format!(
+                    "Error parsing config file {:?}. Invalid keysym at line {}.",
+                    path, line_nr
+                )
+                .fmt(f),
+                ParseError::InvalidModifier(path, line_nr) => format!(
+                    "Error parsing config file {:?}. Invalid modifier at line {}.",
+                    path, line_nr
+                )
+                .fmt(f),
             },
         }
     }
@@ -70,12 +79,12 @@ pub const IMPORT_STATEMENT: &str = "import";
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Config {
-    pub path: path::PathBuf,
+    pub path: PathBuf,
     pub contents: String,
-    pub imports: Vec<path::PathBuf>,
+    pub imports: Vec<PathBuf>,
 }
 
-pub fn load_file_contents(path: &path::Path) -> Result<String, Error> {
+pub fn load_file_contents(path: &Path) -> Result<String, Error> {
     let mut file = File::open(path)?;
     let mut contents = String::new();
     file.read_to_string(&mut contents)?;
@@ -83,28 +92,28 @@ pub fn load_file_contents(path: &path::Path) -> Result<String, Error> {
 }
 
 impl Config {
-    pub fn get_imports(contents: &str) -> Result<Vec<path::PathBuf>, Error> {
+    pub fn get_imports(contents: &str) -> Result<Vec<PathBuf>, Error> {
         let mut imports = Vec::new();
         for line in contents.lines() {
             if line.split(' ').next().unwrap() == IMPORT_STATEMENT {
                 if let Some(import_path) = line.split(' ').nth(1) {
-                    imports.push(path::Path::new(import_path).to_path_buf());
+                    imports.push(Path::new(import_path).to_path_buf());
                 }
             }
         }
         Ok(imports)
     }
 
-    pub fn new(path: path::PathBuf) -> Result<Self, Error> {
-        let contents = load_file_contents(&path)?;
+    pub fn new(path: &Path) -> Result<Self, Error> {
+        let contents = load_file_contents(path)?;
         let imports = Self::get_imports(&contents)?;
-        Ok(Config { path, contents, imports })
+        Ok(Config { path: path.to_path_buf(), contents, imports })
     }
 
     pub fn load_to_configs(&self) -> Result<Vec<Self>, Error> {
         let mut configs = Vec::new();
         for import in &self.imports {
-            configs.push(Self::new(import.to_path_buf())?)
+            configs.push(Self::new(import)?)
         }
         Ok(configs)
     }
@@ -127,11 +136,11 @@ impl Config {
     }
 }
 
-pub fn load(path: path::PathBuf) -> Result<Vec<Hotkey>, Error> {
+pub fn load(path: &Path) -> Result<Vec<Hotkey>, Error> {
     let mut hotkeys = Vec::new();
     let configs = vec![Config::new(path)?];
     for config in Config::load_and_merge(configs)? {
-        for hotkey in parse_contents(config.contents)? {
+        for hotkey in parse_contents(path.to_path_buf(), config.contents)? {
             if !hotkeys.contains(&hotkey) {
                 hotkeys.push(hotkey);
             }
@@ -140,7 +149,7 @@ pub fn load(path: path::PathBuf) -> Result<Vec<Hotkey>, Error> {
     Ok(hotkeys)
 }
 
-pub fn parse_contents(contents: String) -> Result<Vec<Hotkey>, Error> {
+pub fn parse_contents(path: PathBuf, contents: String) -> Result<Vec<Hotkey>, Error> {
     let key_to_evdev_key: HashMap<&str, evdev::Key> = HashMap::from([
         ("q", evdev::Key::KEY_Q),
         ("w", evdev::Key::KEY_W),
@@ -358,8 +367,13 @@ pub fn parse_contents(contents: String) -> Result<Vec<Hotkey>, Error> {
         let extracted_commands = extract_curly_brace(&next_line.2);
 
         'hotkey_parse: for (key, command) in extracted_keys.iter().zip(extracted_commands.iter()) {
-            let (keysym, modifiers) =
-                parse_keybind(key, line_number + 1, &key_to_evdev_key, &mod_to_mod_enum)?;
+            let (keysym, modifiers) = parse_keybind(
+                path.clone(),
+                key,
+                line_number + 1,
+                &key_to_evdev_key,
+                &mod_to_mod_enum,
+            )?;
             let hotkey = Hotkey { keysym, modifiers, command: command.to_string() };
 
             // Ignore duplicate hotkeys
@@ -380,6 +394,7 @@ pub fn parse_contents(contents: String) -> Result<Vec<Hotkey>, Error> {
 // and mod_to_mod enum instead of recreating them
 // after each function call because it's too expensive
 fn parse_keybind(
+    path: PathBuf,
     line: &str,
     line_nr: u32,
     key_to_evdev_key: &HashMap<&str, evdev::Key>,
@@ -404,15 +419,15 @@ fn parse_keybind(
         if key_to_evdev_key.contains_key(token.as_str()) {
             // Can't have a key that's like a modifier
             if token != last_token {
-                return Err(Error::InvalidConfig(ParseError::InvalidModifier(line_nr)));
+                return Err(Error::InvalidConfig(ParseError::InvalidModifier(path, line_nr)));
             }
         } else if mod_to_mod_enum.contains_key(token.as_str()) {
             // Can't have a modifier that's like a modifier
             if token == last_token {
-                return Err(Error::InvalidConfig(ParseError::InvalidKeysym(line_nr)));
+                return Err(Error::InvalidConfig(ParseError::InvalidKeysym(path, line_nr)));
             }
         } else {
-            return Err(Error::InvalidConfig(ParseError::UnknownSymbol(line_nr)));
+            return Err(Error::InvalidConfig(ParseError::UnknownSymbol(path, line_nr)));
         }
     }
 

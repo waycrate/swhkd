@@ -92,7 +92,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             exit(1);
         }
 
-        let hotkeys = match config::load(config_file_path) {
+        let hotkeys = match config::load(&config_file_path) {
             Err(e) => {
                 log::error!("Config Error: {}", e);
                 exit(1);
