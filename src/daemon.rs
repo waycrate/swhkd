@@ -113,7 +113,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut hotkeys = load_config();
 
     log::trace!("Attempting to find all keyboard file descriptors.");
-    let keyboard_devices: Vec<Device> = evdev::enumerate().filter(check_device_is_keyboard).collect();
+    let keyboard_devices: Vec<Device> =
+        evdev::enumerate().filter(check_device_is_keyboard).collect();
 
     let mut uinput_device = match uinput::create_uinput_device() {
         Ok(dev) => dev,
@@ -205,10 +206,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     }
 
                     _ => {
-                        for (_, mut device) in evdev::enumerate() {
-                            if check_device_is_keyboard(&device){
-                                let _ = device.ungrab();
-                            };
+                        for mut device in evdev::enumerate().filter(check_device_is_keyboard) {
+                            let _ = device.ungrab();
                         }
                         log::warn!("Got signal: {:#?}", signal);
                         exit(1);
