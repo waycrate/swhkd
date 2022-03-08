@@ -37,7 +37,7 @@ impl KeyboardState {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let args = set_flags().get_matches();
+    let args = set_command_line_args().get_matches();
     env::set_var("RUST_LOG", "swhkd=warn");
 
     if args.is_present("debug") {
@@ -77,14 +77,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    permission_check();
+    if let Err(_) = check_user_permissions() {
+        exit(1);
+    }
 
     let load_config = || {
         let config_file_path: std::path::PathBuf = if args.is_present("config") {
             Path::new(args.value_of("config").unwrap()).to_path_buf()
         } else {
-            check_config_xdg()
+            fetch_xdg_config_path()
         };
+
         log::debug!("Using config file path: {:#?}", config_file_path);
 
         if !config_file_path.exists() {
@@ -99,16 +102,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
             Ok(out) => out,
         };
+
         for hotkey in &hotkeys {
             log::debug!("hotkey: {:#?}", hotkey);
         }
+
         hotkeys
     };
 
     let mut hotkeys = load_config();
 
     log::trace!("Attempting to find all keyboard file descriptors.");
-    let keyboard_devices: Vec<Device> = evdev::enumerate().filter(check_keyboard).collect();
+    let keyboard_devices: Vec<Device> = evdev::enumerate().filter(check_device_is_keyboard).collect();
 
     let mut uinput_device = match uinput::create_uinput_device() {
         Ok(dev) => dev,
@@ -143,20 +148,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         250
     };
 
-    fn send_command(hotkey: config::Hotkey) {
-        log::info!("Hotkey pressed: {:#?}", hotkey);
-        if let Err(e) = sock_send(&hotkey.command) {
-            log::error!("Failed to send command over IPC.");
-            log::error!("Is swhks running?");
-            log::error!("{:#?}", e)
-        }
-    }
-
     let mut signals = Signals::new(&[
         SIGUSR1, SIGUSR2, SIGHUP, SIGABRT, SIGBUS, SIGCHLD, SIGCONT, SIGINT, SIGPIPE, SIGQUIT,
         SIGSYS, SIGTERM, SIGTRAP, SIGTSTP, SIGVTALRM, SIGXCPU, SIGXFSZ,
     ])?;
-    let mut paused = false;
+
+    let mut execution_is_paused = false;
     let mut last_hotkey: Option<config::Hotkey> = None;
     let mut keyboard_states: Vec<KeyboardState> = Vec::new();
     let mut keyboard_stream_map = StreamMap::new();
@@ -167,7 +164,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         keyboard_states.push(KeyboardState::new());
     }
 
-    // the initial sleep duration is never read because last_hotkey is initialized to None
+    // The initial sleep duration is never read because last_hotkey is initialized to None
     let hotkey_repeat_timer = sleep(Duration::from_millis(0));
     tokio::pin!(hotkey_repeat_timer);
 
@@ -178,40 +175,57 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 send_command(hotkey.clone());
                 hotkey_repeat_timer.as_mut().reset(Instant::now() + Duration::from_millis(repeat_cooldown_duration));
             }
+
             Some(signal) = signals.next() => {
                 match signal {
                     SIGUSR1 => {
-                        paused = true;
-                        for mut device in evdev::enumerate().filter(check_keyboard) {
+                        execution_is_paused = true;
+                        for mut device in evdev::enumerate().filter(check_device_is_keyboard) {
                             let _ = device.ungrab();
                         }
                     }
+
                     SIGUSR2 => {
-                        paused = false;
-                        for mut device in evdev::enumerate().filter(check_keyboard) {
+                        execution_is_paused = false;
+                        for mut device in evdev::enumerate().filter(check_device_is_keyboard) {
                             let _ = device.grab();
                         }
                     }
+
                     SIGHUP => {
                         hotkeys = load_config();
                     }
+
                     SIGINT => {
-                        for mut device in evdev::enumerate().filter(check_keyboard) {
+                        for mut device in evdev::enumerate().filter(check_device_is_keyboard) {
                             let _ = device.ungrab();
                         }
                         log::warn!("Received SIGINT signal, exiting...");
                         exit(1);
                     }
+
                     _ => {
+                        for (_, mut device) in evdev::enumerate() {
+                            if check_device_is_keyboard(&device){
+                                let _ = device.ungrab();
+                            };
+                        }
                         log::warn!("Got signal: {:#?}", signal);
                         exit(1);
                     }
                 }
             }
+
             Some((i, Ok(event))) = keyboard_stream_map.next() => {
-            let keyboard_state = &mut keyboard_states[i];
-            if let InputEventKind::Key(key) = event.kind() {
+                let keyboard_state = &mut keyboard_states[i];
+
+                let key = match event.kind() {
+                    InputEventKind::Key(keycode) => keycode,
+                    _ => continue
+                };
+
                 match event.value() {
+                    // Key press
                     1 => {
                         if let Some(modifier) = modifiers_map.get(&key) {
                             keyboard_state.state_modifiers.insert(*modifier);
@@ -219,6 +233,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             keyboard_state.state_keysyms.insert(key);
                         }
                     }
+
+                    // Key release
                     0 => {
                         if let Some(modifier) = modifiers_map.get(&key) {
                             if let Some(hotkey) = &last_hotkey {
@@ -236,6 +252,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             keyboard_state.state_keysyms.remove(key);
                         }
                     }
+
                     _ => {}
                 }
 
@@ -257,11 +274,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     uinput_device.emit(&[event]).unwrap();
                 }
 
-                if paused || last_hotkey.is_some() {
-                    continue;
-                }
-
-                if possible_hotkeys.is_empty() {
+                if execution_is_paused || possible_hotkeys.is_empty() || last_hotkey.is_some() {
                     continue;
                 }
 
@@ -270,7 +283,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 log::debug!("hotkey: {:#?}", possible_hotkeys);
 
                 for hotkey in possible_hotkeys {
-                    // this should check if state_modifiers and hotkey.modifiers have the same elements
                     if keyboard_state.state_modifiers.iter().all(|x| hotkey.modifiers.contains(x))
                         && keyboard_state.state_modifiers.len() == hotkey.modifiers.len()
                         && keyboard_state.state_keysyms.contains(hotkey.keysym)
@@ -283,11 +295,25 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
             }
         }
-        }
     }
 }
 
-pub fn permission_check() {
+fn sock_send(command: &str) -> std::io::Result<()> {
+    let mut stream = UnixStream::connect("/tmp/swhkd.sock")?;
+    stream.write_all(command.as_bytes())?;
+    Ok(())
+}
+
+fn send_command(hotkey: config::Hotkey) {
+    log::info!("Hotkey pressed: {:#?}", hotkey);
+    if let Err(e) = sock_send(&hotkey.command) {
+        log::error!("Failed to send command over IPC.");
+        log::error!("Is swhks running?");
+        log::error!("{:#?}", e)
+    }
+}
+
+pub fn check_user_permissions() -> Result<(), ()> {
     if !Uid::current().is_root() {
         let groups = nix::unistd::getgroups();
         for (_, groups) in groups.iter().enumerate() {
@@ -300,13 +326,14 @@ pub fn permission_check() {
             }
         }
         log::error!("Consider using `pkexec swhkd ...`");
-        exit(1);
+        Err(())
     } else {
         log::warn!("Running swhkd as root!");
+        Ok(())
     }
 }
 
-pub fn check_keyboard(device: &Device) -> bool {
+pub fn check_device_is_keyboard(device: &Device) -> bool {
     if device.supported_keys().map_or(false, |keys| keys.contains(Key::KEY_ENTER)) {
         if device.name() == Some("swhkd virtual output") {
             return false;
@@ -319,7 +346,7 @@ pub fn check_keyboard(device: &Device) -> bool {
     }
 }
 
-pub fn set_flags() -> Command<'static> {
+pub fn set_command_line_args() -> Command<'static> {
     let app = Command::new("swhkd")
         .version(env!("CARGO_PKG_VERSION"))
         .author(env!("CARGO_PKG_AUTHORS"))
@@ -340,7 +367,7 @@ pub fn set_flags() -> Command<'static> {
     app
 }
 
-pub fn check_config_xdg() -> std::path::PathBuf {
+pub fn fetch_xdg_config_path() -> std::path::PathBuf {
     let config_file_path: std::path::PathBuf = match env::var("XDG_CONFIG_HOME") {
         Ok(val) => {
             log::debug!("XDG_CONFIG_HOME exists: {:#?}", val);
@@ -352,10 +379,4 @@ pub fn check_config_xdg() -> std::path::PathBuf {
         }
     };
     config_file_path
-}
-
-fn sock_send(command: &str) -> std::io::Result<()> {
-    let mut stream = UnixStream::connect("/tmp/swhkd.sock")?;
-    stream.write_all(command.as_bytes())?;
-    Ok(())
 }
