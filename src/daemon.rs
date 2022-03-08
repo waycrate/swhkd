@@ -185,15 +185,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 match signal {
                     SIGUSR1 => {
                         paused = true;
-                        let keyboard_devices: Vec<Device> = evdev::enumerate().filter(check_keyboard).collect();
-                        for mut device in keyboard_devices.into_iter() {
+                        let keyboard_devices = evdev::enumerate().filter(check_keyboard);
+                        for mut device in keyboard_devices {
                             let _ = &device.ungrab();
                         };
                     }
                     SIGUSR2 => {
                         paused = false;
-                        let keyboard_devices: Vec<Device> = evdev::enumerate().filter(check_keyboard).collect();
-                        for mut device in keyboard_devices.into_iter() {
+                        let keyboard_devices = evdev::enumerate().filter(check_keyboard);
+                        for mut device in keyboard_devices {
                             let _ = &device.grab();
                         };
                     }
@@ -204,8 +204,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         temp_paused = true;
                     }
                     _ => {
-                        let keyboard_devices: Vec<Device> = evdev::enumerate().filter(check_keyboard).collect();
-                        for mut device in keyboard_devices.into_iter() {
+                        let keyboard_devices = evdev::enumerate().filter(check_keyboard);
+                        for mut device in keyboard_devices {
                             let _ = &device.ungrab();
                         };
                         log::warn!("Got signal: {:#?}", signal);
@@ -355,18 +355,16 @@ pub fn set_flags() -> Command<'static> {
 }
 
 pub fn check_config_xdg() -> std::path::PathBuf {
-    let config_file_path: std::path::PathBuf;
-    match env::var("XDG_CONFIG_HOME") {
+    let config_file_path: std::path::PathBuf = match env::var("XDG_CONFIG_HOME") {
         Ok(val) => {
-            config_file_path = Path::new(&val).join("swhkd/swhkdrc");
             log::debug!("XDG_CONFIG_HOME exists: {:#?}", val);
-            return config_file_path;
+            Path::new(&val).join("swhkd/swhkdrc")
         }
         Err(_) => {
             log::error!("XDG_CONFIG_HOME has not been set.");
-            config_file_path = Path::new("/etc/swhkd/swhkdrc").to_path_buf();
+            Path::new("/etc/swhkd/swhkdrc").to_path_buf()
         }
-    }
+    };
     config_file_path
 }
 
