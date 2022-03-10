@@ -538,7 +538,6 @@ fn parse_keybind(
     // Check if each token is valid
     for token in &tokens_new {
         let token = strip_at(token);
-        println!("{}", token);
         if key_to_evdev_key.contains_key(token) {
             // Can't have a key that's like a modifier
             if token != last_token {
