@@ -132,6 +132,7 @@ pub fn parse_contents(contents: String) -> Result<Vec<Hotkey>, Error> {
         ("enter", evdev::Key::KEY_ENTER),
         ("tab", evdev::Key::KEY_TAB),
         ("space", evdev::Key::KEY_SPACE),
+        ("plus", evdev::Key::KEY_KPPLUS),
         ("minus", evdev::Key::KEY_MINUS),
         ("-", evdev::Key::KEY_MINUS),
         ("equal", evdev::Key::KEY_EQUAL),
