@@ -2,6 +2,7 @@ use itertools::Itertools;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::Read;
+// use std::str::pattern::Pattern;
 use std::{
     fmt,
     path::{Path, PathBuf},
@@ -504,20 +505,46 @@ fn parse_keybind(
 
     let last_token = tokens_new.last().unwrap().trim();
 
-    let send: bool = last_token.starts_with('~');
+    // Check if last_token is prefixed with @ or ~ or even both.
+    // If prefixed @, on_release = true; if prefixed ~, send = true
+    let send = last_token.starts_with('~') || last_token.starts_with("@~");
+    let on_release = last_token.starts_with('@') || last_token.starts_with("~@");
 
-    let on_release: bool = last_token.starts_with('@');
+    // Delete the @ and ~ in the last token
+    fn strip_at(token: &str) -> &str {
+        if token.starts_with('@') {
+            let token = token.strip_prefix('@').unwrap();
+            strip_tilde(token)
+        } else if token.starts_with('~') {
+            strip_tilde(token)
+        } else {
+            token
+        }
+    }
+
+    fn strip_tilde(token: &str) -> &str {
+        if token.starts_with('~') {
+            let token = token.strip_prefix('~').unwrap();
+            strip_at(token)
+        } else if token.starts_with('@') {
+            strip_at(token)
+        } else {
+            token
+        }
+    }
+
+    let last_token = strip_at(last_token);
 
     // Check if each token is valid
     for token in &tokens_new {
-        if key_to_evdev_key.contains_key(
-            token.strip_prefix('@').unwrap_or_else(|| token.strip_prefix('~').unwrap_or(token)),
-        ) {
+        let token = strip_at(token);
+        println!("{}", token);
+        if key_to_evdev_key.contains_key(token) {
             // Can't have a key that's like a modifier
             if token != last_token {
                 return Err(Error::InvalidConfig(ParseError::InvalidModifier(path, line_nr)));
             }
-        } else if mod_to_mod_enum.contains_key(token.as_str()) {
+        } else if mod_to_mod_enum.contains_key(token) {
             // Can't have a modifier that's like a modifier
             if token == last_token {
                 return Err(Error::InvalidConfig(ParseError::InvalidKeysym(path, line_nr)));
@@ -528,13 +555,7 @@ fn parse_keybind(
     }
 
     // Translate keypress into evdev key
-    let keysym = key_to_evdev_key
-        .get(
-            last_token
-                .strip_prefix('@')
-                .unwrap_or_else(|| last_token.strip_prefix('~').unwrap_or(last_token)),
-        )
-        .unwrap();
+    let keysym = key_to_evdev_key.get(last_token).unwrap();
 
     let modifiers: Vec<Modifier> = tokens_new[0..(tokens_new.len() - 1)]
         .iter()

@@ -1109,25 +1109,26 @@ super + {\\,, .}
     fn test_prefix_on_release() -> std::io::Result<()> {
         let contents = "
 super + @1
-    1";
+    1
+super + ~2
+    2
+super + ~@3
+    3
+super + @~4
+    4";
 
         eval_config_test(
             contents,
             vec![
-                Hotkey::new(evdev::Key::KEY_1, vec![Modifier::Super], "1".to_string()).on_release()
+                Hotkey::new(evdev::Key::KEY_1, vec![Modifier::Super], "1".to_string()).on_release(),
+                Hotkey::new(evdev::Key::KEY_2, vec![Modifier::Super], "2".to_string()).send(),
+                Hotkey::new(evdev::Key::KEY_3, vec![Modifier::Super], "3".to_string())
+                    .on_release()
+                    .send(),
+                Hotkey::new(evdev::Key::KEY_4, vec![Modifier::Super], "4".to_string())
+                    .on_release()
+                    .send(),
             ],
-        )
-    }
-
-    #[test]
-    fn test_prefix_send() -> std::io::Result<()> {
-        let contents = "
-super + ~1
-    1";
-
-        eval_config_test(
-            contents,
-            vec![Hotkey::new(evdev::Key::KEY_1, vec![Modifier::Super], "1".to_string()).send()],
         )
     }
 }
