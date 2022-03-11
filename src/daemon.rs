@@ -230,11 +230,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         }
                     }
                     0 => {
-                if last_hotkey.is_some() && pending_release {
-                        pending_release = false;
-                        send_command(last_hotkey.clone().unwrap());
-                        last_hotkey = None;
-                    }
+                        if last_hotkey.is_some() && pending_release {
+                            pending_release = false;
+                            send_command(last_hotkey.clone().unwrap());
+                            last_hotkey = None;
+                        }
                         if let Some(modifier) = modifiers_map.get(&key) {
                             if let Some(hotkey) = &last_hotkey {
                                 if hotkey.modifiers().contains(modifier) {
