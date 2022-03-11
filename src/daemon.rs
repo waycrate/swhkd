@@ -161,7 +161,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut temp_paused = false;
 
     let mut last_hotkey: Option<config::Hotkey> = None;
-    let mut pending_release: Option<config::Hotkey> = None;
+    let mut pending_release: bool = false;
     let mut keyboard_states: Vec<KeyboardState> = Vec::new();
     let mut keyboard_stream_map = StreamMap::new();
 
@@ -221,11 +221,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             Some((i, Ok(event))) = keyboard_stream_map.next() => {
             let keyboard_state = &mut keyboard_states[i];
             if let InputEventKind::Key(key) = event.kind() {
-                if last_hotkey.is_some() && pending_release.is_some() && event.value() == 0 && event.code() == pending_release.as_ref().unwrap().keysym().code() {
-                        pending_release = None;
-                        send_command(last_hotkey.clone().unwrap());
-                        last_hotkey = None;
-                    }
                 match event.value() {
                     1 => {
                         if let Some(modifier) = modifiers_map.get(&key) {
@@ -235,6 +230,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         }
                     }
                     0 => {
+                if last_hotkey.is_some() && pending_release {
+                        pending_release = false;
+                        send_command(last_hotkey.clone().unwrap());
+                        last_hotkey = None;
+                    }
                         if let Some(modifier) = modifiers_map.get(&key) {
                             if let Some(hotkey) = &last_hotkey {
                                 if hotkey.modifiers().contains(modifier) {
@@ -300,8 +300,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         && keyboard_state.state_keysyms.contains(hotkey.keysym())
                     {
                         last_hotkey = Some(hotkey.clone());
+                        if pending_release { break; }
                         if hotkey.is_on_release() {
-                            pending_release = Some(hotkey.clone());
+                            pending_release = true;
                             break;
                         }
                         send_command(hotkey.clone());
