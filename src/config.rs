@@ -60,7 +60,7 @@ impl fmt::Display for Error {
     }
 }
 
-pub const IMPORT_STATEMENT: &str = "import";
+pub const IMPORT_STATEMENT: &str = "include";
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Config {
