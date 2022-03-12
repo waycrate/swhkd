@@ -1106,7 +1106,7 @@ super + {\\,, .}
     }
 
     #[test]
-    fn test_prefix_on_release() -> std::io::Result<()> {
+    fn test_prefix() -> std::io::Result<()> {
         let contents = "
 super + @1
     1
