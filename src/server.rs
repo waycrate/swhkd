@@ -11,12 +11,12 @@ fn main() -> std::io::Result<()> {
     env::set_var("RUST_LOG", "swhks=trace");
     env_logger::init();
 
-    let pidfile: String = String::from("/tmp/swhks.pid");
-    let sockfile: String = String::from("/tmp/swhkd.sock");
+    let pid_file_path = String::from("/tmp/swhks.pid");
+    let sock_file_path = String::from("/tmp/swhkd.sock");
 
-    if Path::new(&pidfile).exists() {
-        log::trace!("Reading {} file and checking for running instances.", pidfile);
-        let swhkd_pid = match fs::read_to_string(&pidfile) {
+    if Path::new(&pid_file_path).exists() {
+        log::trace!("Reading {} file and checking for running instances.", pid_file_path);
+        let swhkd_pid = match fs::read_to_string(&pid_file_path) {
             Ok(swhkd_pid) => swhkd_pid,
             Err(e) => {
                 log::error!("Unable to read {} to check all running instances", e);
@@ -35,55 +35,55 @@ fn main() -> std::io::Result<()> {
         }
     }
 
-    if Path::new(&sockfile).exists() {
+    if Path::new(&sock_file_path).exists() {
         log::trace!("Sockfile exists, attempting to remove it.");
-        match fs::remove_file(&sockfile) {
+        match fs::remove_file(&sock_file_path) {
             Ok(_) => {
                 log::debug!("Removed old socket file");
             }
             Err(e) => {
                 log::error!("Error removing the socket file!: {}", e);
-                log::error!("You can manually remove the socket file: {}", sockfile);
+                log::error!("You can manually remove the socket file: {}", sock_file_path);
                 exit(1);
             }
         };
     }
 
-    match fs::write(&pidfile, id().to_string()) {
+    match fs::write(&pid_file_path, id().to_string()) {
         Ok(_) => {}
         Err(e) => {
-            log::error!("Unable to write to {}: {}", pidfile, e);
+            log::error!("Unable to write to {}: {}", pid_file_path, e);
             exit(1);
         }
     }
 
-    fn run_system_command(command: &str) {
-        match Command::new("sh")
-            .arg("-c")
-            .arg(command)
-            .stdin(Stdio::null())
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .spawn()
-        {
-            Ok(_) => {}
-            Err(e) => {
-                log::error!("Failed to execute {}", command);
-                log::error!("Error, {}", e);
-            }
-        }
-    }
-
-    let listener = UnixListener::bind(sockfile)?;
+    let listener = UnixListener::bind(sock_file_path)?;
     loop {
         match listener.accept() {
-            Ok((mut socket, addr)) => {
+            Ok((mut socket, address)) => {
                 let mut response = String::new();
                 socket.read_to_string(&mut response)?;
                 run_system_command(&response);
-                log::debug!("Socket: {:?} Address: {:?} Response: {}", socket, addr, response);
+                log::debug!("Socket: {:?} Address: {:?} Response: {}", socket, address, response);
             }
             Err(e) => log::error!("accept function failed: {:?}", e),
+        }
+    }
+}
+
+fn run_system_command(command: &str) {
+    match Command::new("sh")
+        .arg("-c")
+        .arg(command)
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
+    {
+        Ok(_) => {}
+        Err(e) => {
+            log::error!("Failed to execute {}", command);
+            log::error!("Error, {}", e);
         }
     }
 }
