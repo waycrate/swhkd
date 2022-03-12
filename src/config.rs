@@ -134,12 +134,22 @@ pub fn load(path: &Path) -> Result<Vec<Hotkey>, Error> {
     Ok(hotkeys)
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, Clone)]
 pub struct KeyBinding {
     pub keysym: evdev::Key,
     pub modifiers: Vec<Modifier>,
     pub send: bool,
     pub on_release: bool,
+}
+
+impl PartialEq for KeyBinding {
+    fn eq(&self, other: &Self) -> bool {
+        self.keysym == other.keysym
+            && self.modifiers.iter().all(|modifier| other.modifiers.contains(modifier))
+            && self.modifiers.len() == other.modifiers.len()
+            && self.send == other.send
+            && self.on_release == other.on_release
+    }
 }
 
 pub trait Prefix {

@@ -643,9 +643,9 @@ ReTurn
     #[test]
     fn test_duplicate_hotkeys() -> std::io::Result<()> {
         let contents = "
-super + a
+super + shift + a
     st
-suPer +   A
+shift + suPer +   A
     ts
 b    
     st
@@ -655,7 +655,11 @@ B
         eval_config_test(
             contents,
             vec![
-                Hotkey::new(evdev::Key::KEY_A, vec![Modifier::Super], "st".to_string()),
+                Hotkey::new(
+                    evdev::Key::KEY_A,
+                    vec![Modifier::Super, Modifier::Shift],
+                    "st".to_string(),
+                ),
                 Hotkey::new(evdev::Key::KEY_B, vec![], "st".to_string()),
             ],
         )
