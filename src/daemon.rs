@@ -19,6 +19,7 @@ use tokio_stream::{StreamExt, StreamMap};
 use signal_hook::consts::signal::*;
 
 mod config;
+use crate::config::Value;
 mod uinput;
 
 #[cfg(test)]
@@ -97,7 +98,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             exit(1);
         }
 
-        let hotkeys = match config::load(config_file_path) {
+        let hotkeys = match config::load(&config_file_path) {
             Err(e) => {
                 log::error!("Config Error: {}", e);
                 exit(1);
@@ -158,6 +159,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut execution_is_paused = false;
     let mut last_hotkey: Option<config::Hotkey> = None;
+    let mut pending_release: bool = false;
     let mut keyboard_states: Vec<KeyboardState> = Vec::new();
     let mut keyboard_stream_map = StreamMap::new();
 
@@ -175,6 +177,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         select! {
             _ = &mut hotkey_repeat_timer, if &last_hotkey.is_some() => {
                 let hotkey = last_hotkey.clone().unwrap();
+                if hotkey.keybinding.on_release {
+                    continue;
+                }
                 send_command(hotkey.clone());
                 hotkey_repeat_timer.as_mut().reset(Instant::now() + Duration::from_millis(repeat_cooldown_duration));
             }
@@ -239,16 +244,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                     // Key release
                     0 => {
+                        if last_hotkey.is_some() && pending_release {
+                            pending_release = false;
+                            send_command(last_hotkey.clone().unwrap());
+                            last_hotkey = None;
+                        }
                         if let Some(modifier) = modifiers_map.get(&key) {
                             if let Some(hotkey) = &last_hotkey {
-                                if hotkey.modifiers.contains(modifier) {
+                                if hotkey.modifiers().contains(modifier) {
                                     last_hotkey = None;
                                 }
                             }
                             keyboard_state.state_modifiers.remove(modifier);
                         } else if keyboard_state.state_keysyms.contains(key) {
                             if let Some(hotkey) = &last_hotkey {
-                                if key == hotkey.keysym {
+                                if key == hotkey.keysym() {
                                     last_hotkey = None;
                                 }
                             }
@@ -260,17 +270,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
 
                 let possible_hotkeys: Vec<&config::Hotkey> = hotkeys.iter()
-                    .filter(|hotkey| hotkey.modifiers.len() == keyboard_state.state_modifiers.len())
+                    .filter(|hotkey| hotkey.modifiers().len() == keyboard_state.state_modifiers.len())
                     .collect();
 
                 let event_in_hotkeys = hotkeys.iter().any(|hotkey| {
-                    hotkey.keysym.code() == event.code() &&
+                    hotkey.keysym().code() == event.code() &&
                     keyboard_state.state_modifiers
                         .iter()
-                        .all(|x| hotkey.modifiers.contains(x)) &&
-                    keyboard_state.state_modifiers.len() == hotkey.modifiers.len()
+                        .all(|x| hotkey.modifiers().contains(x)) &&
+                    keyboard_state.state_modifiers.len() == hotkey.modifiers().len()
+                    && !hotkey.is_send()
                         });
-
 
                 // Don't emit event to virtual device if it's from a valid hotkey
                 if !event_in_hotkeys {
@@ -286,11 +296,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 log::debug!("hotkey: {:#?}", possible_hotkeys);
 
                 for hotkey in possible_hotkeys {
-                    if keyboard_state.state_modifiers.iter().all(|x| hotkey.modifiers.contains(x))
-                        && keyboard_state.state_modifiers.len() == hotkey.modifiers.len()
-                        && keyboard_state.state_keysyms.contains(hotkey.keysym)
+                    // this should check if state_modifiers and hotkey.modifiers have the same elements
+                    if keyboard_state.state_modifiers.iter().all(|x| hotkey.modifiers().contains(x))
+                        && keyboard_state.state_modifiers.len() == hotkey.modifiers().len()
+                        && keyboard_state.state_keysyms.contains(hotkey.keysym())
                     {
                         last_hotkey = Some(hotkey.clone());
+                        if pending_release { break; }
+                        if hotkey.is_on_release() {
+                            pending_release = true;
+                            break;
+                        }
                         send_command(hotkey.clone());
                         hotkey_repeat_timer.as_mut().reset(Instant::now() + Duration::from_millis(repeat_cooldown_duration));
                         break;

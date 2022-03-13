@@ -1,27 +1,27 @@
 mod test_config {
     use crate::config::{
-        extract_curly_brace, load_file_contents, parse_contents, Error, Hotkey, Modifier,
-        ParseError,
+        extract_curly_brace, load, load_file_contents, parse_contents, Error, Hotkey, Modifier,
+        ParseError, Prefix,
     };
     use std::fs;
     use std::io::Write;
-    use std::{fs::File, path};
+    use std::{fs::File, path::PathBuf};
 
     // Implement a struct for a path used in tests
     // so that the test file will be automatically removed
     // no matter how the test goes
     struct TestPath {
-        path: path::PathBuf,
+        path: PathBuf,
     }
 
     impl TestPath {
         fn new(path: &str) -> Self {
-            TestPath { path: path::PathBuf::from(path) }
+            TestPath { path: PathBuf::from(path) }
         }
 
         // Create a path method for a more succinct way
         // to deal with borrowing the path value
-        fn path(&self) -> path::PathBuf {
+        fn path(&self) -> PathBuf {
             self.path.clone()
         }
     }
@@ -34,15 +34,9 @@ mod test_config {
         }
     }
 
-    impl Hotkey {
-        fn new(keysym: evdev::Key, modifiers: Vec<Modifier>, command: String) -> Self {
-            Hotkey { keysym, modifiers, command }
-        }
-    }
-
     // Wrapper for config tests
     fn eval_config_test(contents: &str, expected_hotkeys: Vec<Hotkey>) -> std::io::Result<()> {
-        let result = parse_contents(contents.to_string());
+        let result = parse_contents(PathBuf::new(), contents.to_string());
 
         let mut expected_hotkeys_mut = expected_hotkeys;
 
@@ -59,9 +53,7 @@ mod test_config {
         // to make sure that order does not matter
         for hotkey in actual_hotkeys {
             if let Some(index) = expected_hotkeys_mut.iter().position(|key| {
-                key.keysym == hotkey.keysym
-                    && key.command == hotkey.command
-                    && key.modifiers == hotkey.modifiers
+                key.keybinding == hotkey.keybinding && key.command == hotkey.command
             }) {
                 expected_hotkeys_mut.remove(index);
             } else {
@@ -87,7 +79,7 @@ mod test_config {
         contents: &str,
         parse_error_type: ParseError,
     ) -> std::io::Result<()> {
-        let result = parse_contents(contents.to_string());
+        let result = parse_contents(PathBuf::new(), contents.to_string());
 
         assert!(result.is_err());
         let result = result.unwrap_err();
@@ -108,9 +100,9 @@ mod test_config {
 
     #[test]
     fn test_nonexistent_file() {
-        let path = path::PathBuf::from(r"This File Doesn't Exist");
+        let path = PathBuf::from(r"This File Doesn't Exist");
 
-        let result = load_file_contents(path);
+        let result = load_file_contents(&path);
 
         assert!(result.is_err());
 
@@ -136,8 +128,119 @@ q
     bspc node -q",
         )?;
 
-        let result = load_file_contents(setup.path());
+        let result = load_file_contents(&setup.path());
         assert!(result.is_ok());
+        Ok(())
+    }
+
+    #[test]
+    fn test_load_multiple_config() -> std::io::Result<()> {
+        let setup = TestPath::new("/tmp/swhkd-test-file2");
+        let mut f = File::create(setup.path())?;
+        f.write_all(
+            b"
+include /tmp/swhkd-test-file3
+super + b
+   firefox",
+        )?;
+
+        let setup2 = TestPath::new("/tmp/swhkd-test-file3");
+        let mut f2 = File::create(setup2.path())?;
+        f2.write_all(
+            b"
+super + c
+    hello",
+        )?;
+
+        let hotkeys = load(&setup.path());
+        assert_eq!(
+            hotkeys.unwrap(),
+            vec!(
+                Hotkey::new(evdev::Key::KEY_B, vec![Modifier::Super], String::from("firefox")),
+                Hotkey::new(evdev::Key::KEY_C, vec![Modifier::Super], String::from("hello"))
+            )
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_relative_import() -> std::io::Result<()> {
+        let setup = TestPath::new("/tmp/swhkd-relative-file1");
+        let mut f = File::create(setup.path())?;
+        f.write_all(
+            b"
+include swhkd-relative-file2
+super + b
+   firefox",
+        )?;
+
+        let setup2 = TestPath::new("swhkd-relative-file2");
+        let mut f2 = File::create(setup2.path())?;
+        f2.write_all(
+            b"
+super + c
+    hello",
+        )?;
+
+        let hotkeys = load(&setup.path());
+        assert_eq!(
+            hotkeys.unwrap(),
+            vec!(
+                Hotkey::new(evdev::Key::KEY_B, vec![Modifier::Super], String::from("firefox")),
+                Hotkey::new(evdev::Key::KEY_C, vec![Modifier::Super], String::from("hello"))
+            )
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_more_multiple_configs() -> std::io::Result<()> {
+        let setup = TestPath::new("/tmp/swhkd-test-file4");
+        let mut f = File::create(setup.path())?;
+        f.write_all(
+            b"
+a
+    a",
+        )?;
+
+        let setup2 = TestPath::new("/tmp/swhkd-test-file5");
+        let mut f2 = File::create(setup2.path())?;
+        f2.write_all(
+            b"
+include /tmp/swhkd-test-file4
+b
+    b",
+        )?;
+        let setup3 = TestPath::new("/tmp/swhkd-test-file6");
+        let mut f3 = File::create(setup3.path())?;
+        f3.write_all(
+            b"
+include /tmp/swhkd-test-file4
+include /tmp/swhkd-test-file5
+include /tmp/swhkd-test-file6
+include /tmp/swhkd-test-file7
+c
+    c",
+        )?;
+        let setup4 = TestPath::new("/tmp/swhkd-test-file7");
+        let mut f4 = File::create(setup4.path())?;
+        f4.write_all(
+            b"
+include /tmp/swhkd-test-file6
+d
+    d",
+        )?;
+
+        let hotkeys = load(&setup4.path()).unwrap();
+        assert_eq!(
+            hotkeys,
+            vec!(
+                Hotkey::new(evdev::Key::KEY_D, vec![], String::from("d")),
+                Hotkey::new(evdev::Key::KEY_C, vec![], String::from("c")),
+                Hotkey::new(evdev::Key::KEY_A, vec![], String::from("a")),
+                Hotkey::new(evdev::Key::KEY_B, vec![], String::from("b")),
+            )
+        );
         Ok(())
     }
 
@@ -215,7 +318,7 @@ shift + k + m
     notify-send 'Hello world!'
             ";
 
-        eval_invalid_config_test(contents, ParseError::InvalidModifier(2))
+        eval_invalid_config_test(contents, ParseError::InvalidModifier(PathBuf::new(), 2))
     }
 
     #[test]
@@ -225,7 +328,7 @@ shift + k + alt
     notify-send 'Hello world!'
             ";
 
-        eval_invalid_config_test(contents, ParseError::InvalidModifier(2))
+        eval_invalid_config_test(contents, ParseError::InvalidModifier(PathBuf::new(), 2))
     }
 
     #[test]
@@ -237,7 +340,7 @@ shift + alt +
     notify-send 'Hello world!'
             ";
 
-        eval_invalid_config_test(contents, ParseError::UnknownSymbol(4))
+        eval_invalid_config_test(contents, ParseError::UnknownSymbol(PathBuf::new(), 4))
     }
 
     #[test]
@@ -247,7 +350,7 @@ shift + alt +
     notify-send 'Hello world!'
             ";
 
-        eval_invalid_config_test(contents, ParseError::UnknownSymbol(2))
+        eval_invalid_config_test(contents, ParseError::UnknownSymbol(PathBuf::new(), 2))
     }
 
     #[test]
@@ -318,7 +421,7 @@ pesto
     xterm
                     ";
 
-        eval_invalid_config_test(contents, ParseError::UnknownSymbol(5))
+        eval_invalid_config_test(contents, ParseError::UnknownSymbol(PathBuf::new(), 5))
     }
 
     #[test]
@@ -540,9 +643,9 @@ ReTurn
     #[test]
     fn test_duplicate_hotkeys() -> std::io::Result<()> {
         let contents = "
-super + a
+super + shift + a
     st
-suPer +   A
+shift + suPer +   A
     ts
 b    
     st
@@ -552,7 +655,11 @@ B
         eval_config_test(
             contents,
             vec![
-                Hotkey::new(evdev::Key::KEY_A, vec![Modifier::Super], "st".to_string()),
+                Hotkey::new(
+                    evdev::Key::KEY_A,
+                    vec![Modifier::Super, Modifier::Shift],
+                    "st".to_string(),
+                ),
                 Hotkey::new(evdev::Key::KEY_B, vec![], "st".to_string()),
             ],
         )
@@ -747,7 +854,7 @@ super + {a-c}
 super + {a-是}
     {firefox, brave}
     ";
-        eval_invalid_config_test(contents, ParseError::UnknownSymbol(2))
+        eval_invalid_config_test(contents, ParseError::UnknownSymbol(PathBuf::new(), 2))
     }
 
     #[test]
@@ -756,7 +863,7 @@ super + {a-是}
 super + {bc-ad}
     {firefox, brave}
     ";
-        eval_invalid_config_test(contents, ParseError::UnknownSymbol(2))
+        eval_invalid_config_test(contents, ParseError::UnknownSymbol(PathBuf::new(), 2))
     }
 
     #[test]
@@ -764,7 +871,7 @@ super + {bc-ad}
         let contents = "
 super + {a-}
     {firefox, brave}";
-        eval_invalid_config_test(contents, ParseError::UnknownSymbol(2))
+        eval_invalid_config_test(contents, ParseError::UnknownSymbol(PathBuf::new(), 2))
     }
 
     #[test]
@@ -1001,18 +1108,39 @@ super + {\\,, .}
             ],
         )
     }
+
+    #[test]
+    fn test_prefix() -> std::io::Result<()> {
+        let contents = "
+super + @1
+    1
+super + ~2
+    2
+super + ~@3
+    3
+super + @~4
+    4";
+
+        eval_config_test(
+            contents,
+            vec![
+                Hotkey::new(evdev::Key::KEY_1, vec![Modifier::Super], "1".to_string()).on_release(),
+                Hotkey::new(evdev::Key::KEY_2, vec![Modifier::Super], "2".to_string()).send(),
+                Hotkey::new(evdev::Key::KEY_3, vec![Modifier::Super], "3".to_string())
+                    .on_release()
+                    .send(),
+                Hotkey::new(evdev::Key::KEY_4, vec![Modifier::Super], "4".to_string())
+                    .on_release()
+                    .send(),
+            ],
+        )
+    }
 }
 
 mod test_config_display {
     use crate::config::{Error, ParseError};
     use std::io;
-
-    #[test]
-    fn test_display_config_not_found_error() {
-        let error = Error::ConfigNotFound;
-
-        assert_eq!(format!("{}", error), "Config file not found.");
-    }
+    use std::path::PathBuf;
 
     #[test]
     fn test_display_io_error() {
@@ -1025,22 +1153,31 @@ mod test_config_display {
 
     #[test]
     fn test_display_unknown_symbol_error() {
-        let error = Error::InvalidConfig(ParseError::UnknownSymbol(10));
+        let error = Error::InvalidConfig(ParseError::UnknownSymbol(PathBuf::new(), 10));
 
-        assert_eq!(format!("{}", error), "Unknown symbol at line 10.");
+        assert_eq!(
+            format!("{}", error),
+            "Error parsing config file \"\". Unknown symbol at line 10."
+        );
     }
 
     #[test]
     fn test_display_invalid_modifier_error() {
-        let error = Error::InvalidConfig(ParseError::InvalidModifier(25));
+        let error = Error::InvalidConfig(ParseError::InvalidModifier(PathBuf::new(), 25));
 
-        assert_eq!(format!("{}", error), "Invalid modifier at line 25.");
+        assert_eq!(
+            format!("{}", error),
+            "Error parsing config file \"\". Invalid modifier at line 25."
+        );
     }
 
     #[test]
     fn test_invalid_keysm_error() {
-        let error = Error::InvalidConfig(ParseError::InvalidKeysym(7));
+        let error = Error::InvalidConfig(ParseError::InvalidKeysym(PathBuf::new(), 7));
 
-        assert_eq!(format!("{}", error), "Invalid keysym at line 7.");
+        assert_eq!(
+            format!("{}", error),
+            "Error parsing config file \"\". Invalid keysym at line 7."
+        );
     }
 }

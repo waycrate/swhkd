@@ -2,7 +2,11 @@ use itertools::Itertools;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::Read;
-use std::{fmt, path};
+// use std::str::pattern::Pattern;
+use std::{
+    fmt,
+    path::{Path, PathBuf},
+};
 
 #[derive(Debug)]
 pub enum Error {
@@ -14,9 +18,9 @@ pub enum Error {
 #[derive(Debug, PartialEq)]
 pub enum ParseError {
     // u32 is the line number where an error occured
-    UnknownSymbol(u32),
-    InvalidModifier(u32),
-    InvalidKeysym(u32),
+    UnknownSymbol(PathBuf, u32),
+    InvalidModifier(PathBuf, u32),
+    InvalidKeysym(PathBuf, u32),
 }
 
 impl From<std::io::Error> for Error {
@@ -35,60 +39,218 @@ impl fmt::Display for Error {
             Error::ConfigNotFound => "Config file not found.".fmt(f),
 
             Error::Io(io_err) => format!("I/O Error while parsing config file: {}", io_err).fmt(f),
-
             Error::InvalidConfig(parse_err) => match parse_err {
-                ParseError::UnknownSymbol(line_nr) => {
-                    format!("Unknown symbol at line {}.", line_nr).fmt(f)
-                }
-                ParseError::InvalidKeysym(line_nr) => {
-                    format!("Invalid keysym at line {}.", line_nr).fmt(f)
-                }
-                ParseError::InvalidModifier(line_nr) => {
-                    format!("Invalid modifier at line {}.", line_nr).fmt(f)
-                }
+                ParseError::UnknownSymbol(path, line_nr) => format!(
+                    "Error parsing config file {:?}. Unknown symbol at line {}.",
+                    path, line_nr
+                )
+                .fmt(f),
+                ParseError::InvalidKeysym(path, line_nr) => format!(
+                    "Error parsing config file {:?}. Invalid keysym at line {}.",
+                    path, line_nr
+                )
+                .fmt(f),
+                ParseError::InvalidModifier(path, line_nr) => format!(
+                    "Error parsing config file {:?}. Invalid modifier at line {}.",
+                    path, line_nr
+                )
+                .fmt(f),
             },
         }
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct Hotkey {
-    pub keysym: evdev::Key,
-    pub modifiers: Vec<Modifier>,
-    pub command: String,
+pub const IMPORT_STATEMENT: &str = "include";
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct Config {
+    pub path: PathBuf,
+    pub contents: String,
+    pub imports: Vec<PathBuf>,
 }
 
-#[derive(Debug, PartialEq, Eq, Copy, Clone, Hash)]
-// TODO: make the commented-out modifiers available
-pub enum Modifier {
-    Super,
-    // Hyper,
-    // Meta,
-    Alt,
-    Control,
-    Shift,
-    // ModeSwitch,
-    // Lock,
-    // Mod1,
-    // Mod2,
-    // Mod3,
-    // Mod4,
-    // Mod5,
-}
-
-pub fn load(path: path::PathBuf) -> Result<Vec<Hotkey>, Error> {
-    let file_contents = load_file_contents(path)?;
-    parse_contents(file_contents)
-}
-
-pub fn load_file_contents(path: path::PathBuf) -> Result<String, Error> {
+pub fn load_file_contents(path: &Path) -> Result<String, Error> {
     let mut file = File::open(path)?;
     let mut contents = String::new();
     file.read_to_string(&mut contents)?;
     Ok(contents)
 }
 
-pub fn parse_contents(contents: String) -> Result<Vec<Hotkey>, Error> {
+impl Config {
+    pub fn get_imports(contents: &str) -> Result<Vec<PathBuf>, Error> {
+        let mut imports = Vec::new();
+        for line in contents.lines() {
+            if line.split(' ').next().unwrap() == IMPORT_STATEMENT {
+                if let Some(import_path) = line.split(' ').nth(1) {
+                    imports.push(Path::new(import_path).to_path_buf());
+                }
+            }
+        }
+        Ok(imports)
+    }
+
+    pub fn new(path: &Path) -> Result<Self, Error> {
+        let contents = load_file_contents(path)?;
+        let imports = Self::get_imports(&contents)?;
+        Ok(Config { path: path.to_path_buf(), contents, imports })
+    }
+
+    pub fn load_to_configs(&self) -> Result<Vec<Self>, Error> {
+        let mut configs = Vec::new();
+        for import in &self.imports {
+            configs.push(Self::new(import)?)
+        }
+        Ok(configs)
+    }
+
+    pub fn load_and_merge(mut configs: Vec<Self>) -> Result<Vec<Self>, Error> {
+        let mut prev_count = 0;
+        let mut current_count = configs.len();
+        while prev_count != current_count {
+            prev_count = configs.len();
+            for config in configs.clone() {
+                for import in Self::load_to_configs(&config)? {
+                    if !configs.contains(&import) {
+                        configs.push(import);
+                    }
+                }
+            }
+            current_count = configs.len();
+        }
+        Ok(configs)
+    }
+}
+
+pub fn load(path: &Path) -> Result<Vec<Hotkey>, Error> {
+    let mut hotkeys = Vec::new();
+    let configs = vec![Config::new(path)?];
+    for config in Config::load_and_merge(configs)? {
+        for hotkey in parse_contents(path.to_path_buf(), config.contents)? {
+            if !hotkeys.contains(&hotkey) {
+                hotkeys.push(hotkey);
+            }
+        }
+    }
+    Ok(hotkeys)
+}
+
+#[derive(Debug, Clone)]
+pub struct KeyBinding {
+    pub keysym: evdev::Key,
+    pub modifiers: Vec<Modifier>,
+    pub send: bool,
+    pub on_release: bool,
+}
+
+impl PartialEq for KeyBinding {
+    fn eq(&self, other: &Self) -> bool {
+        self.keysym == other.keysym
+            && self.modifiers.iter().all(|modifier| other.modifiers.contains(modifier))
+            && self.modifiers.len() == other.modifiers.len()
+            && self.send == other.send
+            && self.on_release == other.on_release
+    }
+}
+
+pub trait Prefix {
+    fn send(self) -> Self;
+    fn on_release(self) -> Self;
+}
+
+pub trait Value {
+    fn keysym(&self) -> evdev::Key;
+    fn modifiers(&self) -> Vec<Modifier>;
+    fn is_send(&self) -> bool;
+    fn is_on_release(&self) -> bool;
+}
+
+impl KeyBinding {
+    pub fn new(keysym: evdev::Key, modifiers: Vec<Modifier>) -> Self {
+        KeyBinding { keysym, modifiers, send: false, on_release: false }
+    }
+    pub fn on_release(mut self) -> Self {
+        self.on_release = true;
+        self
+    }
+}
+
+impl Prefix for KeyBinding {
+    fn send(mut self) -> Self {
+        self.send = true;
+        self
+    }
+    fn on_release(mut self) -> Self {
+        self.on_release = true;
+        self
+    }
+}
+
+impl Value for KeyBinding {
+    fn keysym(&self) -> evdev::Key {
+        self.keysym
+    }
+    fn modifiers(&self) -> Vec<Modifier> {
+        self.clone().modifiers
+    }
+    fn is_send(&self) -> bool {
+        self.send
+    }
+    fn is_on_release(&self) -> bool {
+        self.on_release
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Hotkey {
+    pub keybinding: KeyBinding,
+    pub command: String,
+}
+
+#[derive(Debug, PartialEq, Eq, Copy, Clone, Hash)]
+pub enum Modifier {
+    Super,
+    Alt,
+    Control,
+    Shift,
+}
+
+impl Hotkey {
+    pub fn from_keybinding(keybinding: KeyBinding, command: String) -> Self {
+        Hotkey { keybinding, command }
+    }
+    #[cfg(test)]
+    pub fn new(keysym: evdev::Key, modifiers: Vec<Modifier>, command: String) -> Self {
+        Hotkey { keybinding: KeyBinding::new(keysym, modifiers), command }
+    }
+}
+
+impl Prefix for Hotkey {
+    fn send(mut self) -> Self {
+        self.keybinding.send = true;
+        self
+    }
+    fn on_release(mut self) -> Self {
+        self.keybinding.on_release = true;
+        self
+    }
+}
+
+impl Value for &Hotkey {
+    fn keysym(&self) -> evdev::Key {
+        self.keybinding.keysym
+    }
+    fn modifiers(&self) -> Vec<Modifier> {
+        self.keybinding.clone().modifiers
+    }
+    fn is_send(&self) -> bool {
+        self.keybinding.send
+    }
+    fn is_on_release(&self) -> bool {
+        self.keybinding.on_release
+    }
+}
+
+pub fn parse_contents(path: PathBuf, contents: String) -> Result<Vec<Hotkey>, Error> {
     let key_to_evdev_key: HashMap<&str, evdev::Key> = HashMap::from([
         ("q", evdev::Key::KEY_Q),
         ("w", evdev::Key::KEY_W),
@@ -231,7 +393,10 @@ pub fn parse_contents(contents: String) -> Result<Vec<Hotkey>, Error> {
     // line number in a vector.
     let mut lines_with_types: Vec<(&str, u32)> = Vec::new();
     for (line_number, line) in lines.iter().enumerate() {
-        if line.trim().starts_with('#') || line.trim().is_empty() {
+        if line.trim().starts_with('#')
+            || line.split(' ').next().unwrap() == IMPORT_STATEMENT
+            || line.trim().is_empty()
+        {
             continue;
         }
         if line.starts_with(' ') || line.starts_with('\t') {
@@ -314,13 +479,18 @@ pub fn parse_contents(contents: String) -> Result<Vec<Hotkey>, Error> {
         let extracted_commands = extract_curly_brace(&next_line.2);
 
         'hotkey_parse: for (key, command) in extracted_keys.iter().zip(extracted_commands.iter()) {
-            let (keysym, modifiers) =
-                parse_keybind(key, line_number + 1, &key_to_evdev_key, &mod_to_mod_enum)?;
-            let hotkey = Hotkey { keysym, modifiers, command: command.to_string() };
+            let keybinding = parse_keybind(
+                path.clone(),
+                key,
+                line_number + 1,
+                &key_to_evdev_key,
+                &mod_to_mod_enum,
+            )?;
+            let hotkey = Hotkey::from_keybinding(keybinding, command.to_string());
 
             // Ignore duplicate hotkeys
             for i in hotkeys.iter() {
-                if i.keysym == hotkey.keysym && i.modifiers == hotkey.modifiers {
+                if i.keybinding == hotkey.keybinding {
                     continue 'hotkey_parse;
                 }
             }
@@ -328,6 +498,7 @@ pub fn parse_contents(contents: String) -> Result<Vec<Hotkey>, Error> {
             hotkeys.push(hotkey);
         }
     }
+
     Ok(hotkeys)
 }
 
@@ -335,11 +506,12 @@ pub fn parse_contents(contents: String) -> Result<Vec<Hotkey>, Error> {
 // and mod_to_mod enum instead of recreating them
 // after each function call because it's too expensive
 fn parse_keybind(
+    path: PathBuf,
     line: &str,
     line_nr: u32,
     key_to_evdev_key: &HashMap<&str, evdev::Key>,
     mod_to_mod_enum: &HashMap<&str, Modifier>,
-) -> Result<(evdev::Key, Vec<Modifier>), Error> {
+) -> Result<KeyBinding, Error> {
     let line = line.split('#').next().unwrap();
     let tokens: Vec<String> =
         line.split('+').map(|s| s.trim().to_lowercase()).filter(|s| s != "_").collect();
@@ -354,20 +526,51 @@ fn parse_keybind(
 
     let last_token = tokens_new.last().unwrap().trim();
 
+    // Check if last_token is prefixed with @ or ~ or even both.
+    // If prefixed @, on_release = true; if prefixed ~, send = true
+    let send = last_token.starts_with('~') || last_token.starts_with("@~");
+    let on_release = last_token.starts_with('@') || last_token.starts_with("~@");
+
+    // Delete the @ and ~ in the last token
+    fn strip_at(token: &str) -> &str {
+        if token.starts_with('@') {
+            let token = token.strip_prefix('@').unwrap();
+            strip_tilde(token)
+        } else if token.starts_with('~') {
+            strip_tilde(token)
+        } else {
+            token
+        }
+    }
+
+    fn strip_tilde(token: &str) -> &str {
+        if token.starts_with('~') {
+            let token = token.strip_prefix('~').unwrap();
+            strip_at(token)
+        } else if token.starts_with('@') {
+            strip_at(token)
+        } else {
+            token
+        }
+    }
+
+    let last_token = strip_at(last_token);
+
     // Check if each token is valid
     for token in &tokens_new {
-        if key_to_evdev_key.contains_key(token.as_str()) {
+        let token = strip_at(token);
+        if key_to_evdev_key.contains_key(token) {
             // Can't have a key that's like a modifier
             if token != last_token {
-                return Err(Error::InvalidConfig(ParseError::InvalidModifier(line_nr)));
+                return Err(Error::InvalidConfig(ParseError::InvalidModifier(path, line_nr)));
             }
-        } else if mod_to_mod_enum.contains_key(token.as_str()) {
+        } else if mod_to_mod_enum.contains_key(token) {
             // Can't have a modifier that's like a modifier
             if token == last_token {
-                return Err(Error::InvalidConfig(ParseError::InvalidKeysym(line_nr)));
+                return Err(Error::InvalidConfig(ParseError::InvalidKeysym(path, line_nr)));
             }
         } else {
-            return Err(Error::InvalidConfig(ParseError::UnknownSymbol(line_nr)));
+            return Err(Error::InvalidConfig(ParseError::UnknownSymbol(path, line_nr)));
         }
     }
 
@@ -379,7 +582,14 @@ fn parse_keybind(
         .map(|token| *mod_to_mod_enum.get(token.as_str()).unwrap())
         .collect();
 
-    Ok((*keysym, modifiers))
+    let mut keybinding = KeyBinding::new(*keysym, modifiers);
+    if send {
+        keybinding = keybinding.send();
+    }
+    if on_release {
+        keybinding = keybinding.on_release();
+    }
+    Ok(keybinding)
 }
 
 pub fn extract_curly_brace(line: &str) -> Vec<String> {
