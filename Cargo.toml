@@ -5,7 +5,7 @@ keywords = ["wayland", "hotkey", "evdev"]
 license = "BSD-2-Clause"
 name = "Simple-Wayland-HotKey-Daemon"
 repository = "https://git.sr.ht/~shinyzenith/swhkd"
-version = "1.1.5"
+version = "1.1.7"
 authors = [
 	"Shinyzenith <aakashsensharma@gmail.com>\n",
 	"Angelo Fallaria <ba.fallaria@gmail.com>\n",
