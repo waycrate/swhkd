@@ -57,9 +57,10 @@ We user a server-client model to keep you safe. The daemon ( swhkd - privileged 
 
 So yes, you're safe!
 
-## Support server:
+## Support:
 
-https://discord.gg/KKZRDYrRYW
+1) https://matrix.to/#/#waycrate-tools:matrix.org
+2) https://discord.gg/KKZRDYrRYW
 
 ## Contributors:
 
