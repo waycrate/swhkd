@@ -2,7 +2,7 @@ DAEMON_BINARY := swhkd
 SERVER_BINARY := swhks
 BUILDFLAGS := --release
 POLKIT_DIR := /etc/polkit-1/rules.d
-POLKIT_RULE := swhkd.rules
+POLKIT_RULE := 00-swhkd.rules
 TARGET_DIR := /usr/bin
 
 all: build
