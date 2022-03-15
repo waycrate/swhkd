@@ -560,12 +560,12 @@ fn parse_keybind(
     for token in &tokens_new {
         let token = strip_at(token);
         if key_to_evdev_key.contains_key(token) {
-            // Can't have a key that's like a modifier
+            // Can't have a keysym that's like a modifier
             if token != last_token {
                 return Err(Error::InvalidConfig(ParseError::InvalidModifier(path, line_nr)));
             }
         } else if mod_to_mod_enum.contains_key(token) {
-            // Can't have a modifier that's like a modifier
+            // Can't have a modifier that's like a keysym
             if token == last_token {
                 return Err(Error::InvalidConfig(ParseError::InvalidKeysym(path, line_nr)));
             }
