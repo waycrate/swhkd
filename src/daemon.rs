@@ -80,7 +80,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    if let Err(_) = check_user_permissions() {
+    if check_user_permissions().is_err() {
         exit(1);
     }
 
