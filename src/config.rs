@@ -290,6 +290,7 @@ pub fn parse_contents(path: PathBuf, contents: String) -> Result<Vec<Hotkey>, Er
         ("0", evdev::Key::KEY_0),
         ("escape", evdev::Key::KEY_ESC),
         ("backspace", evdev::Key::KEY_BACKSPACE),
+        ("capslock", evdev::Key::KEY_CAPSLOCK),
         ("return", evdev::Key::KEY_ENTER),
         ("enter", evdev::Key::KEY_ENTER),
         ("tab", evdev::Key::KEY_TAB),
