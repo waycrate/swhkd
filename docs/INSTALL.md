@@ -7,11 +7,11 @@
 
 # Dependencies:
 
-## Runtime:
+**Runtime:**
 
 -   Policy Kit Daemon ( polkit )
 
-## Compile time:
+**Compile time:**
 
 -   rustup
 -   make
@@ -26,5 +26,7 @@
 -   `sudo make install`
 
 # Running:
-`swhks`
-`pkexec swhkd`
+```
+swhks &
+pkexec swhkd
+```
