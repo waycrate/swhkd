@@ -10,6 +10,8 @@
 **Runtime:**
 
 -   Policy Kit Daemon ( polkit )
+-   Uinput kernel module
+-   Evdev kernel module
 
 **Compile time:**
 
