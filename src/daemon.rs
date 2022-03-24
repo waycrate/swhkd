@@ -85,6 +85,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let load_config = || {
+        setuid(env::var("PKEXEC_UID").unwrap().parse::<u32>().unwrap()); // Dropping privileges to invoking user.
         let config_file_path: std::path::PathBuf = if args.is_present("config") {
             Path::new(args.value_of("config").unwrap()).to_path_buf()
         } else {
@@ -114,7 +115,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     let mut hotkeys = load_config();
-
+    setuid(0); // Escalating back to root after reading config file.
     log::trace!("Attempting to find all keyboard file descriptors.");
     let keyboard_devices: Vec<Device> =
         evdev::enumerate().filter(check_device_is_keyboard).collect();
@@ -398,4 +399,15 @@ pub fn fetch_xdg_config_path() -> std::path::PathBuf {
         }
     };
     config_file_path
+}
+
+pub fn setuid(uid: u32) {
+    let uid = nix::unistd::Uid::from_raw(uid);
+    match nix::unistd::seteuid(uid) {
+        Ok(_) => log::debug!("Dropping privileges..."),
+        Err(e) => {
+            log::error!("Failed to set UID: {:#?}", e);
+            exit(1);
+        }
+    }
 }
