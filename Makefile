@@ -1,8 +1,8 @@
 DAEMON_BINARY := swhkd
 SERVER_BINARY := swhks
 BUILDFLAGS := --release
-POLKIT_DIR := /etc/polkit-1/rules.d
-POLKIT_RULE := 00-swhkd.rules
+POLKIT_DIR := /usr/share/polkit-1/actions
+POLKIT_POLICY_FILE := com.github.swhkd.pkexec.policy
 TARGET_DIR := /usr/bin
 
 all: build
@@ -24,14 +24,14 @@ install:
 	@touch /etc/$(DAEMON_BINARY)/$(DAEMON_BINARY)rc
 	@cp ./bin/$(DAEMON_BINARY) $(TARGET_DIR)
 	@cp ./bin/$(SERVER_BINARY) $(TARGET_DIR)
-	@cp ./$(POLKIT_RULE) $(POLKIT_DIR)/$(POLKIT_RULE)
+	@cp ./$(POLKIT_POLICY_FILE) $(POLKIT_DIR)/$(POLKIT_POLICY_FILE)
 	@chmod +x $(TARGET_DIR)/$(DAEMON_BINARY)
 	@chmod +x $(TARGET_DIR)/$(SERVER_BINARY)
 
 uninstall:
 	@rm $(TARGET_DIR)/$(SERVER_BINARY)
 	@rm $(TARGET_DIR)/$(DAEMON_BINARY)
-	@rm $(POLKIT_DIR)/$(POLKIT_RULE)
+	@rm $(POLKIT_DIR)/$(POLKIT_POLICY_FILE)
 
 check:
 	@cargo fmt
