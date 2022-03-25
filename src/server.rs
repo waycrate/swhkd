@@ -1,4 +1,7 @@
-use nix::unistd;
+use nix::{
+    sys::stat::{umask, Mode},
+    unistd,
+};
 use std::io::prelude::*;
 use std::os::unix::net::UnixListener;
 use std::{
@@ -11,6 +14,9 @@ use sysinfo::{ProcessExt, System, SystemExt};
 fn main() -> std::io::Result<()> {
     env::set_var("RUST_LOG", "swhks=trace");
     env_logger::init();
+
+    log::trace!("Setting process umask.");
+    umask(Mode::S_IWGRP | Mode::S_IWOTH);
 
     let pid_file_path = String::from(format!("/run/user/{}/swhks.pid", unistd::Uid::current()));
     let sock_file_path = String::from(format!("/run/user/{}/swhkd.sock", unistd::Uid::current()));

@@ -1,6 +1,9 @@
 use clap::{arg, Command};
 use evdev::{AttributeSet, Device, InputEventKind, Key};
-use nix::unistd::{Group, Uid};
+use nix::{
+    sys::stat::{umask, Mode},
+    unistd::{Group, Uid},
+};
 use signal_hook_tokio::Signals;
 use std::{
     collections::{HashMap, HashSet},
@@ -48,6 +51,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     env_logger::init();
     log::trace!("Logger initialized.");
+    log::trace!("Invoking UID: {}", invoking_uid);
+    log::trace!("Setting process umask.");
+    umask(Mode::S_IWGRP | Mode::S_IWOTH);
 
     let pidfile: String = String::from(format!("/etc/swhkd/runtime/swhkd_{}.pid", invoking_uid));
     if Path::new(&pidfile).exists() {
