@@ -1,7 +1,7 @@
 # Maintainer: Aakash Sharma <aakashsensharma@gmail.com>
 pkgname='swhkd-git'
 _pkgname="swhkd"
-pkgver=1
+pkgver=1.1.7.480.ge4a1a89
 pkgrel=1
 arch=('x86_64')
 url="https://github.com/waycrate/swhkd"
@@ -23,9 +23,12 @@ package() {
 	cd "$_pkgname"
 	install -Dm 755 ./bin/swhkd "$pkgdir/usr/bin/swhkd"
 	install -Dm 755 ./bin/swhks "$pkgdir/usr/bin/swhks"
-	install -Dm 644 ./00-swhkd.rules "$pkgdir/etc/polkit-1/rules.d/00-swhkd.rules"
-	chmod 750 "$pkgdir/etc/polkit-1/rules.d/00-swhkd.rules"
-	chown 0:102 "$pkgdir/etc/polkit-1/rules.d/00-swhkd.rules"
+	install -Dm 644 ./com.github.swhkd.pkexec.policy "$pkgdir/usr/share/polkit-1/actions/com.github.swhkd.pkexec.policy"
+	install -dm700 "$pkgdir/etc/swhkd/runtime"
+	chown root:root "$pkgdir/etc/swhkd/runtime"
+	chmod 700 "$pkgdir/etc/swhkd/runtime"
+	chmod 644 "$pkgdir/usr/share/polkit-1/actions/com.github.swhkd.pkexec.policy"
+	chown root:root "$pkgdir/etc/swhkd/runtime"
 }
 
 pkgver() {
