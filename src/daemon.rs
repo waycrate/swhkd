@@ -94,11 +94,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         log::debug!("Using config file path: {:#?}", config_file_path);
 
-        if !config_file_path.exists() {
-            log::error!("{:#?} doesn't exist", config_file_path);
-            exit(1);
-        }
-
         let hotkeys = match config::load(&config_file_path) {
             Err(e) => {
                 log::error!("Config Error: {}", e);
@@ -319,7 +314,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 fn sock_send(command: &str) -> std::io::Result<()> {
-    let mut stream = UnixStream::connect("/tmp/swhkd.sock")?;
+    let sock_file_path =
+        String::from(format!("/run/user/{}/swhkd.sock", env::var("PKEXEC_UID").unwrap()));
+    let mut stream = UnixStream::connect(sock_file_path)?;
     stream.write_all(command.as_bytes())?;
     Ok(())
 }
@@ -402,11 +399,11 @@ pub fn fetch_xdg_config_path() -> std::path::PathBuf {
 }
 
 pub fn seteuid(uid: u32) {
-    let uid = nix::unistd::Uid::from_raw(uid);
+    let uid = Uid::from_raw(uid);
     match nix::unistd::seteuid(uid) {
         Ok(_) => log::debug!("Dropping privileges..."),
         Err(e) => {
-            log::error!("Failed to set UID: {:#?}", e);
+            log::error!("Failed to set EUID: {:#?}", e);
             exit(1);
         }
     }
