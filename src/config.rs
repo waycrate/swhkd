@@ -37,7 +37,6 @@ impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match &*self {
             Error::ConfigNotFound => "Config file not found.".fmt(f),
-
             Error::Io(io_err) => format!("I/O Error while parsing config file: {}", io_err).fmt(f),
             Error::InvalidConfig(parse_err) => match parse_err {
                 ParseError::UnknownSymbol(path, line_nr) => format!(

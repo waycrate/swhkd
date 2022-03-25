@@ -1,3 +1,4 @@
+use nix::unistd;
 use std::io::prelude::*;
 use std::os::unix::net::UnixListener;
 use std::{
@@ -12,7 +13,7 @@ fn main() -> std::io::Result<()> {
     env_logger::init();
 
     let pid_file_path = String::from("/tmp/swhks.pid");
-    let sock_file_path = String::from("/tmp/swhkd.sock");
+    let sock_file_path = String::from(format!("/run/user/{}/swhkd.sock", unistd::Uid::current()));
 
     if Path::new(&pid_file_path).exists() {
         log::trace!("Reading {} file and checking for running instances.", pid_file_path);

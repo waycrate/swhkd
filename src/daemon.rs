@@ -85,7 +85,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let load_config = || {
-        setuid(env::var("PKEXEC_UID").unwrap().parse::<u32>().unwrap()); // Dropping privileges to invoking user.
+        seteuid(env::var("PKEXEC_UID").unwrap().parse::<u32>().unwrap()); // Dropping privileges to invoking user.
         let config_file_path: std::path::PathBuf = if args.is_present("config") {
             Path::new(args.value_of("config").unwrap()).to_path_buf()
         } else {
@@ -93,11 +93,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         };
 
         log::debug!("Using config file path: {:#?}", config_file_path);
-
-        if !config_file_path.exists() {
-            log::error!("{:#?} doesn't exist", config_file_path);
-            exit(1);
-        }
 
         let hotkeys = match config::load(&config_file_path) {
             Err(e) => {
@@ -115,7 +110,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     let mut hotkeys = load_config();
-    setuid(0); // Escalating back to root after reading config file.
+    seteuid(0); // Escalating back to root after reading config file.
     log::trace!("Attempting to find all keyboard file descriptors.");
     let keyboard_devices: Vec<Device> =
         evdev::enumerate().filter(check_device_is_keyboard).collect();
@@ -319,7 +314,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 fn sock_send(command: &str) -> std::io::Result<()> {
-    let mut stream = UnixStream::connect("/tmp/swhkd.sock")?;
+    let sock_file_path =
+        String::from(format!("/run/user/{}/swhkd.sock", env::var("PKEXEC_UID").unwrap()));
+    let mut stream = UnixStream::connect(sock_file_path)?;
     stream.write_all(command.as_bytes())?;
     Ok(())
 }
@@ -401,12 +398,12 @@ pub fn fetch_xdg_config_path() -> std::path::PathBuf {
     config_file_path
 }
 
-pub fn setuid(uid: u32) {
-    let uid = nix::unistd::Uid::from_raw(uid);
+pub fn seteuid(uid: u32) {
+    let uid = Uid::from_raw(uid);
     match nix::unistd::seteuid(uid) {
         Ok(_) => log::debug!("Dropping privileges..."),
         Err(e) => {
-            log::error!("Failed to set UID: {:#?}", e);
+            log::error!("Failed to set EUID: {:#?}", e);
             exit(1);
         }
     }
