@@ -21,6 +21,9 @@ install:
 	@mkdir -p $(TARGET_DIR)
 	@mkdir -p $(POLKIT_DIR)
 	@mkdir -p /etc/$(DAEMON_BINARY)
+	@mkdir -p /run/$(DAEMON_BINARY) # The following directory must be root owned.
+	@sudo chown root:root /run/$(DAEMON_BINARY)
+	@sudo chmod 700 /run/$(DAEMON_BINARY)
 	@touch /etc/$(DAEMON_BINARY)/$(DAEMON_BINARY)rc
 	@cp ./bin/$(DAEMON_BINARY) $(TARGET_DIR)
 	@cp ./bin/$(SERVER_BINARY) $(TARGET_DIR)

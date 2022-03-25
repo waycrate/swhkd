@@ -39,6 +39,7 @@ impl KeyboardState {
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = set_command_line_args().get_matches();
+    let invoking_uid = env::var("PKEXEC_UID").unwrap().parse::<u32>().unwrap();
     env::set_var("RUST_LOG", "swhkd=warn");
 
     if args.is_present("debug") {
@@ -48,7 +49,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     env_logger::init();
     log::trace!("Logger initialized.");
 
-    let pidfile: String = String::from("/tmp/swhkd.pid");
+    let pidfile: String = String::from(format!("/run/swhkd/swhkd_{}.pid", invoking_uid));
     if Path::new(&pidfile).exists() {
         log::trace!("Reading {} file and checking for running instances.", pidfile);
         let swhkd_pid = match fs::read_to_string(&pidfile) {
@@ -85,7 +86,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let load_config = || {
-        seteuid(env::var("PKEXEC_UID").unwrap().parse::<u32>().unwrap()); // Dropping privileges to invoking user.
+        seteuid(invoking_uid); // Dropping privileges to invoking user.
         let config_file_path: std::path::PathBuf = if args.is_present("config") {
             Path::new(args.value_of("config").unwrap()).to_path_buf()
         } else {
