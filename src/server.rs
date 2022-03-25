@@ -12,7 +12,7 @@ fn main() -> std::io::Result<()> {
     env::set_var("RUST_LOG", "swhks=trace");
     env_logger::init();
 
-    let pid_file_path = String::from("/tmp/swhks.pid");
+    let pid_file_path = String::from(format!("/run/user/{}/swhks.pid", unistd::Uid::current()));
     let sock_file_path = String::from(format!("/run/user/{}/swhkd.sock", unistd::Uid::current()));
 
     if Path::new(&pid_file_path).exists() {
