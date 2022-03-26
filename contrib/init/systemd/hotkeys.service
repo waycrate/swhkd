@@ -1,0 +1,10 @@
+[Unit]
+Description=swhkd hotkey daemon
+BindsTo=default.target
+
+[Service]
+Type=simple
+# ExecStart=/path/to/hotkeys.sh
+
+[Install]
+WantedBy=default.target
