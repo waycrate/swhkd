@@ -42,7 +42,6 @@ impl KeyboardState {
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = set_command_line_args().get_matches();
-    let invoking_uid = env::var("PKEXEC_UID").unwrap().parse::<u32>().unwrap();
     env::set_var("RUST_LOG", "swhkd=warn");
 
     if args.is_present("debug") {
@@ -51,7 +50,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     env_logger::init();
     log::trace!("Logger initialized.");
-    log::trace!("Invoking UID: {}", invoking_uid);
+
+    let invoking_uid = match env::var("PKEXEC_UID") {
+        Ok(uid) => {
+            let uid = uid.parse::<u32>().unwrap();
+            log::trace!("Invoking UID: {}", uid);
+            uid
+        }
+        Err(_) => {
+            log::error!("Failed to launch swhkd!!!");
+            log::error!("Make sure to launch the binary with pkexec.");
+            exit(1);
+        }
+    };
+
     log::trace!("Setting process umask.");
     umask(Mode::S_IWGRP | Mode::S_IWOTH);
 
@@ -321,8 +333,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 fn sock_send(command: &str) -> std::io::Result<()> {
-    let sock_file_path =
-        String::from(format!("/run/user/{}/swhkd.sock", env::var("PKEXEC_UID").unwrap()));
+    let sock_file_path = fetch_xdg_runtime_path();
     let mut stream = UnixStream::connect(sock_file_path)?;
     stream.write_all(command.as_bytes())?;
     Ok(())
@@ -403,6 +414,23 @@ pub fn fetch_xdg_config_path() -> std::path::PathBuf {
         }
     };
     config_file_path
+}
+
+pub fn fetch_xdg_runtime_path() -> std::path::PathBuf {
+    match env::var("XDG_RUNTIME_DIR") {
+        Ok(val) => {
+            log::debug!("XDG_RUNTIME_DIR exists: {:#?}", val);
+            Path::new(&val).join("swhkd.sock")
+        }
+        Err(_) => {
+            log::error!("XDG_RUNTIME_DIR has not been set.");
+            Path::new(&String::from(format!(
+                "/run/user/{}/swhkd.sock",
+                env::var("PKEXEC_UID").unwrap()
+            )))
+            .to_path_buf()
+        }
+    }
 }
 
 pub fn seteuid(uid: u32) {
