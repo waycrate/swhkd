@@ -13,7 +13,7 @@ use std::{
     path::Path,
     process::{exit, id},
 };
-use sysinfo::{ProcessExt, System, SystemExt};
+use sysinfo::{System, SystemExt};
 use tokio::select;
 use tokio::time::Duration;
 use tokio::time::{sleep, Instant};
@@ -69,10 +69,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         let mut sys = System::new_all();
         sys.refresh_all();
-        for (pid, process) in sys.processes() {
-            if pid.to_string() == swhkd_pid && process.exe() == env::current_exe().unwrap() {
+        for (pid, _) in sys.processes() {
+            if pid.to_string() == swhkd_pid {
                 log::error!("Swhkd is already running!");
-                log::error!("pid of existing swhkd process: {}", pid.to_string());
+                log::error!("Pid of existing swhkd process: {}", pid.to_string());
                 log::error!("To close the existing swhkd process, run `sudo killall swhkd`");
                 exit(1);
             }

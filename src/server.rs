@@ -9,7 +9,7 @@ use std::{
     path::Path,
     process::{exit, id, Command, Stdio},
 };
-use sysinfo::{ProcessExt, System, SystemExt};
+use sysinfo::{System, SystemExt};
 
 fn main() -> std::io::Result<()> {
     env::set_var("RUST_LOG", "swhks=trace");
@@ -34,8 +34,8 @@ fn main() -> std::io::Result<()> {
 
         let mut sys = System::new_all();
         sys.refresh_all();
-        for (pid, process) in sys.processes() {
-            if pid.to_string() == swhkd_pid && process.exe() == env::current_exe().unwrap() {
+        for (pid, _) in sys.processes() {
+            if pid.to_string() == swhkd_pid {
                 log::error!("Server is already running!");
                 exit(1);
             }
