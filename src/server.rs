@@ -9,7 +9,32 @@ use std::{
     path::Path,
     process::{exit, id, Command, Stdio},
 };
-use sysinfo::{ProcessExt, System, SystemExt};
+use sysinfo::{System, SystemExt};
+
+fn get_file_paths() -> (String, String) {
+    match env::var("XDG_RUNTIME_DIR") {
+        Ok(val) => {
+            log::info!(
+                "XDG_RUNTIME_DIR Variable is present, using it's value as default file path."
+            );
+
+            let pid_file_path = String::from(format!("{}/swhks.pid", val));
+            let sock_file_path = String::from(format!("{}/swhkd.sock", val));
+
+            return (pid_file_path, sock_file_path);
+        }
+        Err(e) => {
+            log::trace!("XDG_RUNTIME_DIR Variable is not set, falling back on hardcoded path.\nError: {:#?}", e);
+
+            let pid_file_path =
+                String::from(format!("/run/user/{}/swhks.pid", unistd::Uid::current()));
+            let sock_file_path =
+                String::from(format!("/run/user/{}/swhkd.sock", unistd::Uid::current()));
+
+            return (pid_file_path, sock_file_path);
+        }
+    }
+}
 
 fn main() -> std::io::Result<()> {
     env::set_var("RUST_LOG", "swhks=trace");
@@ -18,8 +43,7 @@ fn main() -> std::io::Result<()> {
     log::trace!("Setting process umask.");
     umask(Mode::S_IWGRP | Mode::S_IWOTH);
 
-    let pid_file_path = String::from(format!("/run/user/{}/swhks.pid", unistd::Uid::current()));
-    let sock_file_path = String::from(format!("/run/user/{}/swhkd.sock", unistd::Uid::current()));
+    let (pid_file_path, sock_file_path) = get_file_paths();
 
     if Path::new(&pid_file_path).exists() {
         log::trace!("Reading {} file and checking for running instances.", pid_file_path);
@@ -34,8 +58,8 @@ fn main() -> std::io::Result<()> {
 
         let mut sys = System::new_all();
         sys.refresh_all();
-        for (pid, process) in sys.processes() {
-            if pid.to_string() == swhkd_pid && process.exe() == env::current_exe().unwrap() {
+        for (pid, _) in sys.processes() {
+            if pid.to_string() == swhkd_pid {
                 log::error!("Server is already running!");
                 exit(1);
             }
