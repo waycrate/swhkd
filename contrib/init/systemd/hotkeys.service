@@ -1,0 +1,10 @@
+[Unit]
+Description=swhkd hotkey daemon
+BindsTo=sway-session.target
+
+[Service]
+Type=simple
+# ExecStart=/path/to/hotkeys.sh
+
+[Install]
+WantedBy=sway-session.target
