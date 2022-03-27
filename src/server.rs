@@ -9,7 +9,7 @@ use std::{
     path::Path,
     process::{exit, id, Command, Stdio},
 };
-use sysinfo::{System, SystemExt};
+use sysinfo::{ProcessExt, System, SystemExt};
 
 fn get_file_paths() -> (String, String) {
     match env::var("XDG_RUNTIME_DIR") {
@@ -47,19 +47,19 @@ fn main() -> std::io::Result<()> {
 
     if Path::new(&pid_file_path).exists() {
         log::trace!("Reading {} file and checking for running instances.", pid_file_path);
-        let swhkd_pid = match fs::read_to_string(&pid_file_path) {
-            Ok(swhkd_pid) => swhkd_pid,
+        let swhks_pid = match fs::read_to_string(&pid_file_path) {
+            Ok(swhks_pid) => swhks_pid,
             Err(e) => {
                 log::error!("Unable to read {} to check all running instances", e);
                 exit(1);
             }
         };
-        log::debug!("Previous PID: {}", swhkd_pid);
+        log::debug!("Previous PID: {}", swhks_pid);
 
         let mut sys = System::new_all();
         sys.refresh_all();
-        for (pid, _) in sys.processes() {
-            if pid.to_string() == swhkd_pid {
+        for (pid, process) in sys.processes() {
+            if pid.to_string() == swhks_pid && process.exe() == env::current_exe().unwrap() {
                 log::error!("Server is already running!");
                 exit(1);
             }
