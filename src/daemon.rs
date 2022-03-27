@@ -104,8 +104,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let load_config = || {
-        seteuid(invoking_uid); // Dropping privileges to invoking user.
-        let config_file_path: std::path::PathBuf = if args.is_present("config") {
+        // Dropping privileges to invoking user.
+        seteuid(invoking_uid);
+        let config_file_path: PathBuf = if args.is_present("config") {
             Path::new(args.value_of("config").unwrap()).to_path_buf()
         } else {
             fetch_xdg_config_path()
@@ -129,7 +130,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     let mut hotkeys = load_config();
-    seteuid(0); // Escalating back to root after reading config file.
+    // Escalating back to root after reading config file.
+    seteuid(0);
     log::trace!("Attempting to find all keyboard file descriptors.");
     let keyboard_devices: Vec<Device> =
         evdev::enumerate().filter(check_device_is_keyboard).collect();
@@ -188,6 +190,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let hotkey_repeat_timer = sleep(Duration::from_millis(0));
     tokio::pin!(hotkey_repeat_timer);
 
+    // The socket that we're sending the commands to.
+    let socket_file_path = fetch_xdg_runtime_path();
     loop {
         select! {
             _ = &mut hotkey_repeat_timer, if &last_hotkey.is_some() => {
@@ -195,7 +199,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 if hotkey.keybinding.on_release {
                     continue;
                 }
-                send_command(hotkey.clone());
+                send_command(hotkey.clone(), &socket_file_path);
                 hotkey_repeat_timer.as_mut().reset(Instant::now() + Duration::from_millis(repeat_cooldown_duration));
             }
 
@@ -261,7 +265,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     0 => {
                         if last_hotkey.is_some() && pending_release {
                             pending_release = false;
-                            send_command(last_hotkey.clone().unwrap());
+                            send_command(last_hotkey.clone().unwrap(), &socket_file_path);
                             last_hotkey = None;
                         }
                         if let Some(modifier) = modifiers_map.get(&key) {
@@ -322,7 +326,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             pending_release = true;
                             break;
                         }
-                        send_command(hotkey.clone());
+                        send_command(hotkey.clone(), &socket_file_path);
                         hotkey_repeat_timer.as_mut().reset(Instant::now() + Duration::from_millis(repeat_cooldown_duration));
                         break;
                     }
@@ -332,16 +336,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 }
 
-fn sock_send(command: &str) -> std::io::Result<()> {
-    let sock_file_path = fetch_xdg_runtime_path();
-    let mut stream = UnixStream::connect(sock_file_path)?;
+fn socket_write(command: &str, socket_path: PathBuf) -> std::io::Result<()> {
+    let mut stream = UnixStream::connect(socket_path)?;
     stream.write_all(command.as_bytes())?;
     Ok(())
 }
 
-fn send_command(hotkey: config::Hotkey) {
+fn send_command(hotkey: config::Hotkey, socket_path: &PathBuf) {
     log::info!("Hotkey pressed: {:#?}", hotkey);
-    if let Err(e) = sock_send(&hotkey.command) {
+    if let Err(e) = socket_write(&hotkey.command, socket_path.to_path_buf()) {
         log::error!("Failed to send command to swhks through IPC.");
         log::error!("Please make sure that swhks is running.");
         log::error!("Err: {:#?}", e)
@@ -402,8 +405,8 @@ pub fn set_command_line_args() -> Command<'static> {
     app
 }
 
-pub fn fetch_xdg_config_path() -> std::path::PathBuf {
-    let config_file_path: std::path::PathBuf = match env::var("XDG_CONFIG_HOME") {
+pub fn fetch_xdg_config_path() -> PathBuf {
+    let config_file_path: PathBuf = match env::var("XDG_CONFIG_HOME") {
         Ok(val) => {
             log::debug!("XDG_CONFIG_HOME exists: {:#?}", val);
             Path::new(&val).join("swhkd/swhkdrc")
@@ -416,7 +419,7 @@ pub fn fetch_xdg_config_path() -> std::path::PathBuf {
     config_file_path
 }
 
-pub fn fetch_xdg_runtime_path() -> std::path::PathBuf {
+pub fn fetch_xdg_runtime_path() -> PathBuf {
     match env::var("XDG_RUNTIME_DIR") {
         Ok(val) => {
             log::debug!("XDG_RUNTIME_DIR exists: {:#?}", val);
