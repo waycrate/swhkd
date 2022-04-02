@@ -107,7 +107,7 @@ mod test_config {
         assert!(result.is_err());
 
         match result.unwrap_err() {
-            Error::ConfigNotFound => {}
+            Error::ConfigReadError => {}
             _ => {
                 panic!("Error type for nonexistent file is wrong.");
             }

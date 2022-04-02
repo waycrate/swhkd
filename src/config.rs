@@ -1,16 +1,15 @@
 use itertools::Itertools;
 use std::collections::HashMap;
-use std::fs::File;
-use std::io::Read;
 // use std::str::pattern::Pattern;
 use std::{
     fmt,
     path::{Path, PathBuf},
+    process::Command,
 };
 
 #[derive(Debug)]
 pub enum Error {
-    ConfigNotFound,
+    ConfigReadError,
     Io(std::io::Error),
     InvalidConfig(ParseError),
 }
@@ -26,7 +25,7 @@ pub enum ParseError {
 impl From<std::io::Error> for Error {
     fn from(val: std::io::Error) -> Self {
         if val.kind() == std::io::ErrorKind::NotFound {
-            Error::ConfigNotFound
+            Error::ConfigReadError
         } else {
             Error::Io(val)
         }
@@ -36,7 +35,7 @@ impl From<std::io::Error> for Error {
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match &*self {
-            Error::ConfigNotFound => "Config file not found.".fmt(f),
+            Error::ConfigReadError => "Error trying to read the config file.".fmt(f),
 
             Error::Io(io_err) => format!("I/O Error while parsing config file: {}", io_err).fmt(f),
             Error::InvalidConfig(parse_err) => match parse_err {
@@ -70,10 +69,20 @@ pub struct Config {
 }
 
 pub fn load_file_contents(path: &Path) -> Result<String, Error> {
-    let mut file = File::open(path)?;
-    let mut contents = String::new();
-    file.read_to_string(&mut contents)?;
-    Ok(contents)
+    let command = Command::new("/bin/cat").arg(path).output();
+
+    if command.is_err() {
+        return Err(Error::ConfigReadError);
+    }
+
+    let command = command.unwrap();
+
+    if command.status.success() == false {
+        return Err(Error::ConfigReadError);
+    }
+
+    let output = String::from_utf8_lossy(&command.stdout).to_string();
+    Ok(output)
 }
 
 impl Config {
