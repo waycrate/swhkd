@@ -7,7 +7,9 @@ use nix::{
 use signal_hook_tokio::Signals;
 use std::{
     collections::{HashMap, HashSet},
-    env, fs,
+    env,
+    error::Error,
+    fs,
     io::prelude::*,
     os::unix::net::UnixStream,
     path::{Path, PathBuf},
@@ -40,7 +42,7 @@ impl KeyboardState {
 }
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+async fn main() -> Result<(), Box<dyn Error>> {
     let args = set_command_line_args().get_matches();
     env::set_var("RUST_LOG", "swhkd=warn");
 
@@ -67,7 +69,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     log::trace!("Setting process umask.");
     umask(Mode::S_IWGRP | Mode::S_IWOTH);
 
-    let pidfile: String = String::from(format!("/etc/swhkd/runtime/swhkd_{}.pid", invoking_uid));
+    let pidfile: String = format!("/etc/swhkd/runtime/swhkd_{}.pid", invoking_uid);
     if Path::new(&pidfile).exists() {
         log::trace!("Reading {} file and checking for running instances.", pidfile);
         let swhkd_pid = match fs::read_to_string(&pidfile) {
@@ -342,7 +344,7 @@ fn socket_write(command: &str, socket_path: PathBuf) -> std::io::Result<()> {
     Ok(())
 }
 
-fn send_command(hotkey: config::Hotkey, socket_path: &PathBuf) {
+fn send_command(hotkey: config::Hotkey, socket_path: &Path) {
     log::info!("Hotkey pressed: {:#?}", hotkey);
     if let Err(e) = socket_write(&hotkey.command, socket_path.to_path_buf()) {
         log::error!("Failed to send command to swhks through IPC.");
@@ -351,7 +353,7 @@ fn send_command(hotkey: config::Hotkey, socket_path: &PathBuf) {
     }
 }
 
-pub fn check_user_permissions() -> Result<(), ()> {
+pub fn check_user_permissions() -> Result<(), Box<dyn std::error::Error>> {
     if !Uid::current().is_root() {
         let groups = nix::unistd::getgroups();
         for (_, groups) in groups.iter().enumerate() {
@@ -364,7 +366,7 @@ pub fn check_user_permissions() -> Result<(), ()> {
             }
         }
         log::error!("Consider using `pkexec swhkd ...`");
-        Err(())
+        exit(1);
     } else {
         log::warn!("Running swhkd as root!");
         Ok(())
@@ -427,11 +429,8 @@ pub fn fetch_xdg_runtime_path() -> PathBuf {
         }
         Err(_) => {
             log::error!("XDG_RUNTIME_DIR has not been set.");
-            Path::new(&String::from(format!(
-                "/run/user/{}/swhkd.sock",
-                env::var("PKEXEC_UID").unwrap()
-            )))
-            .to_path_buf()
+            Path::new(&format!("/run/user/{}/swhkd.sock", env::var("PKEXEC_UID").unwrap()))
+                .to_path_buf()
         }
     }
 }

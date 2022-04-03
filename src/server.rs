@@ -18,20 +18,18 @@ fn get_file_paths() -> (String, String) {
                 "XDG_RUNTIME_DIR Variable is present, using it's value as default file path."
             );
 
-            let pid_file_path = String::from(format!("{}/swhks.pid", val));
-            let sock_file_path = String::from(format!("{}/swhkd.sock", val));
+            let pid_file_path = format!("{}/swhks.pid", val);
+            let sock_file_path = format!("{}/swhkd.sock", val);
 
-            return (pid_file_path, sock_file_path);
+            (pid_file_path, sock_file_path)
         }
         Err(e) => {
             log::trace!("XDG_RUNTIME_DIR Variable is not set, falling back on hardcoded path.\nError: {:#?}", e);
 
-            let pid_file_path =
-                String::from(format!("/run/user/{}/swhks.pid", unistd::Uid::current()));
-            let sock_file_path =
-                String::from(format!("/run/user/{}/swhkd.sock", unistd::Uid::current()));
+            let pid_file_path = format!("/run/user/{}/swhks.pid", unistd::Uid::current());
+            let sock_file_path = format!("/run/user/{}/swhkd.sock", unistd::Uid::current());
 
-            return (pid_file_path, sock_file_path);
+            (pid_file_path, sock_file_path)
         }
     }
 }

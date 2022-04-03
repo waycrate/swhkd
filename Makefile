@@ -39,6 +39,7 @@ uninstall:
 check:
 	@cargo fmt
 	@cargo check --target=x86_64-unknown-linux-musl
+	@cargo clippy
 
 clean:
 	@cargo clean
