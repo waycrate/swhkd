@@ -1,4 +1,6 @@
 # Maintainer: Aakash Sharma <aakashsensharma@gmail.com>
+# Contributor: Sergey A. <murlakatamenka@disroot.org>
+
 pkgname='swhkd-git'
 _pkgname="swhkd"
 pkgver=1.1.7.480.ge4a1a89
@@ -23,12 +25,10 @@ package() {
 	cd "$_pkgname"
 	install -Dm 755 ./bin/swhkd "$pkgdir/usr/bin/swhkd"
 	install -Dm 755 ./bin/swhks "$pkgdir/usr/bin/swhks"
-	install -Dm 644 ./com.github.swhkd.pkexec.policy "$pkgdir/usr/share/polkit-1/actions/com.github.swhkd.pkexec.policy"
-	install -dm700 "$pkgdir/etc/swhkd/runtime"
-	chown root:root "$pkgdir/etc/swhkd/runtime"
-	chmod 700 "$pkgdir/etc/swhkd/runtime"
-	chmod 644 "$pkgdir/usr/share/polkit-1/actions/com.github.swhkd.pkexec.policy"
-	chown root:root "$pkgdir/etc/swhkd/runtime"
+
+	install -Dm 644 -o root ./com.github.swhkd.pkexec.policy -t "$pkgdir/usr/share/polkit-1/actions"
+
+	install -dm 700 -o root "$pkgdir/etc/swhkd/runtime"
 }
 
 pkgver() {
