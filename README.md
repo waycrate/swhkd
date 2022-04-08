@@ -53,7 +53,7 @@ If you use Vim, you can get swhkd config syntax highlighting with the
 vim-plug with `Plug 'waycrate/swhkd-vim'`.
 
 ## Autostart:
-### To autostart swhkd you can do one of two tings:
+### To autostart swhkd you can do one of two things:
 1) Add the commands from the ["Running" section](https://github.com/waycrate/swhkd#running) to your window managers configuration file.
 1) Enable the [service file](https://github.com/waycrate/swhkd/tree/main/contrib/init) for your respective init system. Currently only systemd service files exist and more will be added soon including Runit and OpenRC.
 
