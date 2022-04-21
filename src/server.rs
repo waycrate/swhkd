@@ -1,4 +1,5 @@
 use nix::{
+    libc::daemon,
     sys::stat::{umask, Mode},
     unistd,
 };
@@ -101,6 +102,9 @@ fn main() -> std::io::Result<()> {
 }
 
 fn run_system_command(command: &str) {
+    unsafe {
+        daemon(1, 0);
+    }
     match Command::new("sh")
         .arg("-c")
         .arg(command)
