@@ -10,8 +10,9 @@ use std::{
     env,
     error::Error,
     fs,
+    fs::Permissions,
     io::prelude::*,
-    os::unix::net::UnixStream,
+    os::unix::{fs::PermissionsExt, net::UnixStream},
     path::{Path, PathBuf},
     process::{exit, id},
 };
@@ -69,7 +70,21 @@ async fn main() -> Result<(), Box<dyn Error>> {
     log::trace!("Setting process umask.");
     umask(Mode::S_IWGRP | Mode::S_IWOTH);
 
-    let pidfile: String = format!("/etc/swhkd/runtime/swhkd_{}.pid", invoking_uid);
+    let runtime_path = "/run/swhkd/";
+    if !Path::new(runtime_path).exists() {
+        match fs::create_dir_all(Path::new(runtime_path)) {
+            Ok(_) => {
+                log::debug!("Created runtime directory.");
+                match fs::set_permissions(Path::new(runtime_path), Permissions::from_mode(0o600)) {
+                    Ok(_) => log::debug!("Set runtime directory to readonly."),
+                    Err(e) => log::error!("Failed to set runtime directory to readonly: {}", e),
+                }
+            }
+            Err(e) => log::error!("Failed to create runtime directory: {}", e),
+        }
+    }
+
+    let pidfile: String = format!("{}swhkd_{}.pid", runtime_path, invoking_uid);
     if Path::new(&pidfile).exists() {
         log::trace!("Reading {} file and checking for running instances.", pidfile);
         let swhkd_pid = match fs::read_to_string(&pidfile) {

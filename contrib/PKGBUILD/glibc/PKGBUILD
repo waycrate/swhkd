@@ -27,8 +27,6 @@ package() {
 	install -Dm 755 ./bin/swhks "$pkgdir/usr/bin/swhks"
 
 	install -Dm 644 -o root ./com.github.swhkd.pkexec.policy -t "$pkgdir/usr/share/polkit-1/actions"
-
-	install -dm 700 -o root "$pkgdir/etc/swhkd/runtime"
 }
 
 pkgver() {

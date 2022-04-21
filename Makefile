@@ -4,6 +4,7 @@ BUILDFLAGS := --release
 POLKIT_DIR := /usr/share/polkit-1/actions
 POLKIT_POLICY_FILE := com.github.swhkd.pkexec.policy
 TARGET_DIR := /usr/bin
+# Remember to edit this ^ in policy file too.
 
 all: build
 
@@ -21,9 +22,6 @@ install:
 	@mkdir -p $(TARGET_DIR)
 	@mkdir -p $(POLKIT_DIR)
 	@mkdir -p /etc/$(DAEMON_BINARY)
-	@mkdir -p /etc/$(DAEMON_BINARY)/runtime
-	@sudo chown root:root /etc/$(DAEMON_BINARY)/runtime
-	@sudo chmod 700 /etc/$(DAEMON_BINARY)/runtime
 	@touch /etc/$(DAEMON_BINARY)/$(DAEMON_BINARY)rc
 	@cp ./bin/$(DAEMON_BINARY) $(TARGET_DIR)
 	@cp ./bin/$(SERVER_BINARY) $(TARGET_DIR)
