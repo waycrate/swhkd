@@ -29,6 +29,7 @@ See [INSTALL.md](./docs/INSTALL.md) for installing swhkd.
 Note: `swhks` is not a typo, it is the server process of the program.
 
 ## Running:
+
 ```bash
 swhks &
 pkexec swhkd
@@ -46,26 +47,31 @@ After opening swhkd, you can control the program through signals:
 
 Swhkd closely follows sxhkd syntax, so most existing sxhkd configs should be functional with swhkd.
 
-The default configuration directory is `/etc/swhkd/swhkdrc`. If you don't like having to edit the file as root every single time, you can create a symlink from `~/.config/swhkd/swhkdrc` to `/etc/swhkd/swhkdrc`.
+The default configuration file is in `/etc/swhkd/swhkdrc`. If you don't like having to edit the file as root every single time, you can create a symlink from `~/.config/swhkd/swhkdrc` to `/etc/swhkd/swhkdrc`.
 
 If you use Vim, you can get swhkd config syntax highlighting with the
 [swhkd-vim](https://github.com/waycrate/swhkd-vim) plugin. Install it in
 vim-plug with `Plug 'waycrate/swhkd-vim'`.
 
+All supported key names are listed in the [following file.](https://github.com/waycrate/swhkd/blob/main/docs/KEYS.md)
+
 ## Autostart:
+
 ### To autostart swhkd you can do one of two things:
-1) Add the commands from the ["Running" section](https://github.com/waycrate/swhkd#running) to your window managers configuration file.
-1) Enable the [service file](https://github.com/waycrate/swhkd/tree/main/contrib/init) for your respective init system. Currently only systemd service files exist and more will be added soon including Runit and OpenRC.
+
+1. Add the commands from the ["Running" section](https://github.com/waycrate/swhkd#running) to your window managers configuration file.
+1. Enable the [service file](https://github.com/waycrate/swhkd/tree/main/contrib/init) for your respective init system. Currently only systemd service files exist and more will be added soon including Runit and OpenRC.
 
 ## Security:
+
 We use a server-client model to keep you safe. The daemon ( swhkd - privileged process ) communicates to the server ( swhks - running as non root user ) after checking for valid keybinds. Since the daemon is totally separate from the server, no other process can read your keystrokes. As for shell commands, you might be thinking that any program can send shell commands to the server and that's true! But the server runs the commands as the currently logged in user so no extra permissions are provided ( This is essentially the same as any app on your desktop calling shell commands ).
 
 So yes, you're safe!
 
 ## Support:
 
-1) https://matrix.to/#/#waycrate-tools:matrix.org
-2) https://discord.gg/KKZRDYrRYW
+1. https://matrix.to/#/#waycrate-tools:matrix.org
+1. https://discord.gg/KKZRDYrRYW
 
 ## Contributors:
 
