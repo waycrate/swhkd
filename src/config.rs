@@ -2,7 +2,6 @@ use itertools::Itertools;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::Read;
-// use std::str::pattern::Pattern;
 use std::{
     fmt,
     path::{Path, PathBuf},
@@ -332,12 +331,14 @@ pub fn parse_contents(path: PathBuf, contents: String) -> Result<Vec<Hotkey>, Er
         ("brightnessup", evdev::Key::KEY_BRIGHTNESSUP),
         ("xf86monbrightnessup", evdev::Key::KEY_BRIGHTNESSUP),
         ("brightnessdown", evdev::Key::KEY_BRIGHTNESSDOWN),
-        ("xf86monbrightnessdown", evdev::Key::KEY_BRIGHTNESSDOWN),
+        ("xf86audiomedia", evdev::Key::KEY_MEDIA),
+        ("xf86audiomicmute", evdev::Key::KEY_MICMUTE),
+        ("micmute", evdev::Key::KEY_MICMUTE),
+        ("xf86audionext", evdev::Key::KEY_NEXTSONG),
         ("xf86audioplay", evdev::Key::KEY_PLAYPAUSE),
         ("xf86audioprev", evdev::Key::KEY_PREVIOUSSONG),
-        ("xf86audionext", evdev::Key::KEY_NEXTSONG),
         ("xf86audiostop", evdev::Key::KEY_STOP),
-        ("xf86audiomedia", evdev::Key::KEY_MEDIA),
+        ("xf86monbrightnessdown", evdev::Key::KEY_BRIGHTNESSDOWN),
         (",", evdev::Key::KEY_COMMA),
         ("comma", evdev::Key::KEY_COMMA),
         (".", evdev::Key::KEY_DOT),
@@ -354,6 +355,7 @@ pub fn parse_contents(path: PathBuf, contents: String) -> Result<Vec<Hotkey>, Er
         ("]", evdev::Key::KEY_RIGHTBRACE),
         ("bracketright", evdev::Key::KEY_RIGHTBRACE),
         (";", evdev::Key::KEY_SEMICOLON),
+        ("scroll_lock", evdev::Key::KEY_SCROLLLOCK),
         ("semicolon", evdev::Key::KEY_SEMICOLON),
         ("'", evdev::Key::KEY_APOSTROPHE),
         ("apostrophe", evdev::Key::KEY_APOSTROPHE),
