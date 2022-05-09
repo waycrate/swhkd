@@ -170,8 +170,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let modifiers_map: HashMap<Key, config::Modifier> = HashMap::from([
         (Key::KEY_LEFTMETA, config::Modifier::Super),
         (Key::KEY_RIGHTMETA, config::Modifier::Super),
-        (Key::KEY_LEFTMETA, config::Modifier::Super),
-        (Key::KEY_RIGHTMETA, config::Modifier::Super),
         (Key::KEY_LEFTALT, config::Modifier::Alt),
         (Key::KEY_RIGHTALT, config::Modifier::Alt),
         (Key::KEY_LEFTCTRL, config::Modifier::Control),
