@@ -125,7 +125,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let root_resgid = perms::get_resgid();
 
     let load_config = || {
-        // Dropping privileges to invoking user.
+        // Drop privileges to the invoking user.
         perms::drop_privileges(invoking_uid);
 
         let config_file_path: PathBuf = if args.is_present("config") {
@@ -153,7 +153,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let mut hotkeys = load_config();
 
-    // Escalating back to root after reading config file.
+    // Escalate back to the root user after reading the config file.
     perms::raise_privileges(root_resgid, root_resuid);
 
     log::trace!("Attempting to find all keyboard file descriptors.");
