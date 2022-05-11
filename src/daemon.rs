@@ -2,7 +2,7 @@ use clap::{arg, Command};
 use evdev::{AttributeSet, Device, InputEventKind, Key};
 use nix::{
     sys::stat::{umask, Mode},
-    unistd::{Gid, Group, Uid},
+    unistd::{Group, Uid},
 };
 use signal_hook_tokio::Signals;
 use std::{
@@ -26,6 +26,7 @@ use signal_hook::consts::signal::*;
 
 mod config;
 use crate::config::Value;
+mod perms;
 mod uinput;
 
 #[cfg(test)]
@@ -120,17 +121,17 @@ async fn main() -> Result<(), Box<dyn Error>> {
         exit(1);
     }
 
-    let root_resuid = getresuid();
-    let root_resgid = getresgid();
+    let root_resuid = perms::getresuid();
+    let root_resgid = perms::getresgid();
     let non_root_user = nix::unistd::User::from_uid(Uid::from_raw(invoking_uid)).unwrap().unwrap();
     let root_user =
         nix::unistd::User::from_uid(Uid::from_raw(root_resuid.real.as_raw())).unwrap().unwrap();
 
     let load_config = || {
         // Dropping privileges to invoking user.
-        setinitgroups(&non_root_user, invoking_uid);
-        setegid(invoking_uid);
-        seteuid(invoking_uid);
+        perms::setinitgroups(&non_root_user, invoking_uid);
+        perms::setegid(invoking_uid);
+        perms::seteuid(invoking_uid);
 
         let config_file_path: PathBuf = if args.is_present("config") {
             Path::new(args.value_of("config").unwrap()).to_path_buf()
@@ -158,9 +159,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let mut hotkeys = load_config();
 
     // Escalating back to root after reading config file.
-    setinitgroups(&root_user, root_resuid.real.as_raw());
-    setegid(root_resgid.effective.as_raw());
-    seteuid(root_resuid.effective.as_raw());
+    perms::setinitgroups(&root_user, root_resuid.real.as_raw());
+    perms::setegid(root_resgid.effective.as_raw());
+    perms::seteuid(root_resuid.effective.as_raw());
 
     log::trace!("Attempting to find all keyboard file descriptors.");
     let keyboard_devices: Vec<Device> =
@@ -457,89 +458,6 @@ pub fn fetch_xdg_runtime_path() -> PathBuf {
             log::error!("XDG_RUNTIME_DIR has not been set.");
             Path::new(&format!("/run/user/{}/swhkd.sock", env::var("PKEXEC_UID").unwrap()))
                 .to_path_buf()
-        }
-    }
-}
-
-pub fn getresuid() -> nix::unistd::ResUid {
-    match nix::unistd::getresuid() {
-        Ok(resuid) => resuid,
-        Err(e) => {
-            log::error!("Failed to get RESUID: {:#?}", e);
-            exit(1);
-        }
-    }
-}
-
-pub fn getresgid() -> nix::unistd::ResGid {
-    match nix::unistd::getresgid() {
-        Ok(resgid) => resgid,
-        Err(e) => {
-            log::error!("Failed to get RESGID: {:#?}", e);
-            exit(1);
-        }
-    }
-}
-
-pub fn setresuid(ruid: u32, euid: u32, suid: u32) {
-    let ruid = Uid::from_raw(ruid);
-    let euid = Uid::from_raw(euid);
-    let suid = Uid::from_raw(suid);
-
-    println!("setresuid: {} {} {}", ruid, euid, suid);
-    match nix::unistd::setresuid(ruid, euid, suid) {
-        Ok(_) => log::debug!("Dropping privileges..."),
-        Err(e) => {
-            log::error!("Failed to set RESUID: {:#?}", e);
-            exit(1);
-        }
-    }
-}
-
-pub fn setresgid(rgid: u32, egid: u32, sgid: u32) {
-    let rgid = Uid::from_raw(rgid);
-    let egid = Uid::from_raw(egid);
-    let sgid = Uid::from_raw(sgid);
-
-    println!("setresgid: {} {} {}", rgid, egid, sgid);
-    match nix::unistd::setresuid(rgid, egid, sgid) {
-        Ok(_) => log::debug!("Dropping privileges..."),
-        Err(e) => {
-            log::error!("Failed to set RESGID: {:#?}", e);
-            exit(1);
-        }
-    }
-}
-
-pub fn setinitgroups(user: &nix::unistd::User, gid: u32) {
-    let gid = Gid::from_raw(gid);
-    match nix::unistd::initgroups(&user.gecos, gid) {
-        Ok(_) => log::debug!("Dropping privileges..."),
-        Err(e) => {
-            log::error!("Failed to set init groups: {:#?}", e);
-            exit(1);
-        }
-    }
-}
-
-pub fn setegid(gid: u32) {
-    let gid = Gid::from_raw(gid);
-    match nix::unistd::setegid(gid) {
-        Ok(_) => log::debug!("Dropping privileges..."),
-        Err(e) => {
-            log::error!("Failed to set EGID: {:#?}", e);
-            exit(1);
-        }
-    }
-}
-
-pub fn seteuid(uid: u32) {
-    let uid = Uid::from_raw(uid);
-    match nix::unistd::seteuid(uid) {
-        Ok(_) => log::debug!("Dropping privileges..."),
-        Err(e) => {
-            log::error!("Failed to set EUID: {:#?}", e);
-            exit(1);
         }
     }
 }
