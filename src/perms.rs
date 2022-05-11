@@ -20,6 +20,26 @@ pub fn raise_privileges(resgid: ResGid, resuid: ResUid) {
     setinitgroups(&root_user, resgid);
 }
 
+pub fn getresuid() -> nix::unistd::ResUid {
+    match nix::unistd::getresuid() {
+        Ok(resuid) => resuid,
+        Err(e) => {
+            log::error!("Failed to get RESUID: {:#?}", e);
+            exit(1);
+        }
+    }
+}
+
+pub fn getresgid() -> nix::unistd::ResGid {
+    match nix::unistd::getresgid() {
+        Ok(resgid) => resgid,
+        Err(e) => {
+            log::error!("Failed to get RESGID: {:#?}", e);
+            exit(1);
+        }
+    }
+}
+
 fn setinitgroups(user: &nix::unistd::User, gid: u32) {
     let gid = Gid::from_raw(gid);
     match nix::unistd::initgroups(&user.gecos, gid) {
@@ -48,26 +68,6 @@ fn seteuid(uid: u32) {
         Ok(_) => log::debug!("Dropping privileges..."),
         Err(e) => {
             log::error!("Failed to set EUID: {:#?}", e);
-            exit(1);
-        }
-    }
-}
-
-pub fn getresuid() -> nix::unistd::ResUid {
-    match nix::unistd::getresuid() {
-        Ok(resuid) => resuid,
-        Err(e) => {
-            log::error!("Failed to get RESUID: {:#?}", e);
-            exit(1);
-        }
-    }
-}
-
-pub fn getresgid() -> nix::unistd::ResGid {
-    match nix::unistd::getresgid() {
-        Ok(resgid) => resgid,
-        Err(e) => {
-            log::error!("Failed to get RESGID: {:#?}", e);
             exit(1);
         }
     }
