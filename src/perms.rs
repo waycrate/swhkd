@@ -1,5 +1,14 @@
-use nix::unistd::{Gid, Uid};
+use nix::unistd::{Gid, Uid, User};
 use std::process::exit;
+
+pub fn drop_privileges(user_uid: u32) {
+    let user_uid = Uid::from_raw(user_uid);
+    let user = User::from_uid(user_uid).unwrap().unwrap();
+
+    setinitgroups(&user, user_uid.as_raw());
+    setegid(user_uid.as_raw());
+    seteuid(user_uid.as_raw());
+}
 
 pub fn setinitgroups(user: &nix::unistd::User, gid: u32) {
     let gid = Gid::from_raw(gid);
