@@ -78,7 +78,6 @@ fn set_resuid(ruid: u32, euid: u32, suid: u32) {
     let euid = Uid::from_raw(euid);
     let suid = Uid::from_raw(suid);
 
-    println!("setresuid: {} {} {}", ruid, euid, suid);
     match nix::unistd::setresuid(ruid, euid, suid) {
         Ok(_) => log::debug!("Setting RESUID..."),
         Err(e) => {
@@ -93,7 +92,6 @@ fn set_resgid(rgid: u32, egid: u32, sgid: u32) {
     let egid = Uid::from_raw(egid);
     let sgid = Uid::from_raw(sgid);
 
-    println!("setresgid: {} {} {}", rgid, egid, sgid);
     match nix::unistd::setresuid(rgid, egid, sgid) {
         Ok(_) => log::debug!("Setting RESUID..."),
         Err(e) => {
