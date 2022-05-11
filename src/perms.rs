@@ -20,7 +20,7 @@ pub fn raise_privileges(resgid: ResGid, resuid: ResUid) {
     setinitgroups(&root_user, resgid);
 }
 
-pub fn setinitgroups(user: &nix::unistd::User, gid: u32) {
+fn setinitgroups(user: &nix::unistd::User, gid: u32) {
     let gid = Gid::from_raw(gid);
     match nix::unistd::initgroups(&user.gecos, gid) {
         Ok(_) => log::debug!("Dropping privileges..."),
@@ -31,7 +31,7 @@ pub fn setinitgroups(user: &nix::unistd::User, gid: u32) {
     }
 }
 
-pub fn setegid(gid: u32) {
+fn setegid(gid: u32) {
     let gid = Gid::from_raw(gid);
     match nix::unistd::setegid(gid) {
         Ok(_) => log::debug!("Dropping privileges..."),
@@ -42,7 +42,7 @@ pub fn setegid(gid: u32) {
     }
 }
 
-pub fn seteuid(uid: u32) {
+fn seteuid(uid: u32) {
     let uid = Uid::from_raw(uid);
     match nix::unistd::seteuid(uid) {
         Ok(_) => log::debug!("Dropping privileges..."),
@@ -73,7 +73,7 @@ pub fn getresgid() -> nix::unistd::ResGid {
     }
 }
 
-pub fn setresuid(ruid: u32, euid: u32, suid: u32) {
+fn setresuid(ruid: u32, euid: u32, suid: u32) {
     let ruid = Uid::from_raw(ruid);
     let euid = Uid::from_raw(euid);
     let suid = Uid::from_raw(suid);
@@ -88,7 +88,7 @@ pub fn setresuid(ruid: u32, euid: u32, suid: u32) {
     }
 }
 
-pub fn setresgid(rgid: u32, egid: u32, sgid: u32) {
+fn setresgid(rgid: u32, egid: u32, sgid: u32) {
     let rgid = Uid::from_raw(rgid);
     let egid = Uid::from_raw(egid);
     let sgid = Uid::from_raw(sgid);
