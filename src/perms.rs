@@ -43,7 +43,7 @@ pub fn get_resgid() -> nix::unistd::ResGid {
 fn set_initgroups(user: &nix::unistd::User, gid: u32) {
     let gid = Gid::from_raw(gid);
     match nix::unistd::initgroups(&user.gecos, gid) {
-        Ok(_) => log::debug!("Dropping privileges..."),
+        Ok(_) => log::debug!("Setting initgroups..."),
         Err(e) => {
             log::error!("Failed to set init groups: {:#?}", e);
             exit(1);
@@ -54,7 +54,7 @@ fn set_initgroups(user: &nix::unistd::User, gid: u32) {
 fn set_egid(gid: u32) {
     let gid = Gid::from_raw(gid);
     match nix::unistd::setegid(gid) {
-        Ok(_) => log::debug!("Dropping privileges..."),
+        Ok(_) => log::debug!("Setting EGID..."),
         Err(e) => {
             log::error!("Failed to set EGID: {:#?}", e);
             exit(1);
@@ -65,7 +65,7 @@ fn set_egid(gid: u32) {
 fn set_euid(uid: u32) {
     let uid = Uid::from_raw(uid);
     match nix::unistd::seteuid(uid) {
-        Ok(_) => log::debug!("Dropping privileges..."),
+        Ok(_) => log::debug!("Setting EUID..."),
         Err(e) => {
             log::error!("Failed to set EUID: {:#?}", e);
             exit(1);
@@ -80,7 +80,7 @@ fn set_resuid(ruid: u32, euid: u32, suid: u32) {
 
     println!("setresuid: {} {} {}", ruid, euid, suid);
     match nix::unistd::setresuid(ruid, euid, suid) {
-        Ok(_) => log::debug!("Dropping privileges..."),
+        Ok(_) => log::debug!("Setting RESUID..."),
         Err(e) => {
             log::error!("Failed to set RESUID: {:#?}", e);
             exit(1);
@@ -95,7 +95,7 @@ fn set_resgid(rgid: u32, egid: u32, sgid: u32) {
 
     println!("setresgid: {} {} {}", rgid, egid, sgid);
     match nix::unistd::setresuid(rgid, egid, sgid) {
-        Ok(_) => log::debug!("Dropping privileges..."),
+        Ok(_) => log::debug!("Setting RESUID..."),
         Err(e) => {
             log::error!("Failed to set RESGID: {:#?}", e);
             exit(1);
