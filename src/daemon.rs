@@ -121,8 +121,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
         exit(1);
     }
 
-    let root_resuid = perms::getresuid();
-    let root_resgid = perms::getresgid();
+    let root_resuid = perms::get_resuid();
+    let root_resgid = perms::get_resgid();
 
     let load_config = || {
         // Dropping privileges to invoking user.

@@ -5,9 +5,9 @@ pub fn drop_privileges(user_uid: u32) {
     let user_uid = Uid::from_raw(user_uid);
     let user = User::from_uid(user_uid).unwrap().unwrap();
 
-    setinitgroups(&user, user_uid.as_raw());
-    setegid(user_uid.as_raw());
-    seteuid(user_uid.as_raw());
+    set_initgroups(&user, user_uid.as_raw());
+    set_egid(user_uid.as_raw());
+    set_euid(user_uid.as_raw());
 }
 
 pub fn raise_privileges(resgid: ResGid, resuid: ResUid) {
@@ -15,12 +15,12 @@ pub fn raise_privileges(resgid: ResGid, resuid: ResUid) {
     let resgid = resgid.effective.as_raw();
     let resuid = resuid.effective.as_raw();
 
-    setegid(resgid);
-    seteuid(resuid);
-    setinitgroups(&root_user, resgid);
+    set_egid(resgid);
+    set_euid(resuid);
+    set_initgroups(&root_user, resgid);
 }
 
-pub fn getresuid() -> nix::unistd::ResUid {
+pub fn get_resuid() -> nix::unistd::ResUid {
     match nix::unistd::getresuid() {
         Ok(resuid) => resuid,
         Err(e) => {
@@ -30,7 +30,7 @@ pub fn getresuid() -> nix::unistd::ResUid {
     }
 }
 
-pub fn getresgid() -> nix::unistd::ResGid {
+pub fn get_resgid() -> nix::unistd::ResGid {
     match nix::unistd::getresgid() {
         Ok(resgid) => resgid,
         Err(e) => {
@@ -40,7 +40,7 @@ pub fn getresgid() -> nix::unistd::ResGid {
     }
 }
 
-fn setinitgroups(user: &nix::unistd::User, gid: u32) {
+fn set_initgroups(user: &nix::unistd::User, gid: u32) {
     let gid = Gid::from_raw(gid);
     match nix::unistd::initgroups(&user.gecos, gid) {
         Ok(_) => log::debug!("Dropping privileges..."),
@@ -51,7 +51,7 @@ fn setinitgroups(user: &nix::unistd::User, gid: u32) {
     }
 }
 
-fn setegid(gid: u32) {
+fn set_egid(gid: u32) {
     let gid = Gid::from_raw(gid);
     match nix::unistd::setegid(gid) {
         Ok(_) => log::debug!("Dropping privileges..."),
@@ -62,7 +62,7 @@ fn setegid(gid: u32) {
     }
 }
 
-fn seteuid(uid: u32) {
+fn set_euid(uid: u32) {
     let uid = Uid::from_raw(uid);
     match nix::unistd::seteuid(uid) {
         Ok(_) => log::debug!("Dropping privileges..."),
@@ -73,7 +73,7 @@ fn seteuid(uid: u32) {
     }
 }
 
-fn setresuid(ruid: u32, euid: u32, suid: u32) {
+fn set_resuid(ruid: u32, euid: u32, suid: u32) {
     let ruid = Uid::from_raw(ruid);
     let euid = Uid::from_raw(euid);
     let suid = Uid::from_raw(suid);
@@ -88,7 +88,7 @@ fn setresuid(ruid: u32, euid: u32, suid: u32) {
     }
 }
 
-fn setresgid(rgid: u32, egid: u32, sgid: u32) {
+fn set_resgid(rgid: u32, egid: u32, sgid: u32) {
     let rgid = Uid::from_raw(rgid);
     let egid = Uid::from_raw(egid);
     let sgid = Uid::from_raw(sgid);
