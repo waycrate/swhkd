@@ -123,8 +123,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let root_resuid = perms::getresuid();
     let root_resgid = perms::getresgid();
-    let root_user =
-        nix::unistd::User::from_uid(Uid::from_raw(root_resuid.real.as_raw())).unwrap().unwrap();
 
     let load_config = || {
         // Dropping privileges to invoking user.
@@ -156,9 +154,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let mut hotkeys = load_config();
 
     // Escalating back to root after reading config file.
-    perms::setegid(root_resgid.effective.as_raw());
-    perms::seteuid(root_resuid.effective.as_raw());
-    perms::setinitgroups(&root_user, root_resuid.effective.as_raw());
+    perms::raise_privileges(root_resgid, root_resuid);
 
     log::trace!("Attempting to find all keyboard file descriptors.");
     let keyboard_devices: Vec<Device> =
