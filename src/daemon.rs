@@ -120,9 +120,18 @@ async fn main() -> Result<(), Box<dyn Error>> {
         exit(1);
     }
 
+    let root_resuid = getresuid();
+    let root_resgid = getresgid();
+    let non_root_user = nix::unistd::User::from_uid(Uid::from_raw(invoking_uid)).unwrap().unwrap();
+    let root_user =
+        nix::unistd::User::from_uid(Uid::from_raw(root_resuid.real.as_raw())).unwrap().unwrap();
+
     let load_config = || {
         // Dropping privileges to invoking user.
+        setinitgroups(&non_root_user, invoking_uid);
+        setegid(invoking_uid);
         seteuid(invoking_uid);
+
         let config_file_path: PathBuf = if args.is_present("config") {
             Path::new(args.value_of("config").unwrap()).to_path_buf()
         } else {
@@ -147,8 +156,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
     };
 
     let mut hotkeys = load_config();
+
     // Escalating back to root after reading config file.
-    seteuid(0);
+    setinitgroups(&root_user, root_resuid.real.as_raw());
+    setegid(root_resgid.effective.as_raw());
+    seteuid(root_resuid.effective.as_raw());
+
     log::trace!("Attempting to find all keyboard file descriptors.");
     let keyboard_devices: Vec<Device> =
         evdev::enumerate().filter(check_device_is_keyboard).collect();
