@@ -67,58 +67,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         }
     };
 
-    log::trace!("Setting process umask.");
-    umask(Mode::S_IWGRP | Mode::S_IWOTH);
-
-    let runtime_path = "/run/swhkd/";
-    if !Path::new(runtime_path).exists() {
-        match fs::create_dir_all(Path::new(runtime_path)) {
-            Ok(_) => {
-                log::debug!("Created runtime directory.");
-                match fs::set_permissions(Path::new(runtime_path), Permissions::from_mode(0o600)) {
-                    Ok(_) => log::debug!("Set runtime directory to readonly."),
-                    Err(e) => log::error!("Failed to set runtime directory to readonly: {}", e),
-                }
-            }
-            Err(e) => log::error!("Failed to create runtime directory: {}", e),
-        }
-    }
-
-    let pidfile: String = format!("{}swhkd_{}.pid", runtime_path, invoking_uid);
-    if Path::new(&pidfile).exists() {
-        log::trace!("Reading {} file and checking for running instances.", pidfile);
-        let swhkd_pid = match fs::read_to_string(&pidfile) {
-            Ok(swhkd_pid) => swhkd_pid,
-            Err(e) => {
-                log::error!("Unable to read {} to check all running instances", e);
-                exit(1);
-            }
-        };
-        log::debug!("Previous PID: {}", swhkd_pid);
-
-        let mut sys = System::new_all();
-        sys.refresh_all();
-        for (pid, process) in sys.processes() {
-            if pid.to_string() == swhkd_pid && process.exe() == env::current_exe().unwrap() {
-                log::error!("Swhkd is already running!");
-                log::error!("pid of existing swhkd process: {}", pid.to_string());
-                log::error!("To close the existing swhkd process, run `sudo killall swhkd`");
-                exit(1);
-            }
-        }
-    }
-
-    match fs::write(&pidfile, id().to_string()) {
-        Ok(_) => {}
-        Err(e) => {
-            log::error!("Unable to write to {}: {}", pidfile, e);
-            exit(1);
-        }
-    }
-
-    if check_user_permissions().is_err() {
-        exit(1);
-    }
+    setup_swhkd(invoking_uid);
 
     let root_resuid = perms::get_resuid();
     let root_resgid = perms::get_resgid();
@@ -214,7 +163,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     tokio::pin!(hotkey_repeat_timer);
 
     // The socket that we're sending the commands to.
-    let socket_file_path = fetch_xdg_runtime_path();
+    let socket_file_path = fetch_xdg_runtime_socket_path();
     loop {
         select! {
             _ = &mut hotkey_repeat_timer, if &last_hotkey.is_some() => {
@@ -374,7 +323,7 @@ fn send_command(hotkey: config::Hotkey, socket_path: &Path) {
     }
 }
 
-pub fn check_user_permissions() -> Result<(), Box<dyn std::error::Error>> {
+pub fn check_input_group() -> Result<(), Box<dyn std::error::Error>> {
     if !Uid::current().is_root() {
         let groups = nix::unistd::getgroups();
         for (_, groups) in groups.iter().enumerate() {
@@ -442,7 +391,7 @@ pub fn fetch_xdg_config_path() -> PathBuf {
     config_file_path
 }
 
-pub fn fetch_xdg_runtime_path() -> PathBuf {
+pub fn fetch_xdg_runtime_socket_path() -> PathBuf {
     match env::var("XDG_RUNTIME_DIR") {
         Ok(val) => {
             log::debug!("XDG_RUNTIME_DIR exists: {:#?}", val);
@@ -453,5 +402,75 @@ pub fn fetch_xdg_runtime_path() -> PathBuf {
             Path::new(&format!("/run/user/{}/swhkd.sock", env::var("PKEXEC_UID").unwrap()))
                 .to_path_buf()
         }
+    }
+}
+
+pub fn setup_swhkd(invoking_uid: u32) {
+    // Set a sane process umask.
+    log::trace!("Setting process umask.");
+    umask(Mode::S_IWGRP | Mode::S_IWOTH);
+
+    // Get the runtime path and create it if needed.
+    let runtime_path: String = match env::var("XDG_RUNTIME_DIR") {
+        Ok(runtime_path) => {
+            log::debug!("XDG_RUNTIME_DIR exists: {:#?}", runtime_path);
+            Path::new(&runtime_path).join("swhkd").to_str().unwrap().to_owned()
+        }
+        Err(_) => {
+            log::error!("XDG_RUNTIME_DIR has not been set.");
+            String::from("/run/swhkd/")
+        }
+    };
+    if !Path::new(&runtime_path).exists() {
+        match fs::create_dir_all(Path::new(&runtime_path)) {
+            Ok(_) => {
+                log::debug!("Created runtime directory.");
+                match fs::set_permissions(Path::new(&runtime_path), Permissions::from_mode(0o600)) {
+                    Ok(_) => log::debug!("Set runtime directory to readonly."),
+                    Err(e) => log::error!("Failed to set runtime directory to readonly: {}", e),
+                }
+            }
+            Err(e) => log::error!("Failed to create runtime directory: {}", e),
+        }
+    }
+
+    // Get the PID file path for instance tracking.
+    let pidfile: String = format!("{}swhkd_{}.pid", runtime_path, invoking_uid);
+    if Path::new(&pidfile).exists() {
+        log::trace!("Reading {} file and checking for running instances.", pidfile);
+        let swhkd_pid = match fs::read_to_string(&pidfile) {
+            Ok(swhkd_pid) => swhkd_pid,
+            Err(e) => {
+                log::error!("Unable to read {} to check all running instances", e);
+                exit(1);
+            }
+        };
+        log::debug!("Previous PID: {}", swhkd_pid);
+
+        // Check if swhkd is already running!
+        let mut sys = System::new_all();
+        sys.refresh_all();
+        for (pid, process) in sys.processes() {
+            if pid.to_string() == swhkd_pid && process.exe() == env::current_exe().unwrap() {
+                log::error!("Swhkd is already running!");
+                log::error!("pid of existing swhkd process: {}", pid.to_string());
+                log::error!("To close the existing swhkd process, run `sudo killall swhkd`");
+                exit(1);
+            }
+        }
+    }
+
+    // Write to the pid file.
+    match fs::write(&pidfile, id().to_string()) {
+        Ok(_) => {}
+        Err(e) => {
+            log::error!("Unable to write to {}: {}", pidfile, e);
+            exit(1);
+        }
+    }
+
+    // Check if the user is in input group.
+    if check_input_group().is_err() {
+        exit(1);
     }
 }
