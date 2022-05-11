@@ -1,9 +1,11 @@
+use crate::config::Value;
 use clap::{arg, Command};
 use evdev::{AttributeSet, Device, InputEventKind, Key};
 use nix::{
     sys::stat::{umask, Mode},
     unistd::{Group, Uid},
 };
+use signal_hook::consts::signal::*;
 use signal_hook_tokio::Signals;
 use std::{
     collections::{HashMap, HashSet},
@@ -22,10 +24,7 @@ use tokio::time::Duration;
 use tokio::time::{sleep, Instant};
 use tokio_stream::{StreamExt, StreamMap};
 
-use signal_hook::consts::signal::*;
-
 mod config;
-use crate::config::Value;
 mod perms;
 mod uinput;
 
