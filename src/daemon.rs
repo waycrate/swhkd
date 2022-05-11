@@ -156,9 +156,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let mut hotkeys = load_config();
 
     // Escalating back to root after reading config file.
-    perms::setinitgroups(&root_user, root_resuid.real.as_raw());
     perms::setegid(root_resgid.effective.as_raw());
     perms::seteuid(root_resuid.effective.as_raw());
+    perms::setinitgroups(&root_user, root_resuid.real.as_raw());
 
     log::trace!("Attempting to find all keyboard file descriptors.");
     let keyboard_devices: Vec<Device> =
