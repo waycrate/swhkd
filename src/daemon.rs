@@ -123,15 +123,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let root_resuid = perms::getresuid();
     let root_resgid = perms::getresgid();
-    let non_root_user = nix::unistd::User::from_uid(Uid::from_raw(invoking_uid)).unwrap().unwrap();
     let root_user =
         nix::unistd::User::from_uid(Uid::from_raw(root_resuid.real.as_raw())).unwrap().unwrap();
 
     let load_config = || {
         // Dropping privileges to invoking user.
-        perms::setinitgroups(&non_root_user, invoking_uid);
-        perms::setegid(invoking_uid);
-        perms::seteuid(invoking_uid);
+        perms::drop_privileges(invoking_uid);
 
         let config_file_path: PathBuf = if args.is_present("config") {
             Path::new(args.value_of("config").unwrap()).to_path_buf()
