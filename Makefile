@@ -3,8 +3,8 @@ SERVER_BINARY := swhks
 BUILDFLAGS := --release
 POLKIT_DIR := /usr/share/polkit-1/actions
 POLKIT_POLICY_FILE := com.github.swhkd.pkexec.policy
-TARGET_DIR := /usr/bin
-# Remember to edit this ^ in policy file too.
+TARGET_DIR := /usr/bin # Remember to edit this in policy file too if you do change it.
+VERSION=$(shell awk -F ' = ' '$$1 ~ /version/ { gsub(/["]/, "", $$2); printf("%s",$$2) }' Cargo.toml)
 
 all: build
 
@@ -39,6 +39,13 @@ check:
 	@cargo check --target=x86_64-unknown-linux-musl
 	@cargo clippy
 
+release:
+	@rm Cargo.lock
+	@$(MAKE) -s
+	@cd bin; zip -r "musl_libc-x86_64-$(VERSION).zip" swhkd swhks
+	@$(MAKE) -s glibc
+	@cd bin; zip -r "glibc-x86_64-$(VERSION).zip" swhkd swhks; rm ./swhkd; rm ./swhks
+
 clean:
 	@cargo clean
 
@@ -48,4 +55,4 @@ setup:
 	@rustup default stable
 	@rustup target add x86_64-unknown-linux-musl
 
-.PHONY: check clean setup all install build glibc
+.PHONY: check clean setup all install build glibc release
