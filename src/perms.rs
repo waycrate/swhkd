@@ -1,4 +1,4 @@
-use nix::unistd::{Gid, ResGid, ResUid, Uid, User};
+use nix::unistd::{Gid, Uid, User};
 use std::process::exit;
 
 pub fn drop_privileges(user_uid: u32) {
@@ -10,14 +10,12 @@ pub fn drop_privileges(user_uid: u32) {
     set_euid(user_uid.as_raw());
 }
 
-pub fn raise_privileges(resgid: ResGid, resuid: ResUid) {
-    let root_user = User::from_uid(resuid.real).unwrap().unwrap();
-    let resgid = resgid.effective.as_raw();
-    let resuid = resuid.effective.as_raw();
+pub fn raise_privileges() {
+    let root_user = User::from_uid(Uid::from_raw(0)).unwrap().unwrap();
 
-    set_egid(resgid);
-    set_euid(resuid);
-    set_initgroups(&root_user, resgid);
+    set_egid(0);
+    set_euid(0);
+    set_initgroups(&root_user, 0);
 }
 
 pub fn get_resuid() -> nix::unistd::ResUid {

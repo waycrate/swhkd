@@ -102,7 +102,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let mut hotkeys = load_config();
 
     // Escalate back to the root user after reading the config file.
-    perms::raise_privileges(root_resgid, root_resuid);
+    perms::raise_privileges();
 
     log::trace!("Attempting to find all keyboard file descriptors.");
     let keyboard_devices: Vec<Device> =
