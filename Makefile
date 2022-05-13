@@ -3,7 +3,8 @@ SERVER_BINARY := swhks
 BUILDFLAGS := --release
 POLKIT_DIR := /usr/share/polkit-1/actions
 POLKIT_POLICY_FILE := com.github.swhkd.pkexec.policy
-TARGET_DIR := /usr/bin # Remember to edit this in policy file too if you do change it.
+# Remember to edit the TARGET_DIR in policy file too if you do change it.
+TARGET_DIR := /usr/bin
 VERSION=$(shell awk -F ' = ' '$$1 ~ /version/ { gsub(/["]/, "", $$2); printf("%s",$$2) }' Cargo.toml)
 
 all: build
