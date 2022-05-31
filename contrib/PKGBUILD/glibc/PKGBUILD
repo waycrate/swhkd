@@ -3,7 +3,7 @@
 
 pkgname='swhkd-git'
 _pkgname="swhkd"
-pkgver=1.1.7.480.ge4a1a89
+pkgver=1
 pkgrel=1
 arch=('x86_64')
 url="https://github.com/waycrate/swhkd"

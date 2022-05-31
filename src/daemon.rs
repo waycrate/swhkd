@@ -69,9 +69,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     setup_swhkd(invoking_uid);
 
-    let root_resuid = perms::get_resuid();
-    let root_resgid = perms::get_resgid();
-
     let load_config = || {
         // Drop privileges to the invoking user.
         perms::drop_privileges(invoking_uid);
