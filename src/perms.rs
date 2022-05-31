@@ -18,26 +18,6 @@ pub fn raise_privileges() {
     set_initgroups(&root_user, 0);
 }
 
-pub fn get_resuid() -> nix::unistd::ResUid {
-    match nix::unistd::getresuid() {
-        Ok(resuid) => resuid,
-        Err(e) => {
-            log::error!("Failed to get RESUID: {:#?}", e);
-            exit(1);
-        }
-    }
-}
-
-pub fn get_resgid() -> nix::unistd::ResGid {
-    match nix::unistd::getresgid() {
-        Ok(resgid) => resgid,
-        Err(e) => {
-            log::error!("Failed to get RESGID: {:#?}", e);
-            exit(1);
-        }
-    }
-}
-
 fn set_initgroups(user: &nix::unistd::User, gid: u32) {
     let gid = Gid::from_raw(gid);
     match nix::unistd::initgroups(&user.gecos, gid) {
