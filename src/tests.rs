@@ -44,7 +44,9 @@ mod test_config {
             panic!("Expected Ok config, found Err {:?}", result.unwrap_err());
         }
 
-        let actual_hotkeys = result.unwrap();
+        let result = result.unwrap();
+        let actual_hotkeys = result.0;
+        println!("unbinds: {:?}", result.1);
 
         assert_eq!(actual_hotkeys.len(), expected_hotkeys_mut.len());
 
@@ -156,8 +158,8 @@ super + c
         assert_eq!(
             hotkeys.unwrap(),
             vec!(
-                Hotkey::new(evdev::Key::KEY_B, vec![Modifier::Super], String::from("firefox")),
-                Hotkey::new(evdev::Key::KEY_C, vec![Modifier::Super], String::from("hello"))
+                Hotkey::new(evdev::Key::KEY_C, vec![Modifier::Super], String::from("hello")),
+                Hotkey::new(evdev::Key::KEY_B, vec![Modifier::Super], String::from("firefox"))
             )
         );
         Ok(())
@@ -186,8 +188,8 @@ super + c
         assert_eq!(
             hotkeys.unwrap(),
             vec!(
-                Hotkey::new(evdev::Key::KEY_B, vec![Modifier::Super], String::from("firefox")),
-                Hotkey::new(evdev::Key::KEY_C, vec![Modifier::Super], String::from("hello"))
+                Hotkey::new(evdev::Key::KEY_C, vec![Modifier::Super], String::from("hello")),
+                Hotkey::new(evdev::Key::KEY_B, vec![Modifier::Super], String::from("firefox"))
             )
         );
         Ok(())
@@ -235,10 +237,42 @@ d
         assert_eq!(
             hotkeys,
             vec!(
-                Hotkey::new(evdev::Key::KEY_D, vec![], String::from("d")),
                 Hotkey::new(evdev::Key::KEY_C, vec![], String::from("c")),
                 Hotkey::new(evdev::Key::KEY_A, vec![], String::from("a")),
                 Hotkey::new(evdev::Key::KEY_B, vec![], String::from("b")),
+                Hotkey::new(evdev::Key::KEY_D, vec![], String::from("d")),
+            )
+        );
+        Ok(())
+    }
+    #[test]
+    fn test_include_and_unbind() -> std::io::Result<()> {
+        let setup = TestPath::new("/tmp/swhkd-test-file8");
+        let mut f = File::create(setup.path())?;
+        f.write_all(
+            b"
+include /tmp/swhkd-test-file9
+super + b
+   firefox
+ignore super + d",
+        )?;
+
+        let setup2 = TestPath::new("/tmp/swhkd-test-file9");
+        let mut f2 = File::create(setup2.path())?;
+        f2.write_all(
+            b"
+super + c
+    hello
+super + d
+    world",
+        )?;
+
+        let hotkeys = load(&setup.path());
+        assert_eq!(
+            hotkeys.unwrap(),
+            vec!(
+                Hotkey::new(evdev::Key::KEY_C, vec![Modifier::Super], String::from("hello")),
+                Hotkey::new(evdev::Key::KEY_B, vec![Modifier::Super], String::from("firefox"))
             )
         );
         Ok(())
@@ -658,9 +692,9 @@ B
                 Hotkey::new(
                     evdev::Key::KEY_A,
                     vec![Modifier::Super, Modifier::Shift],
-                    "st".to_string(),
+                    "ts".to_string(),
                 ),
-                Hotkey::new(evdev::Key::KEY_B, vec![], "st".to_string()),
+                Hotkey::new(evdev::Key::KEY_B, vec![], "ts".to_string()),
             ],
         )
     }
@@ -1133,6 +1167,19 @@ super + @~4
                     .on_release()
                     .send(),
             ],
+        )
+    }
+
+    #[test]
+    fn test_override() -> std::io::Result<()> {
+        let contents = "
+super + a
+    1
+super + a
+    2";
+        eval_config_test(
+            contents,
+            vec![Hotkey::new(evdev::Key::KEY_A, vec![Modifier::Super], "2".to_string())],
         )
     }
 }

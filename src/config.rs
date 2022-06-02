@@ -60,6 +60,7 @@ impl fmt::Display for Error {
 }
 
 pub const IMPORT_STATEMENT: &str = "include";
+pub const UNBIND_STATEMENT: &str = "ignore";
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Config {
@@ -102,7 +103,8 @@ impl Config {
         Ok(configs)
     }
 
-    pub fn load_and_merge(mut configs: Vec<Self>) -> Result<Vec<Self>, Error> {
+    pub fn load_and_merge(config: Self) -> Result<Vec<Self>, Error> {
+        let mut configs = vec![config];
         let mut prev_count = 0;
         let mut current_count = configs.len();
         while prev_count != current_count {
@@ -121,14 +123,27 @@ impl Config {
 }
 
 pub fn load(path: &Path) -> Result<Vec<Hotkey>, Error> {
-    let mut hotkeys = Vec::new();
-    let configs = vec![Config::new(path)?];
-    for config in Config::load_and_merge(configs)? {
-        for hotkey in parse_contents(path.to_path_buf(), config.contents)? {
-            if !hotkeys.contains(&hotkey) {
-                hotkeys.push(hotkey);
+    let mut hotkeys: Vec<Hotkey> = Vec::new();
+    let mut unbinds: Vec<KeyBinding> = Vec::new();
+    let config_self = Config::new(path)?;
+    let mut configs: Vec<Config> = Config::load_and_merge(config_self.clone())?;
+    configs.push(config_self);
+    for config in configs {
+        let output = parse_contents(path.to_path_buf(), config.contents)?;
+        let hotkey = output.0;
+        let unbind = output.1;
+        for hk in hotkey {
+            hotkeys.retain(|x| x.keybinding != hk.keybinding);
+            hotkeys.push(hk);
+        }
+        for ub in unbind {
+            if !unbinds.contains(&ub) {
+                unbinds.push(ub);
             }
         }
+    }
+    for i in unbinds {
+        hotkeys.retain(|hk| hk.keybinding != i);
     }
     Ok(hotkeys)
 }
@@ -249,7 +264,10 @@ impl Value for &Hotkey {
     }
 }
 
-pub fn parse_contents(path: PathBuf, contents: String) -> Result<Vec<Hotkey>, Error> {
+pub fn parse_contents(
+    path: PathBuf,
+    contents: String,
+) -> Result<(Vec<Hotkey>, Vec<KeyBinding>), Error> {
     let key_to_evdev_key: HashMap<&str, evdev::Key> = HashMap::from([
         ("q", evdev::Key::KEY_Q),
         ("w", evdev::Key::KEY_W),
@@ -411,6 +429,8 @@ pub fn parse_contents(path: PathBuf, contents: String) -> Result<Vec<Hotkey>, Er
 
     let lines: Vec<&str> = contents.split('\n').collect();
 
+    let mut unbind: Vec<KeyBinding> = Vec::new();
+
     // Go through each line, ignore comments and empty lines, mark lines starting with whitespace
     // as commands, and mark the other lines as keysyms. Mark means storing a line's type and the
     // line number in a vector.
@@ -424,6 +444,8 @@ pub fn parse_contents(path: PathBuf, contents: String) -> Result<Vec<Hotkey>, Er
         }
         if line.starts_with(' ') || line.starts_with('\t') {
             lines_with_types.push(("command", line_number as u32));
+        } else if line.starts_with(UNBIND_STATEMENT) {
+            lines_with_types.push(("unbind", line_number as u32));
         } else {
             lines_with_types.push(("keysym", line_number as u32));
         }
@@ -431,7 +453,7 @@ pub fn parse_contents(path: PathBuf, contents: String) -> Result<Vec<Hotkey>, Er
 
     // Edge case: return a blank vector if no lines detected
     if lines_with_types.is_empty() {
-        return Ok(vec![]);
+        return Ok((vec![], vec![]));
     }
 
     let mut actual_lines: Vec<(&str, u32, String)> = Vec::new();
@@ -484,6 +506,17 @@ pub fn parse_contents(path: PathBuf, contents: String) -> Result<Vec<Hotkey>, Er
         let line_number = item.1;
         let line = &item.2;
 
+        if line_type == "unbind" {
+            let to_unbind = line.trim_start_matches(UNBIND_STATEMENT).trim();
+            unbind.push(parse_keybind(
+                path.clone(),
+                to_unbind,
+                line_number + 1,
+                &key_to_evdev_key,
+                &mod_to_mod_enum,
+            )?);
+        }
+
         if line_type != "keysym" {
             continue;
         }
@@ -501,7 +534,7 @@ pub fn parse_contents(path: PathBuf, contents: String) -> Result<Vec<Hotkey>, Er
         let extracted_keys = extract_curly_brace(line);
         let extracted_commands = extract_curly_brace(&next_line.2);
 
-        'hotkey_parse: for (key, command) in extracted_keys.iter().zip(extracted_commands.iter()) {
+        for (key, command) in extracted_keys.iter().zip(extracted_commands.iter()) {
             let keybinding = parse_keybind(
                 path.clone(),
                 key,
@@ -511,18 +544,13 @@ pub fn parse_contents(path: PathBuf, contents: String) -> Result<Vec<Hotkey>, Er
             )?;
             let hotkey = Hotkey::from_keybinding(keybinding, command.to_string());
 
-            // Ignore duplicate hotkeys
-            for i in hotkeys.iter() {
-                if i.keybinding == hotkey.keybinding {
-                    continue 'hotkey_parse;
-                }
-            }
-
+            // Override latter
+            hotkeys.retain(|h| h.keybinding != hotkey.keybinding);
             hotkeys.push(hotkey);
         }
     }
 
-    Ok(hotkeys)
+    Ok((hotkeys, unbind))
 }
 
 // We need to get the reference to key_to_evdev_key
