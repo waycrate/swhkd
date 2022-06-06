@@ -81,7 +81,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
         log::debug!("Using config file path: {:#?}", config_file_path);
 
-        let hotkeys = match config::load(&config_file_path) {
+        let modes = match config::load(&config_file_path) {
             Err(e) => {
                 log::error!("Config Error: {}", e);
                 exit(1);
@@ -89,14 +89,58 @@ async fn main() -> Result<(), Box<dyn Error>> {
             Ok(out) => out,
         };
 
-        for hotkey in &hotkeys {
-            log::debug!("hotkey: {:#?}", hotkey);
-        }
+        // for hotkey in &hotkeys {
+        //     log::debug!("hotkey: {:#?}", hotkey);
+        // }
 
-        hotkeys
+        println!("{:#?}", modes);
+        modes
     };
 
-    let mut hotkeys = load_config();
+    let mut modes = load_config();
+    let mut mode_stack: Vec<usize> = vec![0];
+
+    macro_rules! send_command {
+        ($hotkey: expr, $socket_path: expr) => {
+            log::info!("Hotkey pressed: {:#?}", $hotkey);
+            let command = $hotkey.command;
+            let mut commands_to_send = String::new();
+            if command.contains('@') {
+                let commands = command.split("&&").map(|s| s.trim()).collect::<Vec<_>>();
+                for cmd in commands {
+                    match cmd.split(' ').next().unwrap() {
+                        config::MODE_ENTER_STATEMENT => {
+                            let enter_mode = cmd.split(' ').nth(1).unwrap();
+                            for (i, mode) in modes.iter().enumerate() {
+                                if mode.name == enter_mode {
+                                    mode_stack.push(i);
+                                    break;
+                                }
+                            }
+                            log::info!(
+                                "Entering mode: {}",
+                                modes[mode_stack[mode_stack.len() - 1]].name
+                            );
+                        }
+                        config::MODE_ESCAPE_STATEMENT => {
+                            mode_stack.pop();
+                        }
+                        _ => commands_to_send.push_str(&format!("{} && ", cmd)),
+                    }
+                }
+            } else {
+                commands_to_send = command;
+            }
+            if commands_to_send.ends_with("&& ") {
+                commands_to_send = commands_to_send.strip_suffix("&& ").unwrap().to_string();
+            }
+            if let Err(e) = socket_write(&commands_to_send, $socket_path.to_path_buf()) {
+                log::error!("Failed to send command to swhks through IPC.");
+                log::error!("Please make sure that swhks is running.");
+                log::error!("Err: {:#?}", e)
+            }
+        };
+    }
 
     // Escalate back to the root user after reading the config file.
     perms::raise_privileges();
@@ -166,7 +210,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 if hotkey.keybinding.on_release {
                     continue;
                 }
-                send_command(hotkey.clone(), &socket_file_path);
+                send_command!(hotkey.clone(), &socket_file_path);
                 hotkey_repeat_timer.as_mut().reset(Instant::now() + Duration::from_millis(repeat_cooldown_duration));
             }
 
@@ -187,7 +231,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     }
 
                     SIGHUP => {
-                        hotkeys = load_config();
+                        modes = load_config();
+                        mode_stack = vec![0];
                     }
 
                     SIGINT => {
@@ -232,7 +277,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     0 => {
                         if last_hotkey.is_some() && pending_release {
                             pending_release = false;
-                            send_command(last_hotkey.clone().unwrap(), &socket_file_path);
+                            send_command!(last_hotkey.clone().unwrap(), &socket_file_path);
                             last_hotkey = None;
                         }
                         if let Some(modifier) = modifiers_map.get(&key) {
@@ -255,11 +300,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     _ => {}
                 }
 
-                let possible_hotkeys: Vec<&config::Hotkey> = hotkeys.iter()
+                let possible_hotkeys: Vec<&config::Hotkey> = modes[mode_stack[mode_stack.len() - 1]].hotkeys.iter()
                     .filter(|hotkey| hotkey.modifiers().len() == keyboard_state.state_modifiers.len())
                     .collect();
 
-                let event_in_hotkeys = hotkeys.iter().any(|hotkey| {
+                let event_in_hotkeys = modes[mode_stack[mode_stack.len() - 1]].hotkeys.iter().any(|hotkey| {
                     hotkey.keysym().code() == event.code() &&
                     keyboard_state.state_modifiers
                         .iter()
@@ -293,7 +338,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                             pending_release = true;
                             break;
                         }
-                        send_command(hotkey.clone(), &socket_file_path);
+                        send_command!(hotkey.clone(), &socket_file_path);
                         hotkey_repeat_timer.as_mut().reset(Instant::now() + Duration::from_millis(repeat_cooldown_duration));
                         break;
                     }
@@ -307,15 +352,6 @@ fn socket_write(command: &str, socket_path: PathBuf) -> std::io::Result<()> {
     let mut stream = UnixStream::connect(socket_path)?;
     stream.write_all(command.as_bytes())?;
     Ok(())
-}
-
-fn send_command(hotkey: config::Hotkey, socket_path: &Path) {
-    log::info!("Hotkey pressed: {:#?}", hotkey);
-    if let Err(e) = socket_write(&hotkey.command, socket_path.to_path_buf()) {
-        log::error!("Failed to send command to swhks through IPC.");
-        log::error!("Please make sure that swhks is running.");
-        log::error!("Err: {:#?}", e)
-    }
 }
 
 pub fn check_input_group() -> Result<(), Box<dyn std::error::Error>> {
