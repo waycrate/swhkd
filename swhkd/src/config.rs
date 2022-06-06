@@ -60,6 +60,11 @@ impl fmt::Display for Error {
 }
 
 pub const IMPORT_STATEMENT: &str = "include";
+pub const UNBIND_STATEMENT: &str = "ignore";
+pub const MODE_STATEMENT: &str = "mode";
+pub const MODE_END_STATEMENT: &str = "endmode";
+pub const MODE_ENTER_STATEMENT: &str = "@enter";
+pub const MODE_ESCAPE_STATEMENT: &str = "@escape";
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Config {
@@ -102,7 +107,8 @@ impl Config {
         Ok(configs)
     }
 
-    pub fn load_and_merge(mut configs: Vec<Self>) -> Result<Vec<Self>, Error> {
+    pub fn load_and_merge(config: Self) -> Result<Vec<Self>, Error> {
+        let mut configs = vec![config];
         let mut prev_count = 0;
         let mut current_count = configs.len();
         while prev_count != current_count {
@@ -120,17 +126,28 @@ impl Config {
     }
 }
 
-pub fn load(path: &Path) -> Result<Vec<Hotkey>, Error> {
-    let mut hotkeys = Vec::new();
-    let configs = vec![Config::new(path)?];
-    for config in Config::load_and_merge(configs)? {
-        for hotkey in parse_contents(path.to_path_buf(), config.contents)? {
-            if !hotkeys.contains(&hotkey) {
-                hotkeys.push(hotkey);
-            }
+pub fn load(path: &Path) -> Result<Vec<Mode>, Error> {
+    let config_self = Config::new(path)?;
+    let mut configs: Vec<Config> = Config::load_and_merge(config_self.clone())?;
+    configs.remove(0);
+    configs.push(config_self);
+    let mut modes: Vec<Mode> = vec![Mode::default()];
+    for config in configs {
+        let mut output = parse_contents(path.to_path_buf(), config.contents)?;
+        for hotkey in output[0].hotkeys.drain(..) {
+            modes[0].hotkeys.retain(|hk| hk.keybinding != hotkey.keybinding);
+            modes[0].hotkeys.push(hotkey);
+        }
+        for unbind in output[0].unbinds.drain(..) {
+            modes[0].hotkeys.retain(|hk| hk.keybinding != unbind);
+        }
+        output.remove(0);
+        for mut mode in output {
+            mode.hotkeys.retain(|x| !mode.unbinds.contains(&x.keybinding));
+            modes.push(mode);
         }
     }
-    Ok(hotkeys)
+    Ok(modes)
 }
 
 #[derive(Debug, Clone)]
@@ -211,6 +228,7 @@ pub enum Modifier {
     Alt,
     Control,
     Shift,
+    Any,
 }
 
 impl Hotkey {
@@ -249,7 +267,24 @@ impl Value for &Hotkey {
     }
 }
 
-pub fn parse_contents(path: PathBuf, contents: String) -> Result<Vec<Hotkey>, Error> {
+#[derive(Debug, Clone, PartialEq)]
+pub struct Mode {
+    pub name: String,
+    pub hotkeys: Vec<Hotkey>,
+    pub unbinds: Vec<KeyBinding>,
+}
+
+impl Mode {
+    pub fn new(name: String) -> Self {
+        Mode { name, hotkeys: Vec::new(), unbinds: Vec::new() }
+    }
+
+    pub fn default() -> Self {
+        Self::new("normal".to_string())
+    }
+}
+
+pub fn parse_contents(path: PathBuf, contents: String) -> Result<Vec<Mode>, Error> {
     // Don't forget to update valid key list on the man page if you do change this list.
     let key_to_evdev_key: HashMap<&str, evdev::Key> = HashMap::from([
         ("q", evdev::Key::KEY_Q),
@@ -409,9 +444,12 @@ pub fn parse_contents(path: PathBuf, contents: String) -> Result<Vec<Hotkey>, Er
         ("alt", Modifier::Alt),
         ("mod1", Modifier::Alt),
         ("shift", Modifier::Shift),
+        ("any", Modifier::Any),
     ]);
 
     let lines: Vec<&str> = contents.split('\n').collect();
+    let mut modes: Vec<Mode> = vec![Mode::default()];
+    let mut current_mode: usize = 0;
 
     // Go through each line, ignore comments and empty lines, mark lines starting with whitespace
     // as commands, and mark the other lines as keysyms. Mark means storing a line's type and the
@@ -426,6 +464,12 @@ pub fn parse_contents(path: PathBuf, contents: String) -> Result<Vec<Hotkey>, Er
         }
         if line.starts_with(' ') || line.starts_with('\t') {
             lines_with_types.push(("command", line_number as u32));
+        } else if line.starts_with(UNBIND_STATEMENT) {
+            lines_with_types.push(("unbind", line_number as u32));
+        } else if line.starts_with(MODE_STATEMENT) {
+            lines_with_types.push(("modestart", line_number as u32));
+        } else if line.starts_with(MODE_END_STATEMENT) {
+            lines_with_types.push(("modeend", line_number as u32));
         } else {
             lines_with_types.push(("keysym", line_number as u32));
         }
@@ -433,7 +477,7 @@ pub fn parse_contents(path: PathBuf, contents: String) -> Result<Vec<Hotkey>, Er
 
     // Edge case: return a blank vector if no lines detected
     if lines_with_types.is_empty() {
-        return Ok(vec![]);
+        return Ok(modes);
     }
 
     let mut actual_lines: Vec<(&str, u32, String)> = Vec::new();
@@ -479,12 +523,31 @@ pub fn parse_contents(path: PathBuf, contents: String) -> Result<Vec<Hotkey>, Er
 
     drop(lines);
 
-    let mut hotkeys: Vec<Hotkey> = Vec::new();
-
     for (i, item) in actual_lines.iter().enumerate() {
         let line_type = item.0;
         let line_number = item.1;
         let line = &item.2;
+
+        if line_type == "unbind" {
+            let to_unbind = line.trim_start_matches(UNBIND_STATEMENT).trim();
+            modes[current_mode].unbinds.push(parse_keybind(
+                path.clone(),
+                to_unbind,
+                line_number + 1,
+                &key_to_evdev_key,
+                &mod_to_mod_enum,
+            )?);
+        }
+
+        if line_type == "modestart" {
+            let modename = line.split(' ').nth(1).unwrap();
+            modes.push(Mode::new(modename.to_string()));
+            current_mode = modes.len() - 1;
+        }
+
+        if line_type == "modeend" {
+            current_mode = 0;
+        }
 
         if line_type != "keysym" {
             continue;
@@ -503,7 +566,7 @@ pub fn parse_contents(path: PathBuf, contents: String) -> Result<Vec<Hotkey>, Er
         let extracted_keys = extract_curly_brace(line);
         let extracted_commands = extract_curly_brace(&next_line.2);
 
-        'hotkey_parse: for (key, command) in extracted_keys.iter().zip(extracted_commands.iter()) {
+        for (key, command) in extracted_keys.iter().zip(extracted_commands.iter()) {
             let keybinding = parse_keybind(
                 path.clone(),
                 key,
@@ -513,18 +576,13 @@ pub fn parse_contents(path: PathBuf, contents: String) -> Result<Vec<Hotkey>, Er
             )?;
             let hotkey = Hotkey::from_keybinding(keybinding, command.to_string());
 
-            // Ignore duplicate hotkeys
-            for i in hotkeys.iter() {
-                if i.keybinding == hotkey.keybinding {
-                    continue 'hotkey_parse;
-                }
-            }
-
-            hotkeys.push(hotkey);
+            // Override latter
+            modes[current_mode].hotkeys.retain(|h| h.keybinding != hotkey.keybinding);
+            modes[current_mode].hotkeys.push(hotkey);
         }
     }
 
-    Ok(hotkeys)
+    Ok(modes)
 }
 
 // We need to get the reference to key_to_evdev_key
