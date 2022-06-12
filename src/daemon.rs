@@ -84,7 +84,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         let modes = match config::load(&config_file_path) {
             Err(e) => {
                 log::error!("Config Error: {}", e);
-                exit(1);
+                exit(1)
             }
             Ok(out) => out,
         };
@@ -93,7 +93,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
         //     log::debug!("hotkey: {:#?}", hotkey);
         // }
 
-        println!("{:#?}", modes);
         modes
     };
 
