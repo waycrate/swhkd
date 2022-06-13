@@ -20,7 +20,6 @@ pub enum ParseError {
     UnknownSymbol(PathBuf, u32),
     InvalidModifier(PathBuf, u32),
     InvalidKeysym(PathBuf, u32),
-    EndOfModeNotFound(PathBuf, String),
 }
 
 impl From<std::io::Error> for Error {
@@ -53,11 +52,6 @@ impl fmt::Display for Error {
                 ParseError::InvalidModifier(path, line_nr) => format!(
                     "Error parsing config file {:?}. Invalid modifier at line {}.",
                     path, line_nr
-                )
-                .fmt(f),
-                ParseError::EndOfModeNotFound(path, mode_name) => format!(
-                    "Error parsing config file {:?}. End of mode {} not found.",
-                    path, mode_name
                 )
                 .fmt(f),
             },
@@ -588,14 +582,7 @@ pub fn parse_contents(path: PathBuf, contents: String) -> Result<Vec<Mode>, Erro
         }
     }
 
-    if current_mode != 0 {
-        Err(Error::InvalidConfig(ParseError::EndOfModeNotFound(
-            path,
-            modes[current_mode].name.to_owned(),
-        )))
-    } else {
-        Ok(modes)
-    }
+    Ok(modes)
 }
 
 // We need to get the reference to key_to_evdev_key
