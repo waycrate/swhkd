@@ -1145,8 +1145,8 @@ any + a
             contents,
             vec![Hotkey::new(evdev::Key::KEY_A, vec![Modifier::Any], "1".to_string())],
         )
-    
-}}
+    }
+}
 
 mod test_config_display {
     use crate::config::{Error, ParseError};
