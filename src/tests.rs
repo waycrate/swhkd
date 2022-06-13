@@ -1135,7 +1135,18 @@ super + @~4
             ],
         )
     }
-}
+
+    #[test]
+    fn test_any_modifier() -> std::io::Result<()> {
+        let contents = "
+any + a
+    1";
+        eval_config_test(
+            contents,
+            vec![Hotkey::new(evdev::Key::KEY_A, vec![Modifier::Any], "1".to_string())],
+        )
+    
+}}
 
 mod test_config_display {
     use crate::config::{Error, ParseError};
