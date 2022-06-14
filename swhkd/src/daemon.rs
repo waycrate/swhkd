@@ -305,10 +305,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
                 let event_in_hotkeys = modes[mode_stack[mode_stack.len() - 1]].hotkeys.iter().any(|hotkey| {
                     hotkey.keysym().code() == event.code() &&
-                    keyboard_state.state_modifiers
+                        (keyboard_state.state_modifiers.len() != 0 && hotkey.modifiers().contains(&config::Modifier::Any) || keyboard_state.state_modifiers
                         .iter()
                         .all(|x| hotkey.modifiers().contains(x)) &&
-                    keyboard_state.state_modifiers.len() == hotkey.modifiers().len()
+                    keyboard_state.state_modifiers.len() == hotkey.modifiers().len())
                     && !hotkey.is_send()
                         });
 
@@ -327,8 +327,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
                 for hotkey in possible_hotkeys {
                     // this should check if state_modifiers and hotkey.modifiers have the same elements
-                    if keyboard_state.state_modifiers.iter().all(|x| hotkey.modifiers().contains(x))
-                        && keyboard_state.state_modifiers.len() == hotkey.modifiers().len()
+                    if (keyboard_state.state_modifiers.len() != 0 && hotkey.modifiers().contains(&config::Modifier::Any) || keyboard_state.state_modifiers.iter().all(|x| hotkey.modifiers().contains(x))
+                        && keyboard_state.state_modifiers.len() == hotkey.modifiers().len())
                         && keyboard_state.state_keysyms.contains(hotkey.keysym())
                     {
                         last_hotkey = Some(hotkey.clone());
