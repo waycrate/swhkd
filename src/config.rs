@@ -228,6 +228,7 @@ pub enum Modifier {
     Alt,
     Control,
     Shift,
+    Any,
 }
 
 impl Hotkey {
@@ -441,6 +442,7 @@ pub fn parse_contents(path: PathBuf, contents: String) -> Result<Vec<Mode>, Erro
         ("alt", Modifier::Alt),
         ("mod1", Modifier::Alt),
         ("shift", Modifier::Shift),
+        ("any", Modifier::Any),
     ]);
 
     let lines: Vec<&str> = contents.split('\n').collect();
