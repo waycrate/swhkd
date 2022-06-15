@@ -1,4 +1,4 @@
-swhks(1) "github.com/shinyzenith/swhks" "General Commands Manual"
+swhks(1) "github.com/shinyzenith/swhkd" "General Commands Manual"
 
 # NAME
 
