@@ -101,9 +101,27 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // Escalate back to the root user after reading the config file.
     perms::raise_privileges();
 
-    log::trace!("Attempting to find all keyboard file descriptors.");
-    let keyboard_devices: Vec<Device> =
-        evdev::enumerate().filter(check_device_is_keyboard).collect();
+    let mut keyboard_devices: Vec<Device> = Vec::new();
+
+    if let Some(arg_devices) = args.values_of("device") {
+        for device in arg_devices {
+            let device_path = Path::new(device);
+            if let Ok(device_to_use) = Device::open(device_path) {
+                log::info!("Using device: {}", device_to_use.name().unwrap_or(device));
+                keyboard_devices.push(device_to_use);
+            }
+        }
+    } else {
+        log::trace!("Attempting to find all keyboard file descriptors.");
+        keyboard_devices = evdev::enumerate().filter(check_device_is_keyboard).collect();
+    }
+
+    if keyboard_devices.is_empty() {
+        log::error!("No valid keyboard device was detected!");
+        exit(1);
+    }
+
+    log::debug!("{} Keyboard device(s) detected.", keyboard_devices.len());
 
     let mut uinput_device = match uinput::create_uinput_device() {
         Ok(dev) => dev,
@@ -112,12 +130,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
             exit(1);
         }
     };
-
-    if keyboard_devices.is_empty() {
-        log::error!("No valid keyboard device was detected!");
-        exit(1);
-    }
-    log::debug!("{} Keyboard device(s) detected.", keyboard_devices.len());
 
     let modifiers_map: HashMap<Key, config::Modifier> = HashMap::from([
         (Key::KEY_LEFTMETA, config::Modifier::Super),
@@ -368,7 +380,16 @@ pub fn set_command_line_args() -> Command<'static> {
                 .takes_value(true)
                 .help("Set a custom repeat cooldown duration. Default is 250ms."),
         )
-        .arg(arg!(-d - -debug).required(false).help("Enable debug mode."));
+        .arg(arg!(-d - -debug).required(false).help("Enable debug mode."))
+        .arg(
+            arg!(-D --device <DEVICE_NAME>)
+                .required(false)
+                .takes_value(true)
+                .multiple_occurrences(true)
+                .help(
+                    "Specific keyboard devices to use. Seperate multiple devices with semicolon.",
+                ),
+        );
     app
 }
 
