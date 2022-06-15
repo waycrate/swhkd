@@ -1,15 +1,15 @@
 ---
 name: Bug report
 about: swhkd bugs
-title: ''
+title: ""
 labels: bug
-assignees: UnsignedArduino, angelofallars, Shinyzenith, EdenQwQ
-
+assignees: angelofallars, Shinyzenith, EdenQwQ
 ---
 
 **Version Information:**
- - Distribution Information ( run `uname -a` )
- - swhkd version ( `swhkd -V` )
+
+- Distribution Information ( run `uname -a` )
+- swhkd version ( `swhkd -V` )
 
 **Describe the bug:**
 A clear and concise description of what the bug is.
