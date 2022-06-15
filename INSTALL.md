@@ -1,4 +1,5 @@
 # AUR:
+
 `swhkd-git` `swhkd-musl-git` have been packaged. `swhkd-bin` & `swhkd-musl-bin` will be released soon.
 
 # Install
@@ -15,8 +16,10 @@
 
 **Compile time:**
 
--   rustup
+-   git
+-   scdoc
 -   make
+-   rustup
 
 # Compiling:
 
@@ -28,6 +31,7 @@
 -   `sudo make install`
 
 # Running:
+
 ```
 swhks &
 pkexec swhkd
