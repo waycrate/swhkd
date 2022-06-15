@@ -1,11 +1,11 @@
 <p align=center>
-  <img src="https://git.sr.ht/~shinyzenith/swhkd/blob/main/docs/assets/swhkd.png" alt=SWHKD width=60%>
-  
+  <img src="https://git.sr.ht/~shinyzenith/swhkd/blob/main/assets/swhkd.png" alt=SWHKD width=60%>
+
   <p align=center>A next-generation hotkey daemon for Wayland/X11 written in Rust.</p>
-  
+
   <p align="center">
   <a href="./LICENSE.md"><img src="https://img.shields.io/github/license/waycrate/swhkd?style=flat-square&logo=appveyor"></a>
-  <img src="https://img.shields.io/badge/cargo-v1.1.5-green?style=flat-square&logo=appveyor">
+  <img src="https://img.shields.io/badge/cargo-v1.2.0-green?style=flat-square&logo=appveyor">
   <img src="https://img.shields.io/github/issues/waycrate/swhkd?style=flat-square&logo=appveyor">
   <img src="https://img.shields.io/github/forks/waycrate/swhkd?style=flat-square&logo=appveyor">
   <img src="https://img.shields.io/github/stars/waycrate/swhkd?style=flat-square&logo=appveyor">
@@ -24,9 +24,7 @@ Because swhkd can be used anywhere, the same swhkd config can be used across Xor
 
 ## Installation:
 
-See [INSTALL.md](./docs/INSTALL.md) for installing swhkd.
-
-Note: `swhks` is not a typo, it is the server process of the program.
+[Installation instructions can be found here.](./INSTALL.md)
 
 ## Running:
 
@@ -39,9 +37,9 @@ pkexec swhkd
 
 After opening swhkd, you can control the program through signals:
 
-- `sudo pkill -USR1 swhkd` - Pause key checking
-- `sudo pkill -USR2 swhkd` - Resume key checking
-- `sudo pkill -HUP swhkd` - Reload config file
+-   `sudo pkill -USR1 swhkd` - Pause key checking
+-   `sudo pkill -USR2 swhkd` - Resume key checking
+-   `sudo pkill -HUP swhkd` - Reload config file
 
 ## Configuration:
 
@@ -53,7 +51,7 @@ If you use Vim, you can get swhkd config syntax highlighting with the
 [swhkd-vim](https://github.com/waycrate/swhkd-vim) plugin. Install it in
 vim-plug with `Plug 'waycrate/swhkd-vim'`.
 
-All supported key names are listed in the [following file.](https://github.com/waycrate/swhkd/blob/main/docs/KEYS.md)
+All supported key and modifier names are listed in `man 5 swhkd-keys`.
 
 ## Autostart:
 

@@ -285,6 +285,7 @@ impl Mode {
 }
 
 pub fn parse_contents(path: PathBuf, contents: String) -> Result<Vec<Mode>, Error> {
+    // Don't forget to update valid key list on the man page if you do change this list.
     let key_to_evdev_key: HashMap<&str, evdev::Key> = HashMap::from([
         ("q", evdev::Key::KEY_Q),
         ("w", evdev::Key::KEY_W),
@@ -434,6 +435,7 @@ pub fn parse_contents(path: PathBuf, contents: String) -> Result<Vec<Mode>, Erro
         ("f24", evdev::Key::KEY_F24),
     ]);
 
+    // Don't forget to update modifier list on the man page if you do change this list.
     let mod_to_mod_enum: HashMap<&str, Modifier> = HashMap::from([
         ("ctrl", Modifier::Control),
         ("control", Modifier::Control),
