@@ -1,6 +1,6 @@
 # AUR:
 
-`swhkd-git` `swhkd-musl-git` have been packaged. `swhkd-bin` & `swhkd-musl-bin` will be released soon.
+We have packaged `swhkd-git`. `swhkd-bin` has been packaged separately by a user of swhkd.
 
 # Install
 

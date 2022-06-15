@@ -22,6 +22,7 @@ For valid keys and modifiers, check *swhkd-keys(5)*
 
 ```
 # Import another configuration file.
+# NOTE: the path provided must be absolute and not relative such as `~`.
 include /home/YourUserName/.config/swhkd/swhkdrc
 
 # terminal
