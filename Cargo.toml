@@ -1,49 +1,12 @@
-[package]
-description = "Sxhkd clone for Wayland (works on TYY and X11 too)"
-edition = "2021"
-keywords = ["wayland", "hotkey", "evdev"]
-license = "BSD-2-Clause"
-name = "Simple-Wayland-HotKey-Daemon"
-repository = "https://git.sr.ht/~shinyzenith/swhkd"
-version = "1.2.0"
-authors = [
-	"Shinyzenith <aakashsensharma@gmail.com>\n",
-	"Angelo Fallaria <ba.fallaria@gmail.com>\n",
-	"EdenQwQ <lsahlm1eden@gmail.com>\n"
+[workspace]
+members = [
+	"swhkd",
+	"swhks"
 ]
-exclude = [
-    "CODE_OF_CONDUCT.md",
-    "CONTRIBUTING.md",
-    "LICENSE",
-	"contrib/*",
-	"target/*",
-	"bin/*",
-	"docs/*",
-	"release.sh",
-]
-
-[dependencies]
-clap = "3.1.6"
-env_logger = "0.9.0"
-evdev = { version = "0.11.4", features = ["tokio"] }
-itertools = "0.10.3"
-log = "0.4.14"
-nix = "0.23.1"
-signal-hook = "0.3.13"
-signal-hook-tokio = { version = "0.3.1", features = ["futures-v0_3"] }
-sysinfo = "0.23.5"
-tokio = { version = "1.17.0", features = ["full"] }
-tokio-stream = "0.1.8"
-
-[[bin]]
-name = "swhkd"
-path = "src/daemon.rs"
-
-[[bin]]
-name = "swhks"
-path = "src/server.rs"
 
 [profile.release]
 opt-level = 'z'     # Optimize for size.
+lto = true          # Enable Link Time Optimization
 codegen-units = 1   # Reduce number of codegen units to increase optimizations.
+panic = 'abort'     # Abort on panic
 strip = true        # Strip symbols from binary*
