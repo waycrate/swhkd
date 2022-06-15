@@ -29,8 +29,8 @@ install:
 	@mv $(DAEMON_BINARY).5.gz $(MAN5_DIR)
 	@mv $(DAEMON_BINARY)-keys.5.gz $(MAN5_DIR)
 	@touch /etc/$(DAEMON_BINARY)/$(DAEMON_BINARY)rc
-	@cp ./bin/$(DAEMON_BINARY) $(TARGET_DIR)
-	@cp ./bin/$(SERVER_BINARY) $(TARGET_DIR)
+	@cp ./target/release/$(DAEMON_BINARY) $(TARGET_DIR)
+	@cp ./target/release/$(SERVER_BINARY) $(TARGET_DIR)
 	@cp ./$(POLKIT_POLICY_FILE) $(POLKIT_DIR)/$(POLKIT_POLICY_FILE)
 	@chmod +x $(TARGET_DIR)/$(DAEMON_BINARY)
 	@chmod +x $(TARGET_DIR)/$(SERVER_BINARY)

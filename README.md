@@ -5,7 +5,7 @@
 
   <p align="center">
   <a href="./LICENSE.md"><img src="https://img.shields.io/github/license/waycrate/swhkd?style=flat-square&logo=appveyor"></a>
-  <img src="https://img.shields.io/badge/cargo-v1.1.5-green?style=flat-square&logo=appveyor">
+  <img src="https://img.shields.io/badge/cargo-v1.2.0-green?style=flat-square&logo=appveyor">
   <img src="https://img.shields.io/github/issues/waycrate/swhkd?style=flat-square&logo=appveyor">
   <img src="https://img.shields.io/github/forks/waycrate/swhkd?style=flat-square&logo=appveyor">
   <img src="https://img.shields.io/github/stars/waycrate/swhkd?style=flat-square&logo=appveyor">
@@ -37,9 +37,9 @@ pkexec swhkd
 
 After opening swhkd, you can control the program through signals:
 
-- `sudo pkill -USR1 swhkd` - Pause key checking
-- `sudo pkill -USR2 swhkd` - Resume key checking
-- `sudo pkill -HUP swhkd` - Reload config file
+-   `sudo pkill -USR1 swhkd` - Pause key checking
+-   `sudo pkill -USR2 swhkd` - Resume key checking
+-   `sudo pkill -HUP swhkd` - Reload config file
 
 ## Configuration:
 
