@@ -144,20 +144,24 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // Escalate back to the root user after reading the config file.
     perms::raise_privileges();
 
-    let mut keyboard_devices: Vec<Device> = Vec::new();
-
-    if let Some(arg_devices) = args.values_of("device") {
-        for device in arg_devices {
-            let device_path = Path::new(device);
-            if let Ok(device_to_use) = Device::open(device_path) {
-                log::info!("Using device: {}", device_to_use.name().unwrap_or(device));
-                keyboard_devices.push(device_to_use);
-            }
+    let keyboard_devices: Vec<Device> = {
+        if let Some(arg_devices) = args.values_of("device") {
+            // for device in arg_devices {
+            //     let device_path = Path::new(device);
+            //     if let Ok(device_to_use) = Device::open(device_path) {
+            //         log::info!("Using device: {}", device_to_use.name().unwrap_or(device));
+            //         keyboard_devices.push(device_to_use);
+            //     }
+            // }
+            let arg_devices = arg_devices.collect::<Vec<&str>>();
+            evdev::enumerate()
+                .filter(|device| arg_devices.contains(&device.name().unwrap_or("")))
+                .collect()
+        } else {
+            log::trace!("Attempting to find all keyboard file descriptors.");
+            evdev::enumerate().filter(check_device_is_keyboard).collect()
         }
-    } else {
-        log::trace!("Attempting to find all keyboard file descriptors.");
-        keyboard_devices = evdev::enumerate().filter(check_device_is_keyboard).collect();
-    }
+    };
 
     if keyboard_devices.is_empty() {
         log::error!("No valid keyboard device was detected!");
