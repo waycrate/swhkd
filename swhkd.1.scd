@@ -28,15 +28,18 @@ More about the config file syntax in `swhkd(5)`
 *-v*, *--version*
 	Print version information.
 
-*-c*, *--config*
+*-c*, *--config* <CONFIG_FILE_PATH>
 	Set a custom config file path.
 
-*-C*, *--cooldown*
+*-C*, *--cooldown* <COOLDOWN_IN_MS>
 	Set a custom repeat cooldown duration. Default is 250ms. Most wayland
 	compositors handle this server side however, either way works.
 
 *-d*, *--debug*
 	Enable debug mode.
+
+-D --device <DEVICE_NAME>
+	Manually set the keyboard devices to use. Can occur multiple times.
 
 # SIGNALS
 
