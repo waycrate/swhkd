@@ -14,9 +14,9 @@ The config file goes in */etc/swhkd/swhkdrc*. Since swhkd is written with a pkex
 *$XDG_CONFIG_HOME*.
 
 This can be avoided as such:
-	- Using the *include* statement in your config file
+	- Using the *include* statement in your config file.
 	- Using the *-c* flag to mention a custom config file at runtime.
-	- Symlinking the config file from *~/.config/swhkd/swhkdrc* or any other directory of choice to */etc/swhkd/swhkdrc*
+	- Symlinking the config file from *~/.config/swhkd/swhkdrc* or any other directory of choice to */etc/swhkd/swhkdrc*.
 
 More about the config file syntax in `swhkd(5)`
 

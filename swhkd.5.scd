@@ -25,6 +25,8 @@ For valid keys and modifiers, check *swhkd-keys(5)*
 # NOTE: the path provided must be absolute and not relative such as `~`.
 include /home/YourUserName/.config/swhkd/swhkdrc
 
+ignore alt + print # globally ignore a key binding
+
 # terminal
 super + ReTuRn # case insensitive
 	alacritty
@@ -63,7 +65,7 @@ super + {\,, .}
 print
 	scrot
 
-ctrl + print
+any + print # any represent at least one of the valid modifiers
 	scrot -s
 
 # Append with @ to run on key-release.
@@ -73,6 +75,24 @@ ctrl + print
 # Append with ~ to emit the hotkey after the command is triggered. Aka, don't swallow the hotkey.
 ~super + shift + f
 	pcmanfm
+
+super + m
+	# commands starting with @ are internal commands.
+	# internal commands can be combined with normal commands with '&&'.
+	# '@enter' pushes a mode into the mode stack and starts listening only the
+	# key bindings defined in that mode
+	@enter music && echo "music" > ~/.config/waybar/swhkd-mode
+
+mode music # use the mode statement to define a mode
+q
+	# '@escape' pops the current mode out of the mode stack
+	# the default mode is 'normal mode', which is always on the bottom of the mode
+	# stack and can never be escaped
+	@escape && echo "normal" > ~/.config/waybar/swhkd-mode
+{n, p, space, r, z, y}
+	mpc {next, prev, toggle, repeat, random, single}
+endmode # use endmode if you want to set more key bindings for normal mode
+
 ```
 # AUTHORS
 
