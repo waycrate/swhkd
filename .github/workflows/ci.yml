@@ -3,46 +3,58 @@ name: CI
 on: [push, pull_request]
 
 env:
-  CARGO_TERM_COLOR: always
+    CARGO_TERM_COLOR: always
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
+    build:
+        runs-on: ubuntu-latest
 
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v2
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v2
 
-      - name: Build
-        run: cargo build --release
+            - name: Build
+              run: cargo build --release
 
-  clippy:
-    runs-on: ubuntu-latest
+    clippy:
+        runs-on: ubuntu-latest
 
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v2
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v2
 
-      - name: Clippy
-        run: cargo clippy
+            - name: Clippy
+              run: cargo clippy
 
-  test:
-    runs-on: ubuntu-latest
+    test:
+        runs-on: ubuntu-latest
 
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v2
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v2
 
-      - name: Run tests
-        run: cargo test --verbose
+            - name: Run tests
+              run: cargo test --verbose
 
-  rustfmt:
-    runs-on: ubuntu-latest
+    documentation:
+        runs-on: ubuntu-latest
 
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v2
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v2
 
-      - name: Check formatting
-        run: |
-          cargo fmt -- --check
+            - name: Check documentation
+              run: |
+                  sudo apt update
+                  sudo apt install --no-install-recommends scdoc
+                  for file in $(find . -type f -iname "*.scd"); do scdoc < $file > /dev/null; done
+    rustfmt:
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v2
+
+            - name: Check formatting
+              run: |
+                  cargo fmt -- --check
