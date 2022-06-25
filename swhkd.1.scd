@@ -38,7 +38,7 @@ More about the config file syntax in `swhkd(5)`
 *-d*, *--debug*
 	Enable debug mode.
 
--D --device <DEVICE_NAME>
+*-D, --device* <DEVICE_NAME>
 	Manually set the keyboard devices to use. Can occur multiple times.
 
 # SIGNALS
