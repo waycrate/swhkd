@@ -63,8 +63,9 @@ pub const IMPORT_STATEMENT: &str = "include";
 pub const UNBIND_STATEMENT: &str = "ignore";
 pub const MODE_STATEMENT: &str = "mode";
 pub const MODE_END_STATEMENT: &str = "endmode";
-pub const MODE_ENTER_STATEMENT: &str = "@enter";
-pub const MODE_ESCAPE_STATEMENT: &str = "@escape";
+pub const LIST_ADD_STATEMENT: &str = "@add";
+pub const LIST_CLEAR_STATEMENT: &str = "@clear";
+pub const LIST_ONLY_STATEMENT: &str = "@only";
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Config {

@@ -97,7 +97,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     };
 
     let mut modes = load_config();
-    let mut mode_stack: Vec<usize> = vec![0];
+    let mut hotkeys = modes[0].hotkeys.to_owned();
 
     macro_rules! send_command {
         ($hotkey: expr, $socket_path: expr) => {
@@ -108,21 +108,26 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 let commands = command.split("&&").map(|s| s.trim()).collect::<Vec<_>>();
                 for cmd in commands {
                     match cmd.split(' ').next().unwrap() {
-                        config::MODE_ENTER_STATEMENT => {
-                            let enter_mode = cmd.split(' ').nth(1).unwrap();
-                            for (i, mode) in modes.iter().enumerate() {
-                                if mode.name == enter_mode {
-                                    mode_stack.push(i);
+                        config::LIST_ADD_STATEMENT => {
+                            let mode = cmd.split(' ').nth(1).unwrap();
+                            for i in &modes {
+                                if i.name == mode {
+                                    hotkeys.append(&mut i.hotkeys.to_owned());
                                     break;
                                 }
                             }
-                            log::info!(
-                                "Entering mode: {}",
-                                modes[mode_stack[mode_stack.len() - 1]].name
-                            );
                         }
-                        config::MODE_ESCAPE_STATEMENT => {
-                            mode_stack.pop();
+                        config::LIST_CLEAR_STATEMENT => {
+                            hotkeys = vec![];
+                        }
+                        config::LIST_ONLY_STATEMENT => {
+                            let mode = cmd.split(' ').nth(1).unwrap();
+                            for i in &modes {
+                                if i.name == mode {
+                                    hotkeys = i.hotkeys.to_owned();
+                                    break;
+                                }
+                            }
                         }
                         _ => commands_to_send.push_str(&format!("{} && ", cmd)),
                     }
@@ -247,7 +252,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
                     SIGHUP => {
                         modes = load_config();
-                        mode_stack = vec![0];
+                        hotkeys = modes[0].hotkeys.to_owned();
                     }
 
                     SIGINT => {
@@ -315,11 +320,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     _ => {}
                 }
 
-                let possible_hotkeys: Vec<&config::Hotkey> = modes[mode_stack[mode_stack.len() - 1]].hotkeys.iter()
+                let possible_hotkeys: Vec<&config::Hotkey> = hotkeys.iter()
                     .filter(|hotkey| hotkey.modifiers().len() == keyboard_state.state_modifiers.len())
                     .collect();
 
-                let event_in_hotkeys = modes[mode_stack[mode_stack.len() - 1]].hotkeys.iter().any(|hotkey| {
+                let event_in_hotkeys = hotkeys.iter().any(|hotkey| {
                     hotkey.keysym().code() == event.code() &&
                         (keyboard_state.state_modifiers.len() != 0 && hotkey.modifiers().contains(&config::Modifier::Any) || keyboard_state.state_modifiers
                         .iter()
