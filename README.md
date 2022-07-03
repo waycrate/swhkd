@@ -58,7 +58,7 @@ All supported key and modifier names are listed in `man 5 swhkd-keys`.
 ### To autostart swhkd you can do one of two things:
 
 1. Add the commands from the ["Running" section](https://github.com/waycrate/swhkd#running) to your window managers configuration file.
-1. Enable the [service file](https://github.com/waycrate/swhkd/tree/main/contrib/init) for your respective init system. Currently only systemd service files exist and more will be added soon including Runit and OpenRC.
+1. Enable the [service file](https://github.com/waycrate/swhkd/tree/main/contrib/init) for your respective init system. Currently only systemd and OpenRC service files exist and more will be added soon including Runit.
 
 ## Security:
 

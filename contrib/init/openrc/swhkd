@@ -1,0 +1,6 @@
+#!/sbin/openrc-run
+
+command="/usr/bin/swhkd"
+command_background=true
+pidfile="/run/${RC_SVCNAME}.pid"
+
