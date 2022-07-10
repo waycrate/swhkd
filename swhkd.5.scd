@@ -6,7 +6,7 @@ swhkd	- Hotkey daemon inspired by sxhkd written in rust
 
 # CONFIG FILE
 
-	- A global config can be defined in */etc/swhkd/swhkdrc*. Sniff attempts to look in your *$XDG_CONFIG_HOME*, failing which it defaults to *~/.config*.
+	- A global config can be defined in */etc/swhkd/swhkdrc*. Swhkd attempts to look in your *$XDG_CONFIG_HOME*, failing which it defaults to *~/.config*.
 	- A local config overrides the global one. Local configs should be placed in the root of the project.
 
 # SYNTAX
