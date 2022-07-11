@@ -6,7 +6,7 @@ swhks - Server for swhkd, used to run user level commands over IPC.
 
 # SYNOPSIS
 
-*swhks* [_flags_]
+*swhks*
 
 # AUTHORS
 
