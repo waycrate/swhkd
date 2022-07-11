@@ -105,18 +105,21 @@ fn run_system_command(command: &str) {
     unsafe {
         daemon(1, 0);
     }
-    match Command::new("sh")
-        .arg("-c")
-        .arg(command)
-        .stdin(Stdio::null())
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .spawn()
-    {
-        Ok(_) => {}
-        Err(e) => {
-            log::error!("Failed to execute {}", command);
-            log::error!("Error, {}", e);
+
+    let cmd = command.split("&&").collect::<Vec<&str>>();
+    for c in cmd {
+        let cmd_arr: Vec<&str> = c.split_whitespace().collect();
+        match Command::new(cmd_arr[0])
+            .args(&cmd_arr[1..])
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+        {
+            Ok(_) => {}
+            Err(e) => {
+                log::error!("Failed to execute {}", command);
+                log::error!("Error, {}", e);
+            }
         }
     }
 }
