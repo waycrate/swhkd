@@ -50,6 +50,9 @@ release:
 	@$(MAKE) -s
 	@zip -r "glibc-x86_64-$(VERSION).zip" ./target/release/swhkd ./target/release/swhks
 
+test:
+	@cargo test
+
 clean:
 	@cargo clean
 
