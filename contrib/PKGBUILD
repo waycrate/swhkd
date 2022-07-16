@@ -1,6 +1,6 @@
 # Maintainer: Aakash Sharma <aakashsensharma@gmail.com>
 # Contributor: Sergey A. <murlakatamenka@disroot.org>
-# Contributor: rv178
+# Contributor: rv178 <idliyout@gmail.com>
 
 _pkgname="swhkd"
 pkgname="${_pkgname}-git"
