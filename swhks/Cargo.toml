@@ -3,7 +3,7 @@ description = "Server for swhkd to run shell commands at invoking user level."
 edition = "2021"
 license = "BSD-2-Clause"
 name = "swhks"
-version = "1.2.0"
+version = "1.2.1"
 authors = [
 	"Shinyzenith <aakashsensharma@gmail.com>"
 ]
