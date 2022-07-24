@@ -89,10 +89,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
             Ok(out) => out,
         };
 
-        // for hotkey in &hotkeys {
-        //     log::debug!("hotkey: {:#?}", hotkey);
-        // }
-
         modes
     };
 
