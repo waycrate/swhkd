@@ -1,6 +1,6 @@
 use evdev::{
     uinput::{VirtualDevice, VirtualDeviceBuilder},
-    AttributeSet, Key,
+    AttributeSet, Key, RelativeAxisType,
 };
 
 pub fn create_uinput_device() -> Result<VirtualDevice, Box<dyn std::error::Error>> {
@@ -8,14 +8,21 @@ pub fn create_uinput_device() -> Result<VirtualDevice, Box<dyn std::error::Error
     for key in get_all_keys() {
         keys.insert(key);
     }
+
+    let mut relative_axes = AttributeSet::<RelativeAxisType>::new();
+    for axis in get_all_relative_axes() {
+        relative_axes.insert(axis);
+    }
+
     let device = VirtualDeviceBuilder::new()?
         .name("swhkd virtual output")
         .with_keys(&keys)?
+        .with_relative_axes(&relative_axes)?
         .build()
         .unwrap();
     Ok(device)
 }
-pub fn get_all_keys() -> Vec<evdev::Key> {
+pub fn get_all_keys() -> Vec<Key> {
     vec![
         evdev::Key::KEY_RESERVED,
         evdev::Key::KEY_ESC,
@@ -565,5 +572,23 @@ pub fn get_all_keys() -> Vec<evdev::Key> {
         evdev::Key::BTN_TRIGGER_HAPPY38,
         evdev::Key::BTN_TRIGGER_HAPPY39,
         evdev::Key::BTN_TRIGGER_HAPPY40,
+    ]
+}
+
+pub fn get_all_relative_axes() -> Vec<RelativeAxisType> {
+    vec![
+        RelativeAxisType::REL_X,
+        RelativeAxisType::REL_Y,
+        RelativeAxisType::REL_Z,
+        RelativeAxisType::REL_RX,
+        RelativeAxisType::REL_RY,
+        RelativeAxisType::REL_RZ,
+        RelativeAxisType::REL_HWHEEL,
+        RelativeAxisType::REL_DIAL,
+        RelativeAxisType::REL_WHEEL,
+        RelativeAxisType::REL_MISC,
+        RelativeAxisType::REL_RESERVED,
+        RelativeAxisType::REL_WHEEL_HI_RES,
+        RelativeAxisType::REL_HWHEEL_HI_RES,
     ]
 }
