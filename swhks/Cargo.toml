@@ -5,7 +5,9 @@ license = "BSD-2-Clause"
 name = "swhks"
 version = "1.2.1"
 authors = [
-	"Shinyzenith <aakashsensharma@gmail.com>"
+	"Shinyzenith <aakashsensharma@gmail.com>\n",
+	"Angelo Fallaria <ba.fallaria@gmail.com>\n",
+	"EdenQwQ <lsahlm1eden@gmail.com>\n"
 ]
 
 [dependencies]
