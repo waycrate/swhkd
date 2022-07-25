@@ -124,7 +124,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                         config::MODE_ESCAPE_STATEMENT => {
                             mode_stack.pop();
                         }
-                        _ => commands_to_send.push_str(&format!("{} && ", cmd)),
+                        _ => commands_to_send.push_str(format!("{cmd} &&").as_str()),
                     }
                 }
             } else {
@@ -321,7 +321,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
                 let event_in_hotkeys = modes[mode_stack[mode_stack.len() - 1]].hotkeys.iter().any(|hotkey| {
                     hotkey.keysym().code() == event.code() &&
-                        (keyboard_state.state_modifiers.len() != 0 && hotkey.modifiers().contains(&config::Modifier::Any) || keyboard_state.state_modifiers
+                        (!keyboard_state.state_modifiers.is_empty() && hotkey.modifiers().contains(&config::Modifier::Any) || keyboard_state.state_modifiers
                         .iter()
                         .all(|x| hotkey.modifiers().contains(x)) &&
                     keyboard_state.state_modifiers.len() == hotkey.modifiers().len())
@@ -343,7 +343,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
                 for hotkey in possible_hotkeys {
                     // this should check if state_modifiers and hotkey.modifiers have the same elements
-                    if (keyboard_state.state_modifiers.len() != 0 && hotkey.modifiers().contains(&config::Modifier::Any) || keyboard_state.state_modifiers.iter().all(|x| hotkey.modifiers().contains(x))
+                    if (!keyboard_state.state_modifiers.is_empty() && hotkey.modifiers().contains(&config::Modifier::Any) || keyboard_state.state_modifiers.iter().all(|x| hotkey.modifiers().contains(x))
                         && keyboard_state.state_modifiers.len() == hotkey.modifiers().len())
                         && keyboard_state.state_keysyms.contains(hotkey.keysym())
                     {
