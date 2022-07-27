@@ -1,6 +1,6 @@
 use evdev::{
     uinput::{VirtualDevice, VirtualDeviceBuilder},
-    AttributeSet, Key,
+    AttributeSet, Key, RelativeAxisType, SwitchType,
 };
 
 pub fn create_uinput_device() -> Result<VirtualDevice, Box<dyn std::error::Error>> {
@@ -8,15 +8,28 @@ pub fn create_uinput_device() -> Result<VirtualDevice, Box<dyn std::error::Error
     for key in get_all_keys() {
         keys.insert(key);
     }
+
+    let mut relative_axes = AttributeSet::<RelativeAxisType>::new();
+    for axis in get_all_relative_axes() {
+        relative_axes.insert(axis);
+    }
+
+    let mut switches = AttributeSet::<SwitchType>::new();
+    for switch in get_all_switches() {
+        switches.insert(switch);
+    }
+
     let device = VirtualDeviceBuilder::new()?
         .name("swhkd virtual output")
         .with_keys(&keys)?
+        .with_relative_axes(&relative_axes)?
+        .with_switches(&switches)?
         .build()
         .unwrap();
     Ok(device)
 }
-pub fn get_all_keys() -> Vec<evdev::Key> {
-    return vec![
+pub fn get_all_keys() -> Vec<Key> {
+    vec![
         evdev::Key::KEY_RESERVED,
         evdev::Key::KEY_ESC,
         evdev::Key::KEY_1,
@@ -565,5 +578,45 @@ pub fn get_all_keys() -> Vec<evdev::Key> {
         evdev::Key::BTN_TRIGGER_HAPPY38,
         evdev::Key::BTN_TRIGGER_HAPPY39,
         evdev::Key::BTN_TRIGGER_HAPPY40,
-    ];
+    ]
+}
+
+pub fn get_all_relative_axes() -> Vec<RelativeAxisType> {
+    vec![
+        RelativeAxisType::REL_X,
+        RelativeAxisType::REL_Y,
+        RelativeAxisType::REL_Z,
+        RelativeAxisType::REL_RX,
+        RelativeAxisType::REL_RY,
+        RelativeAxisType::REL_RZ,
+        RelativeAxisType::REL_HWHEEL,
+        RelativeAxisType::REL_DIAL,
+        RelativeAxisType::REL_WHEEL,
+        RelativeAxisType::REL_MISC,
+        RelativeAxisType::REL_RESERVED,
+        RelativeAxisType::REL_WHEEL_HI_RES,
+        RelativeAxisType::REL_HWHEEL_HI_RES,
+    ]
+}
+
+pub fn get_all_switches() -> Vec<SwitchType> {
+    vec![
+        SwitchType::SW_LID,
+        SwitchType::SW_TABLET_MODE,
+        SwitchType::SW_HEADPHONE_INSERT,
+        SwitchType::SW_RFKILL_ALL,
+        SwitchType::SW_MICROPHONE_INSERT,
+        SwitchType::SW_DOCK,
+        SwitchType::SW_LINEOUT_INSERT,
+        SwitchType::SW_JACK_PHYSICAL_INSERT,
+        SwitchType::SW_VIDEOOUT_INSERT,
+        SwitchType::SW_CAMERA_LENS_COVER,
+        SwitchType::SW_KEYPAD_SLIDE,
+        SwitchType::SW_FRONT_PROXIMITY,
+        SwitchType::SW_ROTATE_LOCK,
+        SwitchType::SW_LINEIN_INSERT,
+        SwitchType::SW_MUTE_DEVICE,
+        SwitchType::SW_PEN_INSERTED,
+        SwitchType::SW_MACHINE_COVER,
+    ]
 }
