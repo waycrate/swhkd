@@ -47,7 +47,7 @@ jobs:
               run: |
                   sudo apt update
                   sudo apt install --no-install-recommends scdoc
-                  for file in $(find . -type f -iname "*.scd"); do scdoc < $file > /dev/null; done
+                  for file in $(find . -type f -iwholename "./docs/*.scd"); do scdoc < $file > /dev/null; done
     rustfmt:
         runs-on: ubuntu-latest
 
