@@ -25,7 +25,7 @@ More about the config file syntax in `swhkd(5)`
 *-h*, *--help*
 	Print help message and quit.
 
-*-v*, *--version*
+*-V*, *--version*
 	Print version information.
 
 *-c*, *--config* <CONFIG_FILE_PATH>
