@@ -680,7 +680,7 @@ super + shift + a
     st
 shift + suPer +   A
     ts
-b    
+b
     st
 B
     ts

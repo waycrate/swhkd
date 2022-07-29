@@ -89,10 +89,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
             Ok(out) => out,
         };
 
-        // for hotkey in &hotkeys {
-        //     log::debug!("hotkey: {:#?}", hotkey);
-        // }
-
         modes
     };
 
@@ -216,7 +212,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let hotkey_repeat_timer = sleep(Duration::from_millis(0));
     tokio::pin!(hotkey_repeat_timer);
 
-    // The socket that we're sending the commands to.
+    // The socket we're sending the commands to.
     let socket_file_path = fetch_xdg_runtime_socket_path();
     loop {
         select! {
@@ -363,13 +359,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
     }
 }
 
-fn socket_write(command: &str, socket_path: PathBuf) -> std::io::Result<()> {
+fn socket_write(command: &str, socket_path: PathBuf) -> Result<(), Box<dyn Error>> {
     let mut stream = UnixStream::connect(socket_path)?;
     stream.write_all(command.as_bytes())?;
     Ok(())
 }
 
-pub fn check_input_group() -> Result<(), Box<dyn std::error::Error>> {
+pub fn check_input_group() -> Result<(), Box<dyn Error>> {
     if !Uid::current().is_root() {
         let groups = nix::unistd::getgroups();
         for (_, groups) in groups.iter().enumerate() {

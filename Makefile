@@ -15,19 +15,13 @@ build:
 	@cargo build $(BUILDFLAGS)
 
 install:
-	@scdoc < ./docs/$(DAEMON_BINARY).1.scd > ./docs/$(DAEMON_BINARY).1.gz
-	@scdoc < ./docs/$(SERVER_BINARY).1.scd > ./docs/$(SERVER_BINARY).1.gz
-	@scdoc < ./docs/$(DAEMON_BINARY).5.scd > ./docs/$(DAEMON_BINARY).5.gz
-	@scdoc < ./docs/$(DAEMON_BINARY)-keys.5.scd > ./docs/$(DAEMON_BINARY)-keys.5.gz
 	@mkdir -p $(MAN1_DIR)
 	@mkdir -p $(MAN5_DIR)
 	@mkdir -p $(POLKIT_DIR)
 	@mkdir -p $(TARGET_DIR)
 	@mkdir -p /etc/$(DAEMON_BINARY)
-	@mv ./docs/$(DAEMON_BINARY).1.gz $(MAN1_DIR)
-	@mv ./docs/$(SERVER_BINARY).1.gz $(MAN1_DIR)
-	@mv ./docs/$(DAEMON_BINARY).5.gz $(MAN5_DIR)
-	@mv ./docs/$(DAEMON_BINARY)-keys.5.gz $(MAN5_DIR)
+	@find ./docs -type f -iname "*.1.gz" -exec cp {} $(MAN1_DIR) \;
+	@find ./docs -type f -iname "*.7.gz" -exec cp {} $(MAN7_DIR) \;
 	@touch /etc/$(DAEMON_BINARY)/$(DAEMON_BINARY)rc
 	@cp ./target/release/$(DAEMON_BINARY) $(TARGET_DIR)
 	@cp ./target/release/$(SERVER_BINARY) $(TARGET_DIR)
@@ -36,10 +30,8 @@ install:
 	@chmod +x $(TARGET_DIR)/$(SERVER_BINARY)
 
 uninstall:
-	@rm -f $(MAN1_DIR)/$(DAEMON_BINARY).1.gz
-	@rm -f $(MAN1_DIR)/$(SERVER_BINARY).1.gz
-	@rm -f $(MAN5_DIR)/$(DAEMON_BINARY).5.gz
-	@rm -f $(MAN5_DIR)/$(DAEMON_BINARY)-keys.5.gz
+	@rm -f /usr/share/man/**/swhkd.*
+	@rm -f /usr/share/man/**/swhks.*
 	@rm $(TARGET_DIR)/$(SERVER_BINARY)
 	@rm $(TARGET_DIR)/$(DAEMON_BINARY)
 	@rm $(POLKIT_DIR)/$(POLKIT_POLICY_FILE)
@@ -59,6 +51,7 @@ test:
 
 clean:
 	@cargo clean
+	@rm ./docs/*.gz
 
 setup:
 	@rustup install stable

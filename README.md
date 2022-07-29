@@ -22,9 +22,9 @@ It also attempts to be a drop-in replacement for sxhkd, meaning your sxhkd confi
 
 Because swhkd can be used anywhere, the same swhkd config can be used across Xorg or Wayland desktops, and you can even use swhkd in a tty.
 
-## Installation:
+## Installation and Building:
 
-[Installation instructions can be found here.](./INSTALL.md)
+[Installation and building instructions can be found here.](./INSTALL.md)
 
 ## Running:
 

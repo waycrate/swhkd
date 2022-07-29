@@ -2,7 +2,7 @@
 
 We have packaged `swhkd-git`. `swhkd-bin` has been packaged separately by a user of swhkd.
 
-# Install
+# Building:
 
 `swhkd` and `swhks` install to `/usr/local/bin/` by default. You can change this behaviour by editing the [Makefile](../Makefile) variable, `TARGET_DIR`.
 
@@ -17,7 +17,7 @@ We have packaged `swhkd-git`. `swhkd-bin` has been packaged separately by a user
 **Compile time:**
 
 -   git
--   scdoc
+-   scdoc (If present, man-pages will be generated)
 -   make
 -   rustup
 

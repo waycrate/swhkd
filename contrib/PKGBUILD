@@ -5,7 +5,7 @@
 _pkgname="swhkd"
 pkgname="${_pkgname}-git"
 pkgver=.543.gf6ea9d6
-pkgrel=1
+pkgrel=2
 arch=("x86_64")
 url="https://github.com/waycrate/swhkd"
 pkgdesc="A display server independent hotkey daemon inspired by sxhkd."
@@ -18,10 +18,6 @@ sha256sums=("SKIP")
 
 build(){
 	cd "$_pkgname"
-	scdoc < ./docs/swhkd.1.scd > ./docs/swhkd.1.gz
-	scdoc < ./docs/swhks.1.scd > ./docs/swhks.1.gz
-	scdoc < ./docs/swhkd.5.scd > ./docs/swhkd.5.gz
-	scdoc < ./docs/swhkd-keys.5.scd > ./docs/swhkd-keys.5.gz
 	make setup
 	make
 }
@@ -32,8 +28,11 @@ package() {
 	install -Dm 755 ./target/release/swhks "$pkgdir/usr/bin/swhks"
 
 	install -Dm 644 -o root ./com.github.swhkd.pkexec.policy -t "$pkgdir/usr/share/polkit-1/actions"
-	install -Dm 644 ./docs/*.1.gz -t "$pkgdir/usr/share/man/man1/"
-	install -Dm 644 ./docs/*.5.gz -t "$pkgdir/usr/share/man/man5/"
+
+	install -Dm 644 ./docs/swhkd.1.gz -t "$pkgdir/usr/share/man/man1/swhkd.1.gz"
+	install -Dm 644 ./docs/swhkd.5.gz -t "$pkgdir/usr/share/man/man5/swhkd.5.gz"
+	install -Dm 644 ./docs/swhks.1.gz -t "$pkgdir/usr/share/man/man1/swhks.1.gz"
+	install -Dm 644 ./docs/swhkd-keys.5.gz -t "$pkgdir/usr/share/man/man5/swhkd-keys.5.gz"
 }
 
 pkgver() {
