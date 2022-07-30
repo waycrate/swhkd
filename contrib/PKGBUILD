@@ -5,7 +5,7 @@
 _pkgname="swhkd"
 pkgname="${_pkgname}-git"
 pkgver=.552.g1b6cf27
-pkgrel=1
+pkgrel=2
 arch=("x86_64")
 url="https://github.com/waycrate/swhkd"
 pkgdesc="A display server independent hotkey daemon inspired by sxhkd."
@@ -18,8 +18,6 @@ sha256sums=("SKIP")
 
 build(){
 	cd "$_pkgname"
-	rustc ./build.rs
-	./build 1>/dev/null 2>/dev/null 3>/dev/null
 	make setup
 	make
 }
