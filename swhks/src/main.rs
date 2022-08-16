@@ -1,48 +1,82 @@
+use clap::arg;
 use nix::{
     libc::daemon,
     sys::stat::{umask, Mode},
     unistd,
 };
-use std::io::prelude::*;
-use std::os::unix::net::UnixListener;
 use std::{
     env, fs,
+    fs::OpenOptions,
+    io::prelude::*,
+    os::unix::net::UnixListener,
     path::Path,
     process::{exit, id, Command, Stdio},
+    time::{SystemTime, UNIX_EPOCH},
 };
 use sysinfo::{ProcessExt, System, SystemExt};
 
-fn get_file_paths() -> (String, String) {
-    match env::var("XDG_RUNTIME_DIR") {
-        Ok(val) => {
-            log::info!(
-                "XDG_RUNTIME_DIR Variable is present, using it's value as default file path."
-            );
-
-            let pid_file_path = format!("{}/swhks.pid", val);
-            let sock_file_path = format!("{}/swhkd.sock", val);
-
-            (pid_file_path, sock_file_path)
-        }
-        Err(e) => {
-            log::trace!("XDG_RUNTIME_DIR Variable is not set, falling back on hardcoded path.\nError: {:#?}", e);
-
-            let pid_file_path = format!("/run/user/{}/swhks.pid", unistd::Uid::current());
-            let sock_file_path = format!("/run/user/{}/swhkd.sock", unistd::Uid::current());
-
-            (pid_file_path, sock_file_path)
-        }
-    }
-}
-
 fn main() -> std::io::Result<()> {
-    env::set_var("RUST_LOG", "swhks=trace");
+    env::set_var("RUST_LOG", "swhks=warn");
+
+    let app = clap::Command::new("swhks")
+        .version(env!("CARGO_PKG_VERSION"))
+        .author(env!("CARGO_PKG_AUTHORS"))
+        .about("IPC Server for swhkd")
+        .arg(arg!(-l --log <FILE>).required(false).takes_value(true).help(
+            "Set a custom log file. (Defaults to ${XDG_DATA_HOME:-$HOME/.local/share}/swhks-current_unix_time.log)",
+        ))
+		.arg(arg!(-d --debug).required(false).takes_value(false).help(
+				"Enable debug mode."
+		));
+    let args = app.get_matches();
+    if args.is_present("debug") {
+        env::set_var("RUST_LOG", "swhks=trace");
+    }
+
     env_logger::init();
 
     log::trace!("Setting process umask.");
     umask(Mode::S_IWGRP | Mode::S_IWOTH);
 
     let (pid_file_path, sock_file_path) = get_file_paths();
+
+    let log_file_name = if let Some(val) = args.value_of("log") {
+        val.to_string()
+    } else {
+        let time = match SystemTime::now().duration_since(UNIX_EPOCH) {
+            Ok(n) => n.as_secs().to_string(),
+            Err(_) => {
+                log::error!("SystemTime before UnixEpoch!");
+                exit(1);
+            }
+        };
+
+        match env::var("XDG_DATA_HOME") {
+            Ok(val) => {
+                log::info!(
+                    "XDG_DATA_HOME Variable is present, using it's value for default file path."
+                );
+                format!("{}/swhks/swhks-{}.log", val, time)
+            }
+            Err(e) => {
+                log::trace!(
+                "XDG_DATA_HOME Variable is not set, falling back on hardcoded path.\nError: {:#?}",
+                e
+            );
+
+                format!("~/.local/share/swhks/swhks-{}.log", time)
+            }
+        }
+    };
+
+    let log_path = Path::new(&log_file_name);
+    if let Some(p) = log_path.parent() {
+        if !p.exists() {
+            if let Err(e) = fs::create_dir_all(p) {
+                log::error!("Failed to create log dir: {}", e);
+            }
+        }
+    }
 
     if Path::new(&pid_file_path).exists() {
         log::trace!("Reading {} file and checking for running instances.", pid_file_path);
@@ -93,7 +127,7 @@ fn main() -> std::io::Result<()> {
             Ok((mut socket, address)) => {
                 let mut response = String::new();
                 socket.read_to_string(&mut response)?;
-                run_system_command(&response);
+                run_system_command(&response, log_path);
                 log::debug!("Socket: {:?} Address: {:?} Response: {}", socket, address, response);
             }
             Err(e) => log::error!("accept function failed: {:?}", e),
@@ -101,22 +135,55 @@ fn main() -> std::io::Result<()> {
     }
 }
 
-fn run_system_command(command: &str) {
+fn get_file_paths() -> (String, String) {
+    match env::var("XDG_RUNTIME_DIR") {
+        Ok(val) => {
+            log::info!(
+                "XDG_RUNTIME_DIR Variable is present, using it's value as default file path."
+            );
+
+            let pid_file_path = format!("{}/swhks.pid", val);
+            let sock_file_path = format!("{}/swhkd.sock", val);
+
+            (pid_file_path, sock_file_path)
+        }
+        Err(e) => {
+            log::trace!("XDG_RUNTIME_DIR Variable is not set, falling back on hardcoded path.\nError: {:#?}", e);
+
+            let pid_file_path = format!("/run/user/{}/swhks.pid", unistd::Uid::current());
+            let sock_file_path = format!("/run/user/{}/swhkd.sock", unistd::Uid::current());
+
+            (pid_file_path, sock_file_path)
+        }
+    }
+}
+
+fn run_system_command(command: &str, log_path: &Path) {
     unsafe {
         daemon(1, 0);
     }
-    match Command::new("sh")
+
+    if let Err(e) = Command::new("sh")
         .arg("-c")
         .arg(command)
         .stdin(Stdio::null())
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
+        .stdout(match OpenOptions::new().append(true).create(true).open(log_path) {
+            Ok(file) => file,
+            Err(e) => {
+                _ = Command::new("notify-send").arg(format!("ERROR {}", e)).spawn();
+                exit(1);
+            }
+        })
+        .stderr(match OpenOptions::new().append(true).create(true).open(log_path) {
+            Ok(file) => file,
+            Err(e) => {
+                _ = Command::new("notify-send").arg(format!("ERROR {}", e)).spawn();
+                exit(1);
+            }
+        })
         .spawn()
     {
-        Ok(_) => {}
-        Err(e) => {
-            log::error!("Failed to execute {}", command);
-            log::error!("Error, {}", e);
-        }
+        log::error!("Failed to execute {}", command);
+        log::error!("Error: {}", e);
     }
 }

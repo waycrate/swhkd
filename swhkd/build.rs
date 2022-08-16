@@ -6,13 +6,10 @@ use std::{
 };
 
 fn main() {
-    match Command::new("scdoc").spawn() {
-        Err(e) => {
-            if let ErrorKind::NotFound = e.kind() {
-                exit(0);
-            }
+    if let Err(e) = Command::new("scdoc").spawn() {
+        if let ErrorKind::NotFound = e.kind() {
+            exit(0);
         }
-        _ => {}
     }
 
     let mut man_pages: Vec<(String, String)> = Vec::new();

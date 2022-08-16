@@ -81,15 +81,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
         log::debug!("Using config file path: {:#?}", config_file_path);
 
-        let modes = match config::load(&config_file_path) {
+        match config::load(&config_file_path) {
             Err(e) => {
                 log::error!("Config Error: {}", e);
                 exit(1)
             }
             Ok(out) => out,
-        };
-
-        modes
+        }
     };
 
     let mut modes = load_config();
