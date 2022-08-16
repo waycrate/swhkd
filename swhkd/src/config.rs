@@ -14,7 +14,7 @@ pub enum Error {
     InvalidConfig(ParseError),
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum ParseError {
     // u32 is the line number where an error occured
     UnknownSymbol(PathBuf, u32),
@@ -34,7 +34,7 @@ impl From<std::io::Error> for Error {
 
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match &*self {
+        match self {
             Error::ConfigNotFound => "Config file not found.".fmt(f),
 
             Error::Io(io_err) => format!("I/O Error while parsing config file: {}", io_err).fmt(f),
@@ -66,7 +66,7 @@ pub const MODE_END_STATEMENT: &str = "endmode";
 pub const MODE_ENTER_STATEMENT: &str = "@enter";
 pub const MODE_ESCAPE_STATEMENT: &str = "@escape";
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Eq)]
 pub struct Config {
     pub path: PathBuf,
     pub contents: String,

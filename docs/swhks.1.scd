@@ -8,6 +8,22 @@ swhks - Server for swhkd, used to run user level commands over IPC.
 
 *swhks*
 
+# OPTIONS
+
+*-h*, *--help*
+	Print help message and quit.
+
+*-V*, *--version*
+	Print version information.
+
+*-l*, *--log* <LOG_FILE_PATH>
+	Set a log file path.
+	If *XDG_DATA_HOME* exists then we use *swhks/swhks-current_time.log* relative to
+	it, else we use *~/.local/share/swhks/swhks-current_time.log*.
+
+*-d*, *--debug*
+	Enable debug mode.
+
 # AUTHORS
 
 Maintained by Shinyzenith <aakashsensharma@gmail.com>, EdenQwQ <lsahlm1eden@gmail.com>, and Angelo Fallaria <ba.fallaria@gmail.com>.
