@@ -1,8 +1,8 @@
 use clap::arg;
 use nix::{
-    libc::daemon,
     sys::stat::{umask, Mode},
     unistd,
+    unistd::daemon,
 };
 use std::{
     env, fs,
@@ -159,9 +159,7 @@ fn get_file_paths() -> (String, String) {
 }
 
 fn run_system_command(command: &str, log_path: &Path) {
-    unsafe {
-        daemon(1, 0);
-    }
+    _ = daemon(true, false);
 
     if let Err(e) = Command::new("sh")
         .arg("-c")
