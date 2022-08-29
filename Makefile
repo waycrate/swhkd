@@ -5,6 +5,7 @@ POLKIT_DIR := /usr/share/polkit-1/actions
 POLKIT_POLICY_FILE := com.github.swhkd.pkexec.policy
 # Remember to edit the TARGET_DIR in policy file too if you do change it.
 TARGET_DIR := /usr/bin
+RC_DIR := /etc/$(DAEMON_BINARY)
 MAN1_DIR := /usr/share/man/man1
 MAN5_DIR := /usr/share/man/man5
 VERSION = $(shell awk -F ' = ' '$$1 ~ /version/ { gsub(/["]/, "", $$2); printf("%s",$$2) }' Cargo.toml)
@@ -19,10 +20,10 @@ install:
 	@mkdir -p $(MAN5_DIR)
 	@mkdir -p $(POLKIT_DIR)
 	@mkdir -p $(TARGET_DIR)
-	@mkdir -p /etc/$(DAEMON_BINARY)
+	@mkdir -p $(RC_DIR)
 	@find ./docs -type f -iname "*.1.gz" -exec cp {} $(MAN1_DIR) \;
 	@find ./docs -type f -iname "*.7.gz" -exec cp {} $(MAN7_DIR) \;
-	@touch /etc/$(DAEMON_BINARY)/$(DAEMON_BINARY)rc
+	@touch $(RC_DIR)/$(DAEMON_BINARY)rc
 	@cp ./target/release/$(DAEMON_BINARY) $(TARGET_DIR)
 	@cp ./target/release/$(SERVER_BINARY) $(TARGET_DIR)
 	@cp ./$(POLKIT_POLICY_FILE) $(POLKIT_DIR)/$(POLKIT_POLICY_FILE)
