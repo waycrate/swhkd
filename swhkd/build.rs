@@ -6,7 +6,7 @@ use std::{
 };
 
 fn main() {
-    if let Err(e) = Command::new("scdoc").spawn() {
+    if let Err(e) = Command::new("scdoc -v").spawn() {
         if let ErrorKind::NotFound = e.kind() {
             exit(0);
         }
