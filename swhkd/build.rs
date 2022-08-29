@@ -6,7 +6,12 @@ use std::{
 };
 
 fn main() {
-    if let Err(e) = Command::new("scdoc").spawn() {
+    if let Err(e) = Command::new("scdoc")
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
+    {
         if let ErrorKind::NotFound = e.kind() {
             exit(0);
         }
@@ -20,6 +25,10 @@ fn main() {
         }
 
         if let Some(file_name) = path.path().to_str() {
+            if path.path().extension().unwrap().to_str().unwrap() == "gz" {
+                continue;
+            }
+
             let man_page_name = file_name.replace(".scd", ".gz");
             man_pages.push((file_name.to_string(), man_page_name));
         }
