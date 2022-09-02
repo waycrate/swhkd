@@ -86,7 +86,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 log::error!("Config Error: {}", e);
                 exit(1)
             }
-            Ok(out) => out,
+            Ok(out) => {
+                // Escalate back to the root user after reading the config file.
+                perms::raise_privileges();
+                out
+            }
         }
     };
 
@@ -134,9 +138,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
             }
         };
     }
-
-    // Escalate back to the root user after reading the config file.
-    perms::raise_privileges();
 
     let keyboard_devices: Vec<Device> = {
         if let Some(arg_devices) = args.values_of("device") {
