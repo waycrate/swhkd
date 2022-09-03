@@ -124,8 +124,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
             } else {
                 commands_to_send = command;
             }
-            if commands_to_send.ends_with("&& ") {
-                commands_to_send = commands_to_send.strip_suffix("&& ").unwrap().to_string();
+            if commands_to_send.ends_with(" &&") {
+                commands_to_send = commands_to_send.strip_suffix(" &&").unwrap().to_string();
             }
             if let Err(e) = socket_write(&commands_to_send, $socket_path.to_path_buf()) {
                 log::error!("Failed to send command to swhks through IPC.");
