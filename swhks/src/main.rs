@@ -63,8 +63,15 @@ fn main() -> std::io::Result<()> {
                 "XDG_DATA_HOME Variable is not set, falling back on hardcoded path.\nError: {:#?}",
                 e
             );
-
-                format!("~/.local/share/swhks/swhks-{}.log", time)
+                match env::var("HOME") {
+                    Ok(val) => format!("{}/.local/share/swhks/swhks-{}.log/", val, time),
+                    Err(_) => {
+                        log::error!(
+                            "HOME Variable is not set, cannot fall back on hardcoded path for XDG_DATA_HOME."
+                        );
+                        exit(1);
+                    }
+                }
             }
         }
     };

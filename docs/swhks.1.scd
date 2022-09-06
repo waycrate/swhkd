@@ -19,7 +19,8 @@ swhks - Server for swhkd, used to run user level commands over IPC.
 *-l*, *--log* <LOG_FILE_PATH>
 	Set a log file path.
 	If *XDG_DATA_HOME* exists then we use *swhks/swhks-current_time.log* relative to
-	it, else we use *~/.local/share/swhks/swhks-current_time.log*.
+	it, else we use *.local/share/swhks/swhks-current_time.log* relative to the
+	user home directory.
 
 *-d*, *--debug*
 	Enable debug mode.
