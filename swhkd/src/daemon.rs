@@ -349,7 +349,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                         }
                         send_command!(hotkey.clone(), &socket_file_path);
                         hotkey_repeat_timer.as_mut().reset(Instant::now() + Duration::from_millis(repeat_cooldown_duration));
-                        break;
+                        continue;
                     }
                 }
             }
