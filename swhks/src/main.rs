@@ -64,7 +64,7 @@ fn main() -> std::io::Result<()> {
                 e
             );
                 match env::var("HOME") {
-                    Ok(val) => format!("{}/.local/share/swhks/swhks-{}.log/", val, time),
+                    Ok(val) => format!("{}/.local/share/swhks/swhks-{}.log", val, time),
                     Err(_) => {
                         log::error!(
                             "HOME Variable is not set, cannot fall back on hardcoded path for XDG_DATA_HOME."
