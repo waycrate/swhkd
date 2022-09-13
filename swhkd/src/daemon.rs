@@ -142,23 +142,17 @@ async fn main() -> Result<(), Box<dyn Error>> {
         };
     }
 
+    let arg_devices: Vec<&str> = args.values_of("device").unwrap_or_default().collect();
+
     let keyboard_devices: Vec<Device> = {
-        if let Some(arg_devices) = args.values_of("device") {
-            // for device in arg_devices {
-            //     let device_path = Path::new(device);
-            //     if let Ok(device_to_use) = Device::open(device_path) {
-            //         log::info!("Using device: {}", device_to_use.name().unwrap_or(device));
-            //         keyboard_devices.push(device_to_use);
-            //     }
-            // }
-            let arg_devices = arg_devices.collect::<Vec<&str>>();
+        if arg_devices.is_empty() {
+            log::trace!("Attempting to find all keyboard file descriptors.");
+            evdev::enumerate().map(|(_, device)| device).filter(check_device_is_keyboard).collect()
+        } else {
             evdev::enumerate()
                 .map(|(_, device)| device)
                 .filter(|device| arg_devices.contains(&device.name().unwrap_or("")))
                 .collect()
-        } else {
-            log::trace!("Attempting to find all keyboard file descriptors.");
-            evdev::enumerate().map(|(_, device)| device).filter(check_device_is_keyboard).collect()
         }
     };
 
