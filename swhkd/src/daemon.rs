@@ -23,6 +23,7 @@ use tokio::select;
 use tokio::time::Duration;
 use tokio::time::{sleep, Instant};
 use tokio_stream::{StreamExt, StreamMap};
+use udev::{EventType, MonitorBuilder};
 
 mod config;
 mod perms;
@@ -166,6 +167,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
         }
     };
 
+    let mut udev = tokio_stream::iter(MonitorBuilder::new()?.match_subsystem("input")?.listen()?);
+
     let modifiers_map: HashMap<Key, config::Modifier> = HashMap::from([
         (Key::KEY_LEFTMETA, config::Modifier::Super),
         (Key::KEY_RIGHTMETA, config::Modifier::Super),
@@ -254,6 +257,54 @@ async fn main() -> Result<(), Box<dyn Error>> {
                         log::warn!("Received signal: {:#?}", signal);
                         log::warn!("Exiting...");
                         exit(1);
+                    }
+                }
+            }
+
+            Some(event) = udev.next() => {
+                if !event.is_initialized() {
+                    log::warn!("Received udev event with uninitialized device.");
+                }
+                match event.event_type() {
+                    EventType::Add => {
+                        if let Some(devnode) = event.devnode() {
+                            let mut device = match Device::open(devnode) {
+                                Err(e) => {
+                                    log::error!("Could not open evdev device at {}: {}", devnode.to_string_lossy(), e);
+                                    continue;
+                                },
+                                Ok(device) => device
+                            };
+                            if arg_devices.contains(&device.name().unwrap_or("")) || check_device_is_keyboard(&device) {
+                                log::info!("Device '{}' at '{}' added.", &device.name().unwrap_or(""), devnode.to_string_lossy());
+                                let _ = device.grab();
+                                keyboard_states.push(KeyboardState::new());
+                                keyboard_stream_map.insert(keyboard_states.len() - 1, device.into_event_stream()?);
+                            }
+                        }
+                    }
+                    EventType::Remove => {
+                        let udev_physical_path = event.property_value("PHYS")
+                            .and_then(|os_str| os_str.to_str())
+                            .map(|s| s.replace('\"', ""));
+                        keyboard_stream_map
+                            .iter()
+                            .filter(|(_, stream)| stream.device().physical_path() == udev_physical_path.as_deref())
+                            .map(|(key, _)| *key)
+                            // Collect all to not remove values while iterating
+                            .collect::<Vec<_>>()
+                            .into_iter()
+                            // Reverse to avoid dealing with changing indices for the keyboard_states vector
+                            .rev()
+                            .for_each(|key| {
+                                keyboard_states.remove(key);
+                                if let Some(stream) = keyboard_stream_map.remove(&key) {
+                                    log::info!("Device '{}' removed", stream.device().name().unwrap_or(""));
+                                }
+                            });
+                    }
+                    _ => {
+                        log::trace!("Ignored udev event of type: {:?}", event.event_type());
                     }
                 }
             }
