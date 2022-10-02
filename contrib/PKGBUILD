@@ -4,8 +4,8 @@
 
 _pkgname="swhkd"
 pkgname="${_pkgname}-git"
-pkgver=.552.g1b6cf27
-pkgrel=2
+pkgver=1.2.1.r17.g022466e
+pkgrel=1
 arch=("x86_64")
 url="https://github.com/waycrate/swhkd"
 pkgdesc="A display server independent hotkey daemon inspired by sxhkd."
@@ -13,8 +13,10 @@ license=("BSD")
 depends=("polkit")
 makedepends=("rustup" "make" "git" "scdoc")
 conflicts=("swhkd-musl-git")
-source=("${_pkgname}::git+${url}.git")
-sha256sums=("SKIP")
+source=("${_pkgname}::git+${url}.git"
+        "${_pkgname}-vim::git+${url}-vim.git")
+sha256sums=("SKIP"
+            "SKIP")
 
 build(){
 	cd "$_pkgname"
@@ -31,9 +33,15 @@ package() {
 
 	install -Dm 644 ./docs/*.1.gz -t "$pkgdir/usr/share/man/man1/"
 	install -Dm 644 ./docs/*.5.gz -t "$pkgdir/usr/share/man/man5/"
+
+    cd "${srcdir}/${_pkgname}-vim"
+    for i in ftdetect ftplugin indent syntax; do
+        install -Dm644 "$i/${_pkgname}.vim" \
+            "${pkgdir}/usr/share/vim/vimfiles/$i/${_pkgname}.vim"
+    done
 }
 
 pkgver() {
 	cd $_pkgname
-	echo "$(grep "^version =" Cargo.toml|head -n1|cut -d\" -f2|cut -d\- -f1).$(git rev-list --count HEAD).g$(git rev-parse --short HEAD)"
+    git describe --long --tags --match'=[0-9]*' | sed 's/\([^-]*-g\)/r\1/;s/-/./g'
 }
