@@ -21,7 +21,7 @@ install:
 	@mkdir -p $(TARGET_DIR)
 	@mkdir -p /etc/$(DAEMON_BINARY)
 	@find ./docs -type f -iname "*.1.gz" -exec cp {} $(MAN1_DIR) \;
-	@find ./docs -type f -iname "*.7.gz" -exec cp {} $(MAN7_DIR) \;
+	@find ./docs -type f -iname "*.5.gz" -exec cp {} $(MAN5_DIR) \;
 	@touch /etc/$(DAEMON_BINARY)/$(DAEMON_BINARY)rc
 	@cp ./target/release/$(DAEMON_BINARY) $(TARGET_DIR)
 	@cp ./target/release/$(SERVER_BINARY) $(TARGET_DIR)
@@ -30,11 +30,11 @@ install:
 	@chmod +x $(TARGET_DIR)/$(SERVER_BINARY)
 
 uninstall:
-	@rm -f /usr/share/man/**/swhkd.*
-	@rm -f /usr/share/man/**/swhks.*
-	@rm $(TARGET_DIR)/$(SERVER_BINARY)
-	@rm $(TARGET_DIR)/$(DAEMON_BINARY)
-	@rm $(POLKIT_DIR)/$(POLKIT_POLICY_FILE)
+	@$(RM) -f /usr/share/man/**/swhkd.*
+	@$(RM) -f /usr/share/man/**/swhks.*
+	@$(RM) $(TARGET_DIR)/$(SERVER_BINARY)
+	@$(RM) $(TARGET_DIR)/$(DAEMON_BINARY)
+	@$(RM) $(POLKIT_DIR)/$(POLKIT_POLICY_FILE)
 
 check:
 	@cargo fmt
@@ -42,7 +42,7 @@ check:
 	@cargo clippy
 
 release:
-	@rm -f Cargo.lock
+	@$(RM) -f Cargo.lock
 	@$(MAKE) -s
 	@zip -r "glibc-x86_64-$(VERSION).zip" ./target/release/swhkd ./target/release/swhks
 
@@ -51,7 +51,7 @@ test:
 
 clean:
 	@cargo clean
-	@rm ./docs/*.gz
+	@$(RM) -f ./docs/*.gz
 
 setup:
 	@rustup install stable
