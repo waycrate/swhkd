@@ -165,7 +165,19 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     log::debug!("{} Keyboard device(s) detected.", keyboard_devices.len());
 
+    // Apparently, having a single uinput device with keys, relative axes and switches
+    // prevents some libraries to listen to these events. The easy fix is to have separate
+    // virtual devices, one for keys and relative axes (`uinput_device`) and another one
+    // just for switches (`uinput_switches_device`).
     let mut uinput_device = match uinput::create_uinput_device() {
+        Ok(dev) => dev,
+        Err(e) => {
+            log::error!("Err: {:#?}", e);
+            exit(1);
+        }
+    };
+
+    let mut uinput_switches_device = match uinput::create_uinput_switches_device() {
         Ok(dev) => dev,
         Err(e) => {
             log::error!("Err: {:#?}", e);
@@ -270,7 +282,14 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
                 let key = match event.kind() {
                     InputEventKind::Key(keycode) => keycode,
-                    _ => continue
+                    InputEventKind::Switch(_) => {
+                        uinput_switches_device.emit(&[event]).unwrap();
+                        continue
+                    }
+                    _ => {
+                        uinput_device.emit(&[event]).unwrap();
+                        continue
+                    }
                 };
 
                 match event.value() {

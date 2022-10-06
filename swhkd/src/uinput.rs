@@ -14,15 +14,23 @@ pub fn create_uinput_device() -> Result<VirtualDevice, Box<dyn std::error::Error
         relative_axes.insert(axis);
     }
 
+    let device = VirtualDeviceBuilder::new()?
+        .name("swhkd virtual output")
+        .with_keys(&keys)?
+        .with_relative_axes(&relative_axes)?
+        .build()
+        .unwrap();
+    Ok(device)
+}
+
+pub fn create_uinput_switches_device() -> Result<VirtualDevice, Box<dyn std::error::Error>> {
     let mut switches = AttributeSet::<SwitchType>::new();
     for switch in get_all_switches() {
         switches.insert(switch);
     }
 
     let device = VirtualDeviceBuilder::new()?
-        .name("swhkd virtual output")
-        .with_keys(&keys)?
-        .with_relative_axes(&relative_axes)?
+        .name("swhkd switches virtual output")
         .with_switches(&switches)?
         .build()
         .unwrap();
