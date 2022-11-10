@@ -285,7 +285,7 @@ pub struct ModeOptions {
 
 impl ModeOptions {
     pub fn default() -> Self {
-        Self {swallow: false, onceoff: false}
+        Self { swallow: false, onceoff: false }
     }
 }
 

@@ -102,7 +102,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             log::info!("Hotkey pressed: {:#?}", $hotkey);
             let command = $hotkey.command;
             let mut commands_to_send = String::new();
-            if modes[mode_stack[mode_stack.len()-1]].options.onceoff {
+            if modes[mode_stack[mode_stack.len() - 1]].options.onceoff {
                 mode_stack.pop();
             }
             if command.contains('@') {
