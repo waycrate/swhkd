@@ -65,6 +65,8 @@ pub const MODE_STATEMENT: &str = "mode";
 pub const MODE_END_STATEMENT: &str = "endmode";
 pub const MODE_ENTER_STATEMENT: &str = "@enter";
 pub const MODE_ESCAPE_STATEMENT: &str = "@escape";
+pub const MODE_SWALLOW_STATEMENT: &str = "swallow";
+pub const MODE_ONCEOFF_STATEMENT: &str = "onceoff";
 
 #[derive(Debug, PartialEq, Clone, Eq)]
 pub struct Config {
@@ -272,11 +274,24 @@ pub struct Mode {
     pub name: String,
     pub hotkeys: Vec<Hotkey>,
     pub unbinds: Vec<KeyBinding>,
+    pub options: ModeOptions,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ModeOptions {
+    pub swallow: bool,
+    pub onceoff: bool,
+}
+
+impl ModeOptions {
+    pub fn default() -> Self {
+        Self {swallow: false, onceoff: false}
+    }
 }
 
 impl Mode {
     pub fn new(name: String) -> Self {
-        Mode { name, hotkeys: Vec::new(), unbinds: Vec::new() }
+        Self { name, hotkeys: Vec::new(), unbinds: Vec::new(), options: ModeOptions::default() }
     }
 
     pub fn default() -> Self {
@@ -540,8 +555,12 @@ pub fn parse_contents(path: PathBuf, contents: String) -> Result<Vec<Mode>, Erro
         }
 
         if line_type == "modestart" {
-            let modename = line.split(' ').nth(1).unwrap();
-            modes.push(Mode::new(modename.to_string()));
+            let tokens = line.split(' ').collect_vec();
+            let modename = tokens[1];
+            let mut mode = Mode::new(modename.to_string());
+            mode.options.swallow = tokens.contains(&MODE_SWALLOW_STATEMENT);
+            mode.options.onceoff = tokens.contains(&MODE_ONCEOFF_STATEMENT);
+            modes.push(mode);
             current_mode = modes.len() - 1;
         }
 
