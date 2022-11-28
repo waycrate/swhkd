@@ -277,16 +277,10 @@ pub struct Mode {
     pub options: ModeOptions,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct ModeOptions {
     pub swallow: bool,
     pub oneoff: bool,
-}
-
-impl ModeOptions {
-    pub fn default() -> Self {
-        Self { swallow: false, oneoff: false }
-    }
 }
 
 impl Mode {
