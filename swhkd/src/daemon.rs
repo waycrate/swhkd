@@ -346,8 +346,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     && !hotkey.is_send()
                         });
 
+                // Only emit event to virtual device when swallow option is off
+                if !modes[mode_stack[mode_stack.len()-1]].options.swallow
                 // Don't emit event to virtual device if it's from a valid hotkey
-                if !event_in_hotkeys && !modes[mode_stack[mode_stack.len()-1]].options.swallow {
+                && !event_in_hotkeys {
                     uinput_device.emit(&[event]).unwrap();
                 }
 
