@@ -66,7 +66,7 @@ pub const MODE_END_STATEMENT: &str = "endmode";
 pub const MODE_ENTER_STATEMENT: &str = "@enter";
 pub const MODE_ESCAPE_STATEMENT: &str = "@escape";
 pub const MODE_SWALLOW_STATEMENT: &str = "swallow";
-pub const MODE_ONCEOFF_STATEMENT: &str = "onceoff";
+pub const MODE_ONEOFF_STATEMENT: &str = "oneoff";
 
 #[derive(Debug, PartialEq, Clone, Eq)]
 pub struct Config {
@@ -280,12 +280,12 @@ pub struct Mode {
 #[derive(Debug, Clone, PartialEq)]
 pub struct ModeOptions {
     pub swallow: bool,
-    pub onceoff: bool,
+    pub oneoff: bool,
 }
 
 impl ModeOptions {
     pub fn default() -> Self {
-        Self { swallow: false, onceoff: false }
+        Self { swallow: false, oneoff: false }
     }
 }
 
@@ -559,7 +559,7 @@ pub fn parse_contents(path: PathBuf, contents: String) -> Result<Vec<Mode>, Erro
             let modename = tokens[1];
             let mut mode = Mode::new(modename.to_string());
             mode.options.swallow = tokens.contains(&MODE_SWALLOW_STATEMENT);
-            mode.options.onceoff = tokens.contains(&MODE_ONCEOFF_STATEMENT);
+            mode.options.oneoff = tokens.contains(&MODE_ONEOFF_STATEMENT);
             modes.push(mode);
             current_mode = modes.len() - 1;
         }
