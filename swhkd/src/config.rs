@@ -662,7 +662,7 @@ fn parse_keybind(
 
     let modifiers: Vec<Modifier> = tokens_new[0..(tokens_new.len() - 1)]
         .iter()
-        .map(|token| *mod_to_mod_enum.get(token.as_str()).unwrap())
+        .map(|token| *mod_to_mod_enum.get(strip_at(token.as_str())).unwrap())
         .collect();
 
     let mut keybinding = KeyBinding::new(*keysym, modifiers);
