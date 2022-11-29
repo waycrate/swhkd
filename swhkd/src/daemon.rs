@@ -150,12 +150,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
             // }
             let arg_devices = arg_devices.collect::<Vec<&str>>();
             evdev::enumerate()
-                .filter(|(_, device)| arg_devices.contains(&device.name().unwrap_or("")))
                 .map(|(_, device)| device)
+                .filter(|device| arg_devices.contains(&device.name().unwrap_or("")))
                 .collect()
         } else {
             log::trace!("Attempting to find all keyboard file descriptors.");
-            evdev::enumerate().filter(check_device_is_keyboard).map(|(_, device)| device).collect()
+            evdev::enumerate().map(|(_, device)| device).filter(check_device_is_keyboard).collect()
         }
     };
 
@@ -241,14 +241,14 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 match signal {
                     SIGUSR1 => {
                         execution_is_paused = true;
-                        for mut device in evdev::enumerate().filter(check_device_is_keyboard).map(|(_, device)| device) {
+                        for mut device in evdev::enumerate().map(|(_, device)| device).filter(check_device_is_keyboard) {
                             let _ = device.ungrab();
                         }
                     }
 
                     SIGUSR2 => {
                         execution_is_paused = false;
-                        for mut device in evdev::enumerate().filter(check_device_is_keyboard).map(|(_, device)| device) {
+                        for mut device in evdev::enumerate().map(|(_, device)| device).filter(check_device_is_keyboard) {
                             let _ = device.grab();
                         }
                     }
@@ -259,7 +259,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     }
 
                     SIGINT => {
-                        for mut device in evdev::enumerate().filter(check_device_is_keyboard).map(|(_, device)| device) {
+                        for mut device in evdev::enumerate().map(|(_, device)| device).filter(check_device_is_keyboard) {
                             let _ = device.ungrab();
                         }
                         log::warn!("Received SIGINT signal, exiting...");
@@ -267,7 +267,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     }
 
                     _ => {
-                        for mut device in evdev::enumerate().filter(check_device_is_keyboard).map(|(_, device)| device) {
+                        for mut device in evdev::enumerate().map(|(_, device)| device).filter(check_device_is_keyboard) {
                             let _ = device.ungrab();
                         }
 
@@ -404,8 +404,7 @@ pub fn check_input_group() -> Result<(), Box<dyn Error>> {
     }
 }
 
-pub fn check_device_is_keyboard(tup: &(PathBuf, Device)) -> bool {
-    let device = &tup.1;
+pub fn check_device_is_keyboard(device: &Device) -> bool {
     if device.supported_keys().map_or(false, |keys| keys.contains(Key::KEY_ENTER)) {
         if device.name() == Some("swhkd virtual output") {
             return false;
