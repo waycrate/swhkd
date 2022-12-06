@@ -93,6 +93,16 @@ q
 	mpc {next, prev, toggle, repeat, random, single}
 endmode # use endmode if you want to set more key bindings for normal mode
 
+# mode options are declared after the mode name
+# swallow: don't emit any event through uinput
+# oneoff: automatically escape a mode when a keybinding defined in it is evoked
+mode option_demo swallow oneoff
+a
+	echo 0
+b
+	@escape # escaping in a 'oneoff' mode pops two modes out of the mode stack.
+endmode
+
 ```
 # AUTHORS
 
