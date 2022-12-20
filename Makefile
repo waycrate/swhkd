@@ -1,3 +1,6 @@
+# Destination dir, defaults to root. Should be overridden for packaging
+# e.g. make DESTDIR="packaging_subdir" install
+DESTDIR ?= "/"
 DAEMON_BINARY := swhkd
 SERVER_BINARY := swhks
 BUILDFLAGS := --release
@@ -17,19 +20,16 @@ build:
 		--swhkd-path=$(TARGET_DIR)/$(DAEMON_BINARY)
 
 install:
-	@mkdir -p $(MAN1_DIR)
-	@mkdir -p $(MAN5_DIR)
-	@mkdir -p $(POLKIT_DIR)
-	@mkdir -p $(TARGET_DIR)
-	@mkdir -p /etc/$(DAEMON_BINARY)
-	@find ./docs -type f -iname "*.1.gz" -exec cp {} $(MAN1_DIR) \;
-	@find ./docs -type f -iname "*.5.gz" -exec cp {} $(MAN5_DIR) \;
-	@touch /etc/$(DAEMON_BINARY)/$(DAEMON_BINARY)rc
-	@cp ./target/release/$(DAEMON_BINARY) $(TARGET_DIR)
-	@cp ./target/release/$(SERVER_BINARY) $(TARGET_DIR)
-	@cp ./$(POLKIT_POLICY_FILE) $(POLKIT_DIR)/$(POLKIT_POLICY_FILE)
-	@chmod +x $(TARGET_DIR)/$(DAEMON_BINARY)
-	@chmod +x $(TARGET_DIR)/$(SERVER_BINARY)
+	@find ./docs -type f -iname "*.1.gz" \
+		-exec install -Dm 644 {} -t $(DESTDIR)/$(MAN1_DIR) \;
+	@find ./docs -type f -iname "*.5.gz" \
+		-exec install -Dm 644 {} -t $(DESTDIR)/$(MAN1_DIR) \;
+	@install -Dm 755 ./target/release/$(DAEMON_BINARY) -t $(DESTDIR)/$(TARGET_DIR)
+	@install -Dm 755 ./target/release/$(SERVER_BINARY) -t $(DESTDIR)/$(TARGET_DIR)
+	@install -Dm 644 -o root ./$(POLKIT_POLICY_FILE) -t $(DESTDIR)/$(POLKIT_DIR)
+# Ideally, we would have a default config file instead of an empty one
+	@touch ./$(DAEMON_BINARY)rc
+	@install -Dm 644 ./$(DAEMON_BINARY) -t $(DESTDIR)/etc/$(DAEMON_BINARY)
 
 uninstall:
 	@$(RM) -f /usr/share/man/**/swhkd.*
