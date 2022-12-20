@@ -2,7 +2,7 @@
 description = "Sxhkd clone for Wayland (works on TYY and X11 too)"
 edition = "2021"
 name = "Simple-Wayland-HotKey-Daemon"
-version = "1.2.1"
+version = "1.2.2"
 authors = [
 	"Shinyzenith <aakashsensharma@gmail.com>\n",
 	"Angelo Fallaria <ba.fallaria@gmail.com>\n",
