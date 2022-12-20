@@ -26,13 +26,7 @@ build(){
 
 package() {
 	cd "$_pkgname"
-	install -Dm 755 ./target/release/swhkd "$pkgdir/usr/bin/swhkd"
-	install -Dm 755 ./target/release/swhks "$pkgdir/usr/bin/swhks"
-
-	install -Dm 644 -o root ./com.github.swhkd.pkexec.policy -t "$pkgdir/usr/share/polkit-1/actions"
-
-	install -Dm 644 ./docs/*.1.gz -t "$pkgdir/usr/share/man/man1/"
-	install -Dm 644 ./docs/*.5.gz -t "$pkgdir/usr/share/man/man5/"
+	make DESTDIR="$pkgdir/" install
 
     cd "${srcdir}/${_pkgname}-vim"
     for i in ftdetect ftplugin indent syntax; do
