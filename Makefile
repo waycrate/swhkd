@@ -3,7 +3,6 @@ SERVER_BINARY := swhks
 BUILDFLAGS := --release
 POLKIT_DIR := /usr/share/polkit-1/actions
 POLKIT_POLICY_FILE := com.github.swhkd.pkexec.policy
-# Remember to edit the TARGET_DIR in policy file too if you do change it.
 TARGET_DIR := /usr/bin
 MAN1_DIR := /usr/share/man/man1
 MAN5_DIR := /usr/share/man/man5
@@ -13,6 +12,9 @@ all: build
 
 build:
 	@cargo build $(BUILDFLAGS)
+	@./scripts/build-polkit-policy.sh \
+		--policy-path=$(POLKIT_POLICY_FILE) \
+		--swhkd-path=$(TARGET_DIR)/$(DAEMON_BINARY)
 
 install:
 	@mkdir -p $(MAN1_DIR)
