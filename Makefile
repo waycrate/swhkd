@@ -54,6 +54,8 @@ test:
 clean:
 	@cargo clean
 	@$(RM) -f ./docs/*.gz
+	@$(RM) -f $(DAEMON_BINARY)rc
+	@$(RM) -f $(POLKIT_POLICY_FILE)
 
 setup:
 	@rustup install stable
