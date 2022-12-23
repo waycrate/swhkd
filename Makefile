@@ -29,7 +29,7 @@ install:
 	@install -Dm 644 -o root ./$(POLKIT_POLICY_FILE) -t $(DESTDIR)/$(POLKIT_DIR)
 # Ideally, we would have a default config file instead of an empty one
 	@touch ./$(DAEMON_BINARY)rc
-	@install -Dm 644 ./$(DAEMON_BINARY) -t $(DESTDIR)/etc/$(DAEMON_BINARY)
+	@install -Dm 644 ./$(DAEMON_BINARY)rc -t $(DESTDIR)/etc/$(DAEMON_BINARY)
 
 uninstall:
 	@$(RM) -f /usr/share/man/**/swhkd.*
