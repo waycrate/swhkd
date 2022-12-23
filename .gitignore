@@ -2,3 +2,5 @@ target
 *.zip
 *.gz
 *.out
+com.github.swhkd.pkexec.policy
+*rc
