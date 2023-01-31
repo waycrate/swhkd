@@ -20,13 +20,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - The project `Makefile` now builds the polkit policy file dynamically depending
   on the target installation directories.
-  
-### Fixed
-
-- Install mandocs in the correct locations.
 
 ### Fixed
 
 - Mouse cursors and other devices are no longer blocked when running `swhkd`.
 - Option prefixes on modifiers are now properly parsed. e.g., `~control` is now
   understood by `swhkd` as the `control` modifier with an option
+- Install mandocs in the correct locations.
