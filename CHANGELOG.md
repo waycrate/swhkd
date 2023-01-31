@@ -20,6 +20,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - The project `Makefile` now builds the polkit policy file dynamically depending
   on the target installation directories.
+  
+### Fixed
+
+- Install mandocs in the correct locations.
 
 ### Fixed
 
