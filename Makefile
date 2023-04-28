@@ -23,7 +23,7 @@ install:
 	@find ./docs -type f -iname "*.1.gz" \
 		-exec install -Dm 644 {} -t $(DESTDIR)/$(MAN1_DIR) \;
 	@find ./docs -type f -iname "*.5.gz" \
-		-exec install -Dm 644 {} -t $(DESTDIR)/$(MAN1_DIR) \;
+		-exec install -Dm 644 {} -t $(DESTDIR)/$(MAN5_DIR) \;
 	@install -Dm 755 ./target/release/$(DAEMON_BINARY) -t $(DESTDIR)/$(TARGET_DIR)
 	@install -Dm 755 ./target/release/$(SERVER_BINARY) -t $(DESTDIR)/$(TARGET_DIR)
 	@install -Dm 644 -o root ./$(POLKIT_POLICY_FILE) -t $(DESTDIR)/$(POLKIT_DIR)
