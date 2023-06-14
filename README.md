@@ -18,13 +18,13 @@
 
 `swhkd` is a display protocol-independent hotkey daemon made in
 [Rust](https://www.rust-lang.org). `swhkd` uses an easy-to-use configuration
-system inspired by `sxhkd` so you can easily add or remove hotkeys.
+system inspired by `sxhkd`, so you can easily add or remove hotkeys.
 
 It also attempts to be a drop-in replacement for `sxhkd`, meaning your `sxhkd`
 config file is also compatible with `swhkd`.
 
 Because `swhkd` can be used anywhere, the same `swhkd` config can be used across
-Xorg or Wayland desktops, and you can even use `swhkd` in a tty.
+Xorg or Wayland desktops, and you can even use `swhkd` in a TTY.
 
 ## Installation and Building
 
@@ -41,9 +41,9 @@ pkexec swhkd
 
 After opening `swhkd`, you can control the program through signals:
 
--   `sudo pkill -USR1 swhkd` - Pause key checking
--   `sudo pkill -USR2 swhkd` - Resume key checking
--   `sudo pkill -HUP swhkd` - Reload config file
+- `sudo pkill -USR1 swhkd` — Pause key checking
+- `sudo pkill -USR2 swhkd` — Resume key checking
+- `sudo pkill -HUP swhkd` — Reload config file
 
 ## Configuration
 
@@ -69,19 +69,19 @@ All supported key and modifier names are listed in `man 5 swhkd-keys`.
    configuration file.
 1. Enable the [service
    file](https://github.com/waycrate/swhkd/tree/main/contrib/init) for your
-   respective init system. Currently only systemd and OpenRC service files exist
-   and more will be added soon including Runit.
+   respective init system. Currently, only systemd and OpenRC service files
+   exist and more will be added soon including Runit.
 
 ## Security
 
-We use a server-client model to keep you safe. The daemon ( `swhkd` - privileged
-process ) communicates to the server ( swhks - running as non root user ) after
-checking for valid keybinds. Since the daemon is totally separate from the
+We use a server-client model to keep you safe. The daemon (`swhkd` — privileged
+process) communicates to the server (`swhks` — running as non-root user) after
+checking for valid keybindings. Since the daemon is totally separate from the
 server, no other process can read your keystrokes. As for shell commands, you
 might be thinking that any program can send shell commands to the server and
-that's true! But the server runs the commands as the currently logged in user so
-no extra permissions are provided ( This is essentially the same as any app on
-your desktop calling shell commands ).
+that's true! But the server runs the commands as the currently logged-in user,
+so no extra permissions are provided (This is essentially the same as any app on
+your desktop calling shell commands).
 
 So yes, you're safe!
 
