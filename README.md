@@ -16,15 +16,15 @@
 
 **S**imple **W**ayland **H**ot**K**ey **D**aemon
 
-swhkd is a display protocol-independent hotkey daemon made in Rust. swhkd uses
-an easy-to-use configuration system inspired by sxhkd so you can easily add or
-remove hotkeys.
+`swhkd` is a display protocol-independent hotkey daemon made in Rust. `swhkd`
+uses an easy-to-use configuration system inspired by `sxhkd` so you can easily
+add or remove hotkeys.
 
-It also attempts to be a drop-in replacement for sxhkd, meaning your sxhkd
-config file is also compatible with swhkd.
+It also attempts to be a drop-in replacement for `sxhkd`, meaning your `sxhkd`
+config file is also compatible with `swhkd`.
 
-Because swhkd can be used anywhere, the same swhkd config can be used across
-Xorg or Wayland desktops, and you can even use swhkd in a tty.
+Because `swhkd` can be used anywhere, the same `swhkd` config can be used across
+Xorg or Wayland desktops, and you can even use `swhkd` in a tty.
 
 ## Installation and Building:
 
@@ -39,7 +39,7 @@ pkexec swhkd
 
 ## Runtime signals:
 
-After opening swhkd, you can control the program through signals:
+After opening `swhkd`, you can control the program through signals:
 
 -   `sudo pkill -USR1 swhkd` - Pause key checking
 -   `sudo pkill -USR2 swhkd` - Resume key checking
@@ -47,14 +47,14 @@ After opening swhkd, you can control the program through signals:
 
 ## Configuration:
 
-Swhkd closely follows sxhkd syntax, so most existing sxhkd configs should be
-functional with swhkd.
+`swhkd` closely follows `sxhkd` syntax, so most existing `sxhkd` configs should
+be functional with `swhkd`.
 
 The default configuration file is in `/etc/swhkd/swhkdrc`. If you don't like
 having to edit the file as root every single time, you can create a symlink from
 `~/.config/swhkd/swhkdrc` to `/etc/swhkd/swhkdrc`.
 
-If you use Vim, you can get swhkd config syntax highlighting with the
+If you use Vim, you can get `swhkd` config syntax highlighting with the
 [swhkd-vim](https://github.com/waycrate/swhkd-vim) plugin. Install it in
 vim-plug with `Plug 'waycrate/swhkd-vim'`.
 
@@ -62,7 +62,7 @@ All supported key and modifier names are listed in `man 5 swhkd-keys`.
 
 ## Autostart:
 
-### To autostart swhkd you can do one of two things:
+### To autostart `swhkd` you can do one of two things:
 
 1. Add the commands from the ["Running"
    section](https://github.com/waycrate/swhkd#running) to your window managers
@@ -74,7 +74,7 @@ All supported key and modifier names are listed in `man 5 swhkd-keys`.
 
 ## Security:
 
-We use a server-client model to keep you safe. The daemon ( swhkd - privileged
+We use a server-client model to keep you safe. The daemon ( `swhkd` - privileged
 process ) communicates to the server ( swhks - running as non root user ) after
 checking for valid keybinds. Since the daemon is totally separate from the
 server, no other process can read your keystrokes. As for shell commands, you
