@@ -1,7 +1,7 @@
 <p align=center>
   <img src="https://git.sr.ht/~shinyzenith/swhkd/blob/main/assets/swhkd.png" alt=SWHKD width=60%>
 
-  <p align=center>A next-generation hotkey daemon for Wayland/X11 written in Rust.</p>
+  <p align="center">A next-generation hotkey daemon for Wayland/X11 written in <a href="https://www.rust-lang.org/">Rust</a>.</p>
 
   <p align="center">
   <a href="./LICENSE.md"><img src="https://img.shields.io/github/license/waycrate/swhkd?style=flat-square&logo=appveyor"></a>
@@ -16,9 +16,9 @@
 
 **S**imple **W**ayland **H**ot**K**ey **D**aemon
 
-`swhkd` is a display protocol-independent hotkey daemon made in Rust. `swhkd`
-uses an easy-to-use configuration system inspired by `sxhkd` so you can easily
-add or remove hotkeys.
+`swhkd` is a display protocol-independent hotkey daemon made in
+[Rust](https://www.rust-lang.org). `swhkd` uses an easy-to-use configuration
+system inspired by `sxhkd` so you can easily add or remove hotkeys.
 
 It also attempts to be a drop-in replacement for `sxhkd`, meaning your `sxhkd`
 config file is also compatible with `swhkd`.
