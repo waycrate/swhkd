@@ -12,7 +12,7 @@
   </p>
 </p>
 
-## SWHKD:
+## SWHKD
 
 **S**imple **W**ayland **H**ot**K**ey **D**aemon
 
@@ -26,18 +26,18 @@ config file is also compatible with `swhkd`.
 Because `swhkd` can be used anywhere, the same `swhkd` config can be used across
 Xorg or Wayland desktops, and you can even use `swhkd` in a tty.
 
-## Installation and Building:
+## Installation and Building
 
 [Installation and building instructions can be found here.](./INSTALL.md)
 
-## Running:
+## Running
 
 ```bash
 swhks &
 pkexec swhkd
 ```
 
-## Runtime signals:
+## Runtime signals
 
 After opening `swhkd`, you can control the program through signals:
 
@@ -45,7 +45,7 @@ After opening `swhkd`, you can control the program through signals:
 -   `sudo pkill -USR2 swhkd` - Resume key checking
 -   `sudo pkill -HUP swhkd` - Reload config file
 
-## Configuration:
+## Configuration
 
 `swhkd` closely follows `sxhkd` syntax, so most existing `sxhkd` configs should
 be functional with `swhkd`.
@@ -60,9 +60,9 @@ vim-plug with `Plug 'waycrate/swhkd-vim'`.
 
 All supported key and modifier names are listed in `man 5 swhkd-keys`.
 
-## Autostart:
+## Autostart
 
-### To autostart `swhkd` you can do one of two things:
+### To autostart `swhkd` you can do one of two things
 
 1. Add the commands from the ["Running"
    section](https://github.com/waycrate/swhkd#running) to your window managers
@@ -72,7 +72,7 @@ All supported key and modifier names are listed in `man 5 swhkd-keys`.
    respective init system. Currently only systemd and OpenRC service files exist
    and more will be added soon including Runit.
 
-## Security:
+## Security
 
 We use a server-client model to keep you safe. The daemon ( `swhkd` - privileged
 process ) communicates to the server ( swhks - running as non root user ) after
@@ -85,12 +85,12 @@ your desktop calling shell commands ).
 
 So yes, you're safe!
 
-## Support:
+## Support
 
 1. https://matrix.to/#/#waycrate-tools:matrix.org
 1. https://discord.gg/KKZRDYrRYW
 
-## Contributors:
+## Contributors
 
 <a href="https://github.com/Shinyzenith/swhkd/graphs/contributors">
   <img src="https://contrib.rocks/image?repo=waycrate/swhkd" />
