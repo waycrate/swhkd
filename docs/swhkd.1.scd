@@ -2,7 +2,7 @@ swhkd(1) "github.com/shinyzenith/swhkd" "General Commands Manual"
 
 # NAME
 
-swhkd - Hotkey daemon inspired by sxhkd written in rust
+swhkd - Hotkey daemon inspired by sxhkd written in Rust
 
 # SYNOPSIS
 
