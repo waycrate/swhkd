@@ -15,11 +15,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `DESTDIR` variable for the `install` target in the `Makefile` to help
   packaging and installation. To install in a subdirectory, just call `make
   DESTDIR=subdir install`.
+- `Altgr` modifier added (https://github.com/waycrate/swhkd/pull/213).
 
 ### Changed
 
 - The project `Makefile` now builds the polkit policy file dynamically depending
   on the target installation directories.
+- Alt modifier no longer maps to the right aly key. It only maps to the left alt key. Right alt is referred to as Altgr (alt graph).
 
 ### Fixed
 

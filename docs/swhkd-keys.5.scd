@@ -12,6 +12,8 @@ swhkd	- Hotkey daemon inspired by sxhkd written in Rust
 	- Mod4
 	- Alt
 	- Mod1
+	- Altgr
+	- Mod5
 	- Shift
 
 # VALID KEYS

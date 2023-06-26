@@ -193,7 +193,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         (Key::KEY_LEFTMETA, config::Modifier::Super),
         (Key::KEY_RIGHTMETA, config::Modifier::Super),
         (Key::KEY_LEFTALT, config::Modifier::Alt),
-        (Key::KEY_RIGHTALT, config::Modifier::Alt),
+        (Key::KEY_RIGHTALT, config::Modifier::Altgr),
         (Key::KEY_LEFTCTRL, config::Modifier::Control),
         (Key::KEY_RIGHTCTRL, config::Modifier::Control),
         (Key::KEY_LEFTSHIFT, config::Modifier::Shift),

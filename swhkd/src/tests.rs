@@ -398,6 +398,9 @@ control + 5
 alt + 2
     notify-send 'Hello world!'
 
+altgr + i
+    notify-send 'Hello world!'
+
 super + z
     notify-send 'Hello world!'
             ";
@@ -416,6 +419,11 @@ super + z
             Hotkey::new(
                 evdev::Key::KEY_2,
                 vec![Modifier::Alt],
+                "notify-send 'Hello world!'".to_string(),
+            ),
+            Hotkey::new(
+                evdev::Key::KEY_I,
+                vec![Modifier::Altgr],
                 "notify-send 'Hello world!'".to_string(),
             ),
             Hotkey::new(
