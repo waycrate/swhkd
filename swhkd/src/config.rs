@@ -453,7 +453,7 @@ pub fn parse_contents(path: PathBuf, contents: String) -> Result<Vec<Mode>, Erro
         ("mod4", Modifier::Super),
         ("alt", Modifier::Alt),
         ("mod1", Modifier::Alt),
-        ("altrg", Modifier::Altgr),
+        ("altgr", Modifier::Altgr),
         ("mod5", Modifier::Altgr),
         ("shift", Modifier::Shift),
         ("any", Modifier::Any),
