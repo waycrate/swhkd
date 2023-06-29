@@ -59,6 +59,8 @@ swhkd	- Hotkey daemon inspired by sxhkd written in rust
 	- tab
 	- space
 	- plus
+	- leftsuper
+	- rightsuper
 	- kp0
 	- kp1
 	- kp2
