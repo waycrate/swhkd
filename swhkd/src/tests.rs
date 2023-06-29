@@ -301,13 +301,21 @@ w
 
 t
     /bin/firefox
+
+leftsuper
+    konsole
+
+rightsuper
+    qutebrowser
         ";
 
         let hotkey_1 = Hotkey::new(evdev::Key::KEY_R, vec![], String::from("alacritty"));
         let hotkey_2 = Hotkey::new(evdev::Key::KEY_W, vec![], String::from("kitty"));
         let hotkey_3 = Hotkey::new(evdev::Key::KEY_T, vec![], String::from("/bin/firefox"));
+        let hotkey_4 = Hotkey::new(evdev::Key::KEY_LEFTMETA, vec![], String::from("konsole"));
+        let hotkey_5 = Hotkey::new(evdev::Key::KEY_RIGHTMETA, vec![], String::from("qutebrowser"));
 
-        eval_config_test(contents, vec![hotkey_1, hotkey_2, hotkey_3])
+        eval_config_test(contents, vec![hotkey_1, hotkey_2, hotkey_3, hotkey_4, hotkey_5])
     }
 
     #[test]
