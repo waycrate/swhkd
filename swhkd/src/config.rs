@@ -340,6 +340,8 @@ pub fn parse_contents(path: PathBuf, contents: String) -> Result<Vec<Mode>, Erro
         ("tab", evdev::Key::KEY_TAB),
         ("space", evdev::Key::KEY_SPACE),
         ("plus", evdev::Key::KEY_KPPLUS), // Shouldn't this be kpplus?
+        ("leftsuper", evdev::Key::KEY_LEFTMETA),
+        ("rightsuper", evdev::Key::KEY_RIGHTMETA),
         ("kp0", evdev::Key::KEY_KP0),
         ("kp1", evdev::Key::KEY_KP1),
         ("kp2", evdev::Key::KEY_KP2),
