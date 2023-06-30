@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The project `Makefile` now builds the polkit policy file dynamically depending
   on the target installation directories.
 - Alt modifier no longer maps to the right aly key. It only maps to the left alt key. Right alt is referred to as Altgr (alt graph).
+- Tokio version bumped from 1.23.0 to 1.24.2 (https://github.com/waycrate/swhkd/pull/198).
 
 ### Fixed
 
