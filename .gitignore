@@ -4,3 +4,4 @@ target
 *.out
 com.github.swhkd.pkexec.policy
 *rc
+.direnv
