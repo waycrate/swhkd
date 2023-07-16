@@ -145,14 +145,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let arg_devices: Vec<&str> = args.values_of("device").unwrap_or_default().collect();
 
-    let keyboard_devices: Vec<Device> = {
+    let keyboard_devices: Vec<_> = {
         if arg_devices.is_empty() {
             log::trace!("Attempting to find all keyboard file descriptors.");
-            evdev::enumerate().map(|(_, device)| device).filter(check_device_is_keyboard).collect()
+            evdev::enumerate().filter(|(_, dev)| { check_device_is_keyboard(dev) }).collect()
         } else {
             evdev::enumerate()
-                .map(|(_, device)| device)
-                .filter(|device| arg_devices.contains(&device.name().unwrap_or("")))
+                .filter(|(_, dev)| arg_devices.contains(&dev.name().unwrap_or("")))
                 .collect()
         }
     };
@@ -212,13 +211,17 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let mut execution_is_paused = false;
     let mut last_hotkey: Option<config::Hotkey> = None;
     let mut pending_release: bool = false;
-    let mut keyboard_states: Vec<KeyboardState> = Vec::new();
+    let mut keyboard_states = HashMap::new();
     let mut keyboard_stream_map = StreamMap::new();
 
-    for (i, mut device) in keyboard_devices.into_iter().enumerate() {
+    for (path, mut device) in keyboard_devices.into_iter() {
         let _ = device.grab();
-        keyboard_stream_map.insert(i, device.into_event_stream()?);
-        keyboard_states.push(KeyboardState::new());
+        let path = match path.to_str() {
+            Some(p) => p,
+            None => { continue; },
+        };
+        keyboard_states.insert(path.to_string(), KeyboardState::new());
+        keyboard_stream_map.insert(path.to_string(), device.into_event_stream()?);
     }
 
     // The initial sleep duration is never read because last_hotkey is initialized to None
@@ -283,43 +286,41 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 if !event.is_initialized() {
                     log::warn!("Received udev event with uninitialized device.");
                 }
+
+                let node = match event.devnode() {
+                    None => { continue; },
+                    Some(node) => {
+                        match node.to_str() {
+                            None => { continue; },
+                            Some(node) => node,
+                        }
+                    },
+                };
+
                 match event.event_type() {
                     EventType::Add => {
-                        if let Some(devnode) = event.devnode() {
-                            let mut device = match Device::open(devnode) {
-                                Err(e) => {
-                                    log::error!("Could not open evdev device at {}: {}", devnode.to_string_lossy(), e);
-                                    continue;
-                                },
-                                Ok(device) => device
-                            };
-                            if arg_devices.contains(&device.name().unwrap_or("")) || check_device_is_keyboard(&device) {
-                                log::info!("Device '{}' at '{}' added.", &device.name().unwrap_or(""), devnode.to_string_lossy());
-                                let _ = device.grab();
-                                keyboard_states.push(KeyboardState::new());
-                                keyboard_stream_map.insert(keyboard_states.len() - 1, device.into_event_stream()?);
-                            }
+                        let mut device = match Device::open(node) {
+                            Err(e) => {
+                                log::error!("Could not open evdev device at {}: {}", node, e);
+                                continue;
+                            },
+                            Ok(device) => device
+                        };
+                        let name = device.name().unwrap_or("[unknown]");
+                        if arg_devices.contains(&name) || check_device_is_keyboard(&device) {
+                            log::info!("Device '{}' at '{}' added.", name, node);
+                            let _ = device.grab();
+                            keyboard_states.insert(node.to_string(), KeyboardState::new());
+                            keyboard_stream_map.insert(node.to_string(), device.into_event_stream()?);
                         }
                     }
                     EventType::Remove => {
-                        let udev_physical_path = event.property_value("PHYS")
-                            .and_then(|os_str| os_str.to_str())
-                            .map(|s| s.replace('\"', ""));
-                        keyboard_stream_map
-                            .iter()
-                            .filter(|(_, stream)| stream.device().physical_path() == udev_physical_path.as_deref())
-                            .map(|(key, _)| *key)
-                            // Collect all to not remove values while iterating
-                            .collect::<Vec<_>>()
-                            .into_iter()
-                            // Reverse to avoid dealing with changing indices for the keyboard_states vector
-                            .rev()
-                            .for_each(|key| {
-                                keyboard_states.remove(key);
-                                if let Some(stream) = keyboard_stream_map.remove(&key) {
-                                    log::info!("Device '{}' removed", stream.device().name().unwrap_or(""));
-                                }
-                            });
+                        if keyboard_stream_map.contains_key(node) {
+                            keyboard_states.remove(node);
+                            let stream = keyboard_stream_map.remove(node).expect("device not in stream_map");
+                            let name = stream.device().name().unwrap_or("[unknown]");
+                            log::info!("Device '{}' at '{}' removed", name, node);
+                        }
                     }
                     _ => {
                         log::trace!("Ignored udev event of type: {:?}", event.event_type());
@@ -327,8 +328,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 }
             }
 
-            Some((i, Ok(event))) = keyboard_stream_map.next() => {
-                let keyboard_state = &mut keyboard_states[i];
+            Some((node, Ok(event))) = keyboard_stream_map.next() => {
+                let keyboard_state = &mut keyboard_states.get_mut(&node).expect("device not in states map");
 
                 let key = match event.kind() {
                     InputEventKind::Key(keycode) => keycode,
