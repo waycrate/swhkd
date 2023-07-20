@@ -2,7 +2,7 @@ swhkd(5) "github.com/waycrate/swhkd" "File Formats Manual"
 
 # NAME
 
-swhkd	- Hotkey daemon inspired by sxhkd written in rust
+swhkd	- Hotkey daemon inspired by sxhkd written in Rust
 
 # VALID MODIFIERS
 
@@ -12,6 +12,8 @@ swhkd	- Hotkey daemon inspired by sxhkd written in rust
 	- Mod4
 	- Alt
 	- Mod1
+	- Altgr
+	- Mod5
 	- Shift
 
 # VALID KEYS
