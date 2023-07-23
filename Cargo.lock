@@ -679,8 +679,9 @@ dependencies = [
 
 [[package]]
 name = "tokio-udev"
-version = "0.8.0"
-source = "git+https://github.com/jeandudey/tokio-udev.git#f8c4981dd57bab442d1c1b4a2aac0751ed20bc19"
+version = "0.9.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f25418da261774ef3dcae985951bc138cf5fd49b3f4bd7450124ca75af8ed142"
 dependencies = [
  "futures-core",
  "tokio",
