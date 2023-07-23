@@ -23,6 +23,7 @@ use tokio::select;
 use tokio::time::Duration;
 use tokio::time::{sleep, Instant};
 use tokio_stream::{StreamExt, StreamMap};
+use tokio_udev::{AsyncMonitorSocket, EventType, MonitorBuilder};
 
 mod config;
 mod perms;
@@ -142,23 +143,16 @@ async fn main() -> Result<(), Box<dyn Error>> {
         };
     }
 
-    let keyboard_devices: Vec<Device> = {
-        if let Some(arg_devices) = args.values_of("device") {
-            // for device in arg_devices {
-            //     let device_path = Path::new(device);
-            //     if let Ok(device_to_use) = Device::open(device_path) {
-            //         log::info!("Using device: {}", device_to_use.name().unwrap_or(device));
-            //         keyboard_devices.push(device_to_use);
-            //     }
-            // }
-            let arg_devices = arg_devices.collect::<Vec<&str>>();
-            evdev::enumerate()
-                .map(|(_, device)| device)
-                .filter(|device| arg_devices.contains(&device.name().unwrap_or("")))
-                .collect()
-        } else {
+    let arg_devices: Vec<&str> = args.values_of("device").unwrap_or_default().collect();
+
+    let keyboard_devices: Vec<_> = {
+        if arg_devices.is_empty() {
             log::trace!("Attempting to find all keyboard file descriptors.");
-            evdev::enumerate().map(|(_, device)| device).filter(check_device_is_keyboard).collect()
+            evdev::enumerate().filter(|(_, dev)| check_device_is_keyboard(dev)).collect()
+        } else {
+            evdev::enumerate()
+                .filter(|(_, dev)| arg_devices.contains(&dev.name().unwrap_or("")))
+                .collect()
         }
     };
 
@@ -189,6 +183,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
         }
     };
 
+    let mut udev =
+        AsyncMonitorSocket::new(MonitorBuilder::new()?.match_subsystem("input")?.listen()?)?;
+
     let modifiers_map: HashMap<Key, config::Modifier> = HashMap::from([
         (Key::KEY_LEFTMETA, config::Modifier::Super),
         (Key::KEY_RIGHTMETA, config::Modifier::Super),
@@ -206,7 +203,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         250
     };
 
-    let mut signals = Signals::new(&[
+    let mut signals = Signals::new([
         SIGUSR1, SIGUSR2, SIGHUP, SIGABRT, SIGBUS, SIGCHLD, SIGCONT, SIGINT, SIGPIPE, SIGQUIT,
         SIGSYS, SIGTERM, SIGTRAP, SIGTSTP, SIGVTALRM, SIGXCPU, SIGXFSZ,
     ])?;
@@ -214,13 +211,19 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let mut execution_is_paused = false;
     let mut last_hotkey: Option<config::Hotkey> = None;
     let mut pending_release: bool = false;
-    let mut keyboard_states: Vec<KeyboardState> = Vec::new();
+    let mut keyboard_states = HashMap::new();
     let mut keyboard_stream_map = StreamMap::new();
 
-    for (i, mut device) in keyboard_devices.into_iter().enumerate() {
+    for (path, mut device) in keyboard_devices.into_iter() {
         let _ = device.grab();
-        keyboard_stream_map.insert(i, device.into_event_stream()?);
-        keyboard_states.push(KeyboardState::new());
+        let path = match path.to_str() {
+            Some(p) => p,
+            None => {
+                continue;
+            }
+        };
+        keyboard_states.insert(path.to_string(), KeyboardState::new());
+        keyboard_stream_map.insert(path.to_string(), device.into_event_stream()?);
     }
 
     // The initial sleep duration is never read because last_hotkey is initialized to None
@@ -281,8 +284,54 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 }
             }
 
-            Some((i, Ok(event))) = keyboard_stream_map.next() => {
-                let keyboard_state = &mut keyboard_states[i];
+            Some(Ok(event)) = udev.next() => {
+                if !event.is_initialized() {
+                    log::warn!("Received udev event with uninitialized device.");
+                }
+
+                let node = match event.devnode() {
+                    None => { continue; },
+                    Some(node) => {
+                        match node.to_str() {
+                            None => { continue; },
+                            Some(node) => node,
+                        }
+                    },
+                };
+
+                match event.event_type() {
+                    EventType::Add => {
+                        let mut device = match Device::open(node) {
+                            Err(e) => {
+                                log::error!("Could not open evdev device at {}: {}", node, e);
+                                continue;
+                            },
+                            Ok(device) => device
+                        };
+                        let name = device.name().unwrap_or("[unknown]");
+                        if arg_devices.contains(&name) || check_device_is_keyboard(&device) {
+                            log::info!("Device '{}' at '{}' added.", name, node);
+                            let _ = device.grab();
+                            keyboard_states.insert(node.to_string(), KeyboardState::new());
+                            keyboard_stream_map.insert(node.to_string(), device.into_event_stream()?);
+                        }
+                    }
+                    EventType::Remove => {
+                        if keyboard_stream_map.contains_key(node) {
+                            keyboard_states.remove(node);
+                            let stream = keyboard_stream_map.remove(node).expect("device not in stream_map");
+                            let name = stream.device().name().unwrap_or("[unknown]");
+                            log::info!("Device '{}' at '{}' removed", name, node);
+                        }
+                    }
+                    _ => {
+                        log::trace!("Ignored udev event of type: {:?}", event.event_type());
+                    }
+                }
+            }
+
+            Some((node, Ok(event))) = keyboard_stream_map.next() => {
+                let keyboard_state = &mut keyboard_states.get_mut(&node).expect("device not in states map");
 
                 let key = match event.kind() {
                     InputEventKind::Key(keycode) => keycode,

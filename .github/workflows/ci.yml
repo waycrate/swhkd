@@ -14,7 +14,10 @@ jobs:
               uses: actions/checkout@v2
 
             - name: Build
-              run: cargo build --release
+              run: |
+                  sudo apt-get update
+                  sudo apt-get install -y --no-install-recommends libudev-dev
+                  cargo build --release
 
     clippy:
         runs-on: ubuntu-latest
@@ -24,7 +27,10 @@ jobs:
               uses: actions/checkout@v2
 
             - name: Clippy
-              run: cargo clippy
+              run: |
+                  sudo apt-get update
+                  sudo apt-get install -y --no-install-recommends libudev-dev
+                  cargo clippy
 
     test:
         runs-on: ubuntu-latest
@@ -34,7 +40,10 @@ jobs:
               uses: actions/checkout@v2
 
             - name: Run tests
-              run: cargo test --verbose
+              run: |
+                  sudo apt-get update
+                  sudo apt-get install -y --no-install-recommends libudev-dev
+                  cargo test --verbose
 
     documentation:
         runs-on: ubuntu-latest

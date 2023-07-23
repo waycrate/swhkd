@@ -15,6 +15,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `DESTDIR` variable for the `install` target in the `Makefile` to help
   packaging and installation. To install in a subdirectory, just call `make
   DESTDIR=subdir install`.
+- Detection of added/removed devices (e.g., when plugging or unplugging a
+  keyboard). The devices are grabbed by `swhkd` if they match the `--device`
+  parameters if present or if they are recognized as keyboard devices otherwise.
 - `Altgr` modifier added (https://github.com/waycrate/swhkd/pull/213).
 
 ### Changed
