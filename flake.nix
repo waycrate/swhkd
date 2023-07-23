@@ -24,15 +24,19 @@
               rustc
               scdoc
 
+              # libs
+              udev
+
               # Tools
-			  zip
-              rustfmt
+              pkg-config
               clippy
               gdb
               gnumake
               rust-analyzer
+              rustfmt
               strace
               valgrind
+              zip
             ];
           };
         });
