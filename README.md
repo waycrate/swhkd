@@ -95,3 +95,7 @@ So yes, you're safe!
 <a href="https://github.com/Shinyzenith/swhkd/graphs/contributors">
   <img src="https://contrib.rocks/image?repo=waycrate/swhkd" />
 </a>
+
+## Supporters:
+
+1. [@CluelessTechnologist](https://github.com/CluelessTechnologist)
