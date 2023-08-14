@@ -97,44 +97,101 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let mut modes = load_config();
     let mut mode_stack: Vec<usize> = vec![0];
+    let mut command_stack: Vec<String> = Vec::new();
+    let mut pending_mode_stack: Vec<usize> = Vec::new();
 
     macro_rules! send_command {
-        ($hotkey: expr, $socket_path: expr) => {
-            log::info!("Hotkey pressed: {:#?}", $hotkey);
-            let command = $hotkey.command;
+        ($command: expr, $socket_path: expr) => {
+            let mut command = $command;
             let mut commands_to_send = String::new();
             if modes[mode_stack[mode_stack.len() - 1]].options.oneoff {
+                if pending_mode_stack[pending_mode_stack.len() - 1]
+                    != mode_stack[mode_stack.len() - 1]
+                {
+                    mode_stack.pop();
+                    continue;
+                }
+                command = format!("{} && {}", command, command_stack.pop().unwrap());
                 mode_stack.pop();
+                pending_mode_stack.pop();
+                command_stack.pop();
             }
             if command.contains('@') {
-                let commands = command.split("&&").map(|s| s.trim()).collect::<Vec<_>>();
-                for cmd in commands {
+                let mut commands = command.split("&&").map(|s| s.trim()).collect::<Vec<_>>();
+                let mut pending: bool = false;
+                let mut i: usize = 0;
+                let mut len: usize = commands.len();
+                let mut pending_command = String::new();
+                let mut commands_to_push = String::new();
+                if !command_stack.is_empty() {
+                    pending_command = command_stack[command_stack.len() - 1].clone();
+                }
+
+                while i < len {
+                    let cmd = commands[i];
+                    if pending {
+                        commands_to_push.push_str(format!("{cmd} && ").as_str());
+                        i += 1;
+                        continue;
+                    }
                     match cmd.split(' ').next().unwrap() {
                         config::MODE_ENTER_STATEMENT => {
                             let enter_mode = cmd.split(' ').nth(1).unwrap();
-                            for (i, mode) in modes.iter().enumerate() {
-                                if mode.name == enter_mode {
-                                    mode_stack.push(i);
-                                    break;
-                                }
-                            }
+                            let index = modes.iter().position(|m| m.name == enter_mode).unwrap();
+                            mode_stack.push(index);
                             log::info!(
                                 "Entering mode: {}",
                                 modes[mode_stack[mode_stack.len() - 1]].name
                             );
                         }
-                        config::MODE_ESCAPE_STATEMENT => {
-                            mode_stack.pop();
+                        config::MODE_PEND_STATEMENT => {
+                            let enter_mode = cmd.split(' ').nth(1).unwrap();
+                            let index = modes.iter().position(|m| m.name == enter_mode).unwrap();
+                            mode_stack.push(index);
+                            log::info!(
+                                "Entering mode: {}",
+                                modes[mode_stack[mode_stack.len() - 1]].name
+                            );
+                            pending = true;
+                            pending_mode_stack.push(index);
                         }
-                        _ => commands_to_send.push_str(format!("{cmd} &&").as_str()),
+                        config::MODE_ESCAPE_STATEMENT => {
+                            if pending_mode_stack[pending_mode_stack.len() - 1]
+                                != mode_stack[mode_stack.len() - 1]
+                            {
+                                mode_stack.pop();
+                                i += 1;
+                                continue;
+                            }
+                            let pending_commands: Vec<&str> =
+                                pending_command.split("&&").map(|s| s.trim()).collect();
+                            commands.extend(pending_commands);
+                            len = commands.len();
+                            mode_stack.pop();
+                            pending_mode_stack.pop();
+                            command_stack.pop();
+                        }
+                        _ => commands_to_send.push_str(format!("{cmd} && ").as_str()),
                     }
+                    i += 1;
+                }
+                if pending {
+                    commands_to_push = commands_to_push.trim().to_string();
+                    if commands_to_push.ends_with(" &&") {
+                        commands_to_push =
+                            commands_to_push.strip_suffix(" &&").unwrap().to_string();
+                    }
+                    log::info!("pending command: {}", commands_to_push);
+                    command_stack.push(commands_to_push);
                 }
             } else {
                 commands_to_send = command;
             }
+            commands_to_send = commands_to_send.trim().to_string();
             if commands_to_send.ends_with(" &&") {
                 commands_to_send = commands_to_send.strip_suffix(" &&").unwrap().to_string();
             }
+            log::info!("commands_to_send: {}", commands_to_send);
             if let Err(e) = socket_write(&commands_to_send, $socket_path.to_path_buf()) {
                 log::error!("Failed to send command to swhks through IPC.");
                 log::error!("Please make sure that swhks is running.");
@@ -239,7 +296,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 if hotkey.keybinding.on_release {
                     continue;
                 }
-                send_command!(hotkey.clone(), &socket_file_path);
+                log::info!("Hotkey pressed: {:#?}", hotkey);
+                send_command!(hotkey.clone().command, &socket_file_path);
                 hotkey_repeat_timer.as_mut().reset(Instant::now() + Duration::from_millis(repeat_cooldown_duration));
             }
 
@@ -359,7 +417,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     0 => {
                         if last_hotkey.is_some() && pending_release {
                             pending_release = false;
-                            send_command!(last_hotkey.clone().unwrap(), &socket_file_path);
+                            log::info!("Hotkey pressed: {:#?}", last_hotkey.clone().unwrap());
+                            send_command!(last_hotkey.clone().unwrap().command, &socket_file_path);
                             last_hotkey = None;
                         }
                         if let Some(modifier) = modifiers_map.get(&key) {
@@ -422,7 +481,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
                             pending_release = true;
                             break;
                         }
-                        send_command!(hotkey.clone(), &socket_file_path);
+                        log::info!("Hotkey pressed: {:#?}", hotkey);
+                        send_command!(hotkey.clone().command, &socket_file_path);
                         hotkey_repeat_timer.as_mut().reset(Instant::now() + Duration::from_millis(repeat_cooldown_duration));
                         continue;
                     }
