@@ -19,6 +19,7 @@ We have packaged `swhkd-git`. `swhkd-bin` has been packaged separately by a user
 -   git
 -   scdoc (If present, man-pages will be generated)
 -   make
+-   libudev (in Debian, the package name is `libudev-dev`)
 -   rustup
 
 # Compiling:
