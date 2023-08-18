@@ -105,8 +105,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
             let mut command = $command;
             let mut commands_to_send = String::new();
             if modes[mode_stack[mode_stack.len() - 1]].options.oneoff {
-                if pending_mode_stack[pending_mode_stack.len() - 1]
-                    != mode_stack[mode_stack.len() - 1]
+                if !pending_mode_stack.is_empty()
+                    && pending_mode_stack[pending_mode_stack.len() - 1]
+                        != mode_stack[mode_stack.len() - 1]
                 {
                     mode_stack.pop();
                     continue;
@@ -156,8 +157,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
                             pending_mode_stack.push(index);
                         }
                         config::MODE_ESCAPE_STATEMENT => {
-                            if pending_mode_stack[pending_mode_stack.len() - 1]
-                                != mode_stack[mode_stack.len() - 1]
+                            if !pending_mode_stack.is_empty()
+                                && pending_mode_stack[pending_mode_stack.len() - 1]
+                                    != mode_stack[mode_stack.len() - 1]
                             {
                                 mode_stack.pop();
                                 i += 1;
