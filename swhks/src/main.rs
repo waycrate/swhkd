@@ -16,8 +16,6 @@ use std::{
 use sysinfo::{ProcessExt, System, SystemExt};
 
 fn main() -> std::io::Result<()> {
-    env::set_var("RUST_LOG", "swhks=warn");
-
     let app = clap::Command::new("swhks")
         .version(env!("CARGO_PKG_VERSION"))
         .author(env!("CARGO_PKG_AUTHORS"))
@@ -30,10 +28,12 @@ fn main() -> std::io::Result<()> {
 		));
     let args = app.get_matches();
     if args.is_present("debug") {
-        env::set_var("RUST_LOG", "swhks=trace");
+        env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("swhks=trace"))
+            .init();
+    } else {
+        env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("swhks=warn"))
+            .init();
     }
-
-    env_logger::init();
 
     log::trace!("Setting process umask.");
     umask(Mode::S_IWGRP | Mode::S_IWOTH);
