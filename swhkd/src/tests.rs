@@ -1,7 +1,6 @@
 mod test_config {
     use crate::config::{
-        extract_curly_brace, load, load_file_contents, parse_contents, Error, Hotkey, Modifier,
-        ParseError, Prefix,
+        extract_curly_brace, load, parse_contents, Error, Hotkey, Modifier, ParseError, Prefix,
     };
     use std::fs;
     use std::io::Write;
@@ -100,22 +99,6 @@ mod test_config {
     }
 
     #[test]
-    fn test_nonexistent_file() {
-        let path = PathBuf::from(r"This File Doesn't Exist");
-
-        let result = load_file_contents(&path);
-
-        assert!(result.is_err());
-
-        match result.unwrap_err() {
-            Error::ConfigNotFound => {}
-            _ => {
-                panic!("Error type for nonexistent file is wrong.");
-            }
-        }
-    }
-
-    #[test]
     fn test_existing_file() -> std::io::Result<()> {
         let setup = TestPath::new("/tmp/swhkd-test-file1");
         // Build a dummy file in /tmp
@@ -129,7 +112,7 @@ q
     bspc node -q",
         )?;
 
-        let result = load_file_contents(&setup.path());
+        let result = fs::read_to_string(&setup.path());
         assert!(result.is_ok());
         Ok(())
     }
