@@ -26,7 +26,7 @@ We have packaged `swhkd-git`. `swhkd-bin` has been packaged separately by a user
 -   `git clone https://github.com/waycrate/swhkd;cd swhkd`
 -   `make setup`
 -   `make clean`
-    -   `make`
+-   `make`
 -   `sudo make install`
 
 # Running:
