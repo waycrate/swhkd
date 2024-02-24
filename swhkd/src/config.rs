@@ -624,7 +624,7 @@ fn parse_keybind(
 
     // Delete the @ and ~ in the last token
     fn strip_at(token: &str) -> &str {
-        token.trim_start_matches(&['@', '~'])
+        token.trim_start_matches(['@', '~'])
     }
 
     let last_token = strip_at(last_token);
