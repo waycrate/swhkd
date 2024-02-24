@@ -1,7 +1,6 @@
 use itertools::Itertools;
 use std::collections::HashMap;
-use std::fs::File;
-use std::io::Read;
+use std::fs;
 use std::{
     fmt,
     path::{Path, PathBuf},
@@ -75,13 +74,6 @@ pub struct Config {
     pub imports: Vec<PathBuf>,
 }
 
-pub fn load_file_contents(path: &Path) -> Result<String, Error> {
-    let mut file = File::open(path)?;
-    let mut contents = String::new();
-    file.read_to_string(&mut contents)?;
-    Ok(contents)
-}
-
 impl Config {
     pub fn get_imports(contents: &str) -> Result<Vec<PathBuf>, Error> {
         let mut imports = Vec::new();
@@ -96,7 +88,7 @@ impl Config {
     }
 
     pub fn new(path: &Path) -> Result<Self, Error> {
-        let contents = load_file_contents(path)?;
+        let contents = fs::read_to_string(path)?;
         let imports = Self::get_imports(&contents)?;
         Ok(Config { path: path.to_path_buf(), contents, imports })
     }
