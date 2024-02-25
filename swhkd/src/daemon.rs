@@ -1,6 +1,6 @@
 use crate::config::Value;
 use clap::{arg, Command};
-use evdev::{AttributeSet, Device, InputEventKind, Key};
+use evdev::{AttributeSet, Device, EventType as EvType, InputEventKind, Key};
 use nix::{
     sys::stat::{umask, Mode},
     unistd::{Group, Uid},
@@ -459,10 +459,10 @@ pub fn check_input_group() -> Result<(), Box<dyn Error>> {
 }
 
 pub fn check_device_is_keyboard(device: &Device) -> bool {
-    if device.supported_keys().map_or(false, |keys| keys.contains(Key::KEY_ENTER)) {
-        if device.name() == Some("swhkd virtual output") {
-            return false;
-        }
+    let events = device.supported_events();
+    if device.name() == Some("swhkd virtual output") {
+        false
+    } else if events.contains(EvType::KEY) && events.contains(EvType::REPEAT) {
         log::debug!("Keyboard: {}", device.name().unwrap(),);
         true
     } else {
