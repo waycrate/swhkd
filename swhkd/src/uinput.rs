@@ -10,30 +10,21 @@ use std::os::unix::io::AsRawFd;
 ioctl_none!(rfkill_noinput, b'R', 1);
 
 pub fn create_uinput_device() -> Result<VirtualDevice, Box<dyn std::error::Error>> {
-    let mut keys = AttributeSet::<Key>::new();
-    for key in get_all_keys() {
-        keys.insert(key);
-    }
+    let keys: AttributeSet<Key> = get_all_keys().iter().copied().collect();
 
-    let mut relative_axes = AttributeSet::<RelativeAxisType>::new();
-    for axis in get_all_relative_axes() {
-        relative_axes.insert(axis);
-    }
+    let relative_axes: AttributeSet<RelativeAxisType> =
+        get_all_relative_axes().iter().copied().collect();
 
     let device = VirtualDeviceBuilder::new()?
         .name("swhkd virtual output")
         .with_keys(&keys)?
         .with_relative_axes(&relative_axes)?
-        .build()
-        .unwrap();
+        .build()?;
     Ok(device)
 }
 
 pub fn create_uinput_switches_device() -> Result<VirtualDevice, Box<dyn std::error::Error>> {
-    let mut switches = AttributeSet::<SwitchType>::new();
-    for switch in get_all_switches() {
-        switches.insert(switch);
-    }
+    let switches: AttributeSet<SwitchType> = get_all_switches().iter().copied().collect();
 
     // We have to disable rfkill-input to avoid blocking all radio devices. When
     // a new device (virtual or physical) with the SW_RFKILL_ALL capability bit
@@ -52,12 +43,11 @@ pub fn create_uinput_switches_device() -> Result<VirtualDevice, Box<dyn std::err
     let device = VirtualDeviceBuilder::new()?
         .name("swhkd switches virtual output")
         .with_switches(&switches)?
-        .build()
-        .unwrap();
+        .build()?;
     Ok(device)
 }
-pub fn get_all_keys() -> Vec<Key> {
-    vec![
+pub fn get_all_keys() -> &'static [Key] {
+    &[
         evdev::Key::KEY_RESERVED,
         evdev::Key::KEY_ESC,
         evdev::Key::KEY_1,
@@ -609,8 +599,8 @@ pub fn get_all_keys() -> Vec<Key> {
     ]
 }
 
-pub fn get_all_relative_axes() -> Vec<RelativeAxisType> {
-    vec![
+pub fn get_all_relative_axes() -> &'static [RelativeAxisType] {
+    &[
         RelativeAxisType::REL_X,
         RelativeAxisType::REL_Y,
         RelativeAxisType::REL_Z,
@@ -627,8 +617,8 @@ pub fn get_all_relative_axes() -> Vec<RelativeAxisType> {
     ]
 }
 
-pub fn get_all_switches() -> Vec<SwitchType> {
-    vec![
+pub fn get_all_switches() -> &'static [SwitchType] {
+    &[
         SwitchType::SW_LID,
         SwitchType::SW_TABLET_MODE,
         SwitchType::SW_HEADPHONE_INSERT,
