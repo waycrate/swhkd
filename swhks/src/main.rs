@@ -1,3 +1,4 @@
+use std::io::Read;
 use clap::arg;
 use environ::Env;
 use nix::{
@@ -7,13 +8,11 @@ use nix::{
 use std::{
     env, fs,
     fs::OpenOptions,
-    io::prelude::*,
     os::unix::net::UnixListener,
     path::Path,
     process::{exit, id, Command, Stdio},
-    sync::OnceLock,
-    time::{SystemTime, UNIX_EPOCH},
 };
+use std::time::{SystemTime, UNIX_EPOCH};
 use sysinfo::{ProcessExt, System, SystemExt};
 
 mod environ;
@@ -42,13 +41,9 @@ fn main() -> std::io::Result<()> {
     umask(Mode::S_IWGRP | Mode::S_IWOTH);
 
     // This is used to initialize the environment variables only once
-    // then lock it so that it cannot be modified.
-    // This ensures that even if the environment variables are modified
-    // at run time, it doesn't cause weird issues with the server already running.
-    static ENV: OnceLock<Env> = OnceLock::new();
-    ENV.get_or_init(Env::construct);
+    let environment = environ::Env::construct();
 
-    let (pid_file_path, sock_file_path) = get_file_paths(ENV.get().unwrap());
+    let (pid_file_path, sock_file_path) = get_file_paths(&environment);
 
     let log_file_name = if let Some(val) = args.value_of("log") {
         val.to_string()
@@ -61,7 +56,7 @@ fn main() -> std::io::Result<()> {
             }
         };
 
-        format!("{}/swhks/swhks-{}.log", ENV.get().unwrap().data_home.to_string_lossy(), time)
+        format!("{}/swhks/swhks-{}.log", environment.data_home.to_string_lossy(), time)
     };
 
     let log_path = Path::new(&log_file_name);
