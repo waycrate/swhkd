@@ -11,7 +11,8 @@ use std::{
     os::unix::net::UnixListener,
     path::Path,
     process::{exit, id, Command, Stdio},
-    time::{SystemTime, UNIX_EPOCH}, sync::OnceLock,
+    sync::OnceLock,
+    time::{SystemTime, UNIX_EPOCH},
 };
 use sysinfo::{ProcessExt, System, SystemExt};
 

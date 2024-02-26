@@ -1,7 +1,7 @@
 //! Environ.rs
 //! Defines modules and structs for handling environment variables and paths.
 
-use std::{path::PathBuf, env::VarError};
+use std::{env::VarError, path::PathBuf};
 
 use nix::unistd;
 
@@ -39,9 +39,11 @@ impl Env {
             Ok(val) => val,
             Err(e) => match e {
                 EnvError::DataHomeNotSet => {
-                    log::warn!("XDG_DATA_HOME Variable is not set, falling back on hardcoded path.");
+                    log::warn!(
+                        "XDG_DATA_HOME Variable is not set, falling back on hardcoded path."
+                    );
                     home.join(".local/share")
-                },
+                }
                 _ => panic!("Unexpected error: {:#?}", e),
             },
         };
@@ -50,18 +52,16 @@ impl Env {
             Ok(val) => val,
             Err(e) => match e {
                 EnvError::RuntimeDirNotSet => {
-                    log::warn!("XDG_RUNTIME_DIR Variable is not set, falling back on hardcoded path.");
+                    log::warn!(
+                        "XDG_RUNTIME_DIR Variable is not set, falling back on hardcoded path."
+                    );
                     PathBuf::from(format!("/run/user/{}", unistd::Uid::current()))
-                },
+                }
                 _ => panic!("Unexpected error: {:#?}", e),
             },
         };
 
-        Self {
-            data_home,
-            home,
-            runtime_dir,
-        }
+        Self { data_home, home, runtime_dir }
     }
 
     /// Actual interface to get the environment variable.
