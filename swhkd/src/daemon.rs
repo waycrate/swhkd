@@ -441,7 +441,7 @@ fn socket_write(command: &str, socket_path: PathBuf) -> Result<(), Box<dyn Error
 pub fn check_input_group() -> Result<(), Box<dyn Error>> {
     if !Uid::current().is_root() {
         let groups = nix::unistd::getgroups();
-        for (_, groups) in groups.iter().enumerate() {
+        for groups in groups.iter() {
             for group in groups {
                 let group = Group::from_gid(*group);
                 if group.unwrap().unwrap().name == "input" {
