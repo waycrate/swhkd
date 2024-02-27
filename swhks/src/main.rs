@@ -1,10 +1,11 @@
-use std::io::Read;
 use clap::arg;
 use environ::Env;
 use nix::{
     sys::stat::{umask, Mode},
     unistd::daemon,
 };
+use std::io::Read;
+use std::time::{SystemTime, UNIX_EPOCH};
 use std::{
     env, fs,
     fs::OpenOptions,
@@ -12,7 +13,6 @@ use std::{
     path::Path,
     process::{exit, id, Command, Stdio},
 };
-use std::time::{SystemTime, UNIX_EPOCH};
 use sysinfo::{ProcessExt, System, SystemExt};
 
 mod environ;
