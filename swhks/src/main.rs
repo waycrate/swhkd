@@ -1,19 +1,21 @@
 use clap::arg;
+use environ::Env;
 use nix::{
     sys::stat::{umask, Mode},
-    unistd,
     unistd::daemon,
 };
+use std::io::Read;
+use std::time::{SystemTime, UNIX_EPOCH};
 use std::{
     env, fs,
     fs::OpenOptions,
-    io::prelude::*,
     os::unix::net::UnixListener,
     path::Path,
     process::{exit, id, Command, Stdio},
-    time::{SystemTime, UNIX_EPOCH},
 };
 use sysinfo::{ProcessExt, System, SystemExt};
+
+mod environ;
 
 fn main() -> std::io::Result<()> {
     let app = clap::Command::new("swhks")
@@ -38,7 +40,10 @@ fn main() -> std::io::Result<()> {
     log::trace!("Setting process umask.");
     umask(Mode::S_IWGRP | Mode::S_IWOTH);
 
-    let (pid_file_path, sock_file_path) = get_file_paths();
+    // This is used to initialize the environment variables only once
+    let environment = environ::Env::construct();
+
+    let (pid_file_path, sock_file_path) = get_file_paths(&environment);
 
     let log_file_name = if let Some(val) = args.value_of("log") {
         val.to_string()
@@ -51,29 +56,7 @@ fn main() -> std::io::Result<()> {
             }
         };
 
-        match env::var("XDG_DATA_HOME") {
-            Ok(val) => {
-                log::info!(
-                    "XDG_DATA_HOME Variable is present, using it's value for default file path."
-                );
-                format!("{}/swhks/swhks-{}.log", val, time)
-            }
-            Err(e) => {
-                log::trace!(
-                "XDG_DATA_HOME Variable is not set, falling back on hardcoded path.\nError: {:#?}",
-                e
-            );
-                match env::var("HOME") {
-                    Ok(val) => format!("{}/.local/share/swhks/swhks-{}.log", val, time),
-                    Err(_) => {
-                        log::error!(
-                            "HOME Variable is not set, cannot fall back on hardcoded path for XDG_DATA_HOME."
-                        );
-                        exit(1);
-                    }
-                }
-            }
-        }
+        format!("{}/swhks/swhks-{}.log", environment.data_home.to_string_lossy(), time)
     };
 
     let log_path = Path::new(&log_file_name);
@@ -142,27 +125,11 @@ fn main() -> std::io::Result<()> {
     }
 }
 
-fn get_file_paths() -> (String, String) {
-    match env::var("XDG_RUNTIME_DIR") {
-        Ok(val) => {
-            log::info!(
-                "XDG_RUNTIME_DIR Variable is present, using it's value as default file path."
-            );
+fn get_file_paths(env: &Env) -> (String, String) {
+    let pid_file_path = format!("{}/swhks.pid", env.runtime_dir.to_string_lossy());
+    let sock_file_path = format!("{}/swhkd.sock", env.runtime_dir.to_string_lossy());
 
-            let pid_file_path = format!("{}/swhks.pid", val);
-            let sock_file_path = format!("{}/swhkd.sock", val);
-
-            (pid_file_path, sock_file_path)
-        }
-        Err(e) => {
-            log::trace!("XDG_RUNTIME_DIR Variable is not set, falling back on hardcoded path.\nError: {:#?}", e);
-
-            let pid_file_path = format!("/run/user/{}/swhks.pid", unistd::Uid::current());
-            let sock_file_path = format!("/run/user/{}/swhkd.sock", unistd::Uid::current());
-
-            (pid_file_path, sock_file_path)
-        }
-    }
+    (pid_file_path, sock_file_path)
 }
 
 fn run_system_command(command: &str, log_path: &Path) {
