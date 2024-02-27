@@ -3,5 +3,6 @@ target
 *.gz
 *.out
 com.github.swhkd.pkexec.policy
-# *rc
+*rc
+!*rc/
 .direnv
