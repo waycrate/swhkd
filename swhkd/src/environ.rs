@@ -94,4 +94,12 @@ impl Env {
             },
         }
     }
+
+    pub fn fetch_xdg_config_path(&self) -> PathBuf {
+        PathBuf::from(&self.xdg_config_home).join("swhkd/swhkdrc")
+    }
+
+    pub fn fetch_xdg_runtime_socket_path(&self) -> PathBuf {
+        PathBuf::from(&self.xdg_runtime_dir).join("swhkd.sock")
+    }
 }

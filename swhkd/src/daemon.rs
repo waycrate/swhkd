@@ -1,6 +1,5 @@
 use crate::config::Value;
 use clap::{arg, Command};
-use environ::Env;
 use evdev::{AttributeSet, Device, InputEventKind, Key};
 use nix::{
     sys::stat::{umask, Mode},
@@ -71,7 +70,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         let config_file_path: PathBuf = if args.is_present("config") {
             Path::new(args.value_of("config").unwrap()).to_path_buf()
         } else {
-            fetch_xdg_config_path(&env)
+            env.fetch_xdg_config_path()
         };
 
         log::debug!("Using config file path: {:#?}", config_file_path);
@@ -225,7 +224,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     tokio::pin!(hotkey_repeat_timer);
 
     // The socket we're sending the commands to.
-    let socket_file_path = fetch_xdg_runtime_socket_path(&env);
+    let socket_file_path = env.fetch_xdg_runtime_socket_path();
     loop {
         select! {
             _ = &mut hotkey_repeat_timer, if &last_hotkey.is_some() => {
@@ -493,14 +492,6 @@ pub fn set_command_line_args() -> Command<'static> {
                 ),
         );
     app
-}
-
-pub fn fetch_xdg_config_path(env: &Env) -> PathBuf {
-    PathBuf::from(&env.xdg_config_home).join("swhkd/swhkdrc")
-}
-
-pub fn fetch_xdg_runtime_socket_path(env: &Env) -> PathBuf {
-    PathBuf::from(&env.xdg_runtime_dir).join("swhkd.sock")
 }
 
 pub fn setup_swhkd(invoking_uid: u32, runtime_path: String) {
