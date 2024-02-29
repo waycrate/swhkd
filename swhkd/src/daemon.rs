@@ -1,5 +1,5 @@
 use crate::config::Value;
-use clap::{arg, Command};
+use clap::Parser;
 use evdev::{AttributeSet, Device, InputEventKind, Key};
 use nix::{
     sys::stat::{umask, Mode},
@@ -44,12 +44,33 @@ impl KeyboardState {
     }
 }
 
+/// Simple Wayland Hotkey Daemon
+#[derive(Parser)]
+#[command(version, about, long_about = None)]
+struct Args {
+    /// Set a custom config file path.
+    #[arg(short, long, value_name = "FILE")]
+    config: Option<PathBuf>,
+
+    /// Set a custom repeat cooldown duration. Default is 250ms.
+    #[arg(short, long)]
+    cooldown: Option<u64>,
+
+    /// Enable Debug Mode
+    #[arg(short, long)]
+    debug: bool,
+
+    /// Take a list of devices from the user
+    #[arg(short, long, num_args = 0.., value_delimiter = ' ')]
+    device: Vec<String>,
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    let args = set_command_line_args().get_matches();
+    let args = Args::parse();
     env::set_var("RUST_LOG", "swhkd=warn");
 
-    if args.is_present("debug") {
+    if args.debug {
         env::set_var("RUST_LOG", "swhkd=trace");
     }
 
@@ -67,11 +88,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
         // Drop privileges to the invoking user.
         perms::drop_privileges(invoking_uid);
 
-        let config_file_path: PathBuf = if args.is_present("config") {
-            Path::new(args.value_of("config").unwrap()).to_path_buf()
-        } else {
-            env.fetch_xdg_config_path()
-        };
+        let config_file_path: PathBuf =
+            args.config.as_ref().map_or_else(fetch_xdg_config_path, |file| file.clone());
 
         log::debug!("Using config file path: {:#?}", config_file_path);
 
@@ -136,7 +154,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         };
     }
 
-    let arg_devices: Vec<&str> = args.values_of("device").unwrap_or_default().collect();
+    let arg_devices: Vec<String> = args.device;
 
     let keyboard_devices: Vec<_> = {
         if arg_devices.is_empty() {
@@ -144,7 +162,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             evdev::enumerate().filter(|(_, dev)| check_device_is_keyboard(dev)).collect()
         } else {
             evdev::enumerate()
-                .filter(|(_, dev)| arg_devices.contains(&dev.name().unwrap_or("")))
+                .filter(|(_, dev)| arg_devices.contains(&dev.name().unwrap_or("").to_string()))
                 .collect()
         }
     };
@@ -190,11 +208,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         (Key::KEY_RIGHTSHIFT, config::Modifier::Shift),
     ]);
 
-    let repeat_cooldown_duration: u64 = if args.is_present("cooldown") {
-        args.value_of("cooldown").unwrap().parse::<u64>().unwrap()
-    } else {
-        250
-    };
+    let repeat_cooldown_duration: u64 = args.cooldown.unwrap_or(250);
 
     let mut signals = Signals::new([
         SIGUSR1, SIGUSR2, SIGHUP, SIGABRT, SIGBUS, SIGCHLD, SIGCONT, SIGINT, SIGPIPE, SIGQUIT,
@@ -301,7 +315,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                             },
                             Ok(device) => device
                         };
-                        let name = device.name().unwrap_or("[unknown]");
+                        let name = device.name().unwrap_or("[unknown]").to_string();
                         if arg_devices.contains(&name) || check_device_is_keyboard(&device) {
                             log::info!("Device '{}' at '{}' added.", name, node);
                             let _ = device.grab();
@@ -464,34 +478,32 @@ pub fn check_device_is_keyboard(device: &Device) -> bool {
     }
 }
 
-pub fn set_command_line_args() -> Command<'static> {
-    let app = Command::new("swhkd")
-        .version(env!("CARGO_PKG_VERSION"))
-        .author(env!("CARGO_PKG_AUTHORS"))
-        .about("Simple Wayland HotKey Daemon")
-        .arg(
-            arg!(-c --config <CONFIG_FILE_PATH>)
-                .required(false)
-                .takes_value(true)
-                .help("Set a custom config file path."),
-        )
-        .arg(
-            arg!(-C --cooldown <COOLDOWN_IN_MS>)
-                .required(false)
-                .takes_value(true)
-                .help("Set a custom repeat cooldown duration. Default is 250ms."),
-        )
-        .arg(arg!(-d - -debug).required(false).help("Enable debug mode."))
-        .arg(
-            arg!(-D --device <DEVICE_NAME>)
-                .required(false)
-                .takes_value(true)
-                .multiple_occurrences(true)
-                .help(
-                    "Specific keyboard devices to use. Seperate multiple devices with semicolon.",
-                ),
-        );
-    app
+pub fn fetch_xdg_config_path() -> PathBuf {
+    let config_file_path: PathBuf = match env::var("XDG_CONFIG_HOME") {
+        Ok(val) => {
+            log::debug!("XDG_CONFIG_HOME exists: {:#?}", val);
+            Path::new(&val).join("swhkd/swhkdrc")
+        }
+        Err(_) => {
+            log::error!("XDG_CONFIG_HOME has not been set.");
+            Path::new("/etc/swhkd/swhkdrc").to_path_buf()
+        }
+    };
+    config_file_path
+}
+
+pub fn fetch_xdg_runtime_socket_path() -> PathBuf {
+    match env::var("XDG_RUNTIME_DIR") {
+        Ok(val) => {
+            log::debug!("XDG_RUNTIME_DIR exists: {:#?}", val);
+            Path::new(&val).join("swhkd.sock")
+        }
+        Err(_) => {
+            log::error!("XDG_RUNTIME_DIR has not been set.");
+            Path::new(&format!("/run/user/{}/swhkd.sock", env::var("PKEXEC_UID").unwrap()))
+                .to_path_buf()
+        }
+    }
 }
 
 pub fn setup_swhkd(invoking_uid: u32, runtime_path: String) {
