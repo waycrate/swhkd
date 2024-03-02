@@ -82,6 +82,14 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
         log::debug!("Using config file path: {:#?}", config_file_path);
 
+        // If no config is present
+        // Creates a default config at location (read man 5 swhkd)
+
+        if !Path::new(&config_file_path).exists() {
+            log::warn!("No config found at path: {:#?}", config_file_path);
+            create_default_config(invoking_uid, &config_file_path);
+        }
+
         match config::load(&config_file_path) {
             Err(e) => {
                 log::error!("Config Error: {}", e);
@@ -499,6 +507,23 @@ pub fn set_command_line_args() -> Command<'static> {
                 ),
         );
     app
+}
+
+pub fn create_default_config(invoking_uid: u32, config_file_path: &PathBuf) {
+    // Initializes a default SWHKD config at specific config path
+
+    perms::raise_privileges();
+    _ = match fs::File::create(&config_file_path) {
+        Ok(mut file) => {
+            log::debug!("Created default SWHKD config at: {:#?}", config_file_path);
+            _ = file.write_all(b"# Comments start with #, uncomment to use \n#start a terminal\n#super + return\n#\talacritty # replace with terminal of your choice");
+        }
+        Err(err) => {
+            log::error!("Error creating config file: {}", err);
+            exit(1);
+        }
+    };
+    perms::drop_privileges(invoking_uid);
 }
 
 pub fn fetch_xdg_config_path() -> PathBuf {
