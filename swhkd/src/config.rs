@@ -624,40 +624,22 @@ fn parse_keybind(
 
     // Delete the @ and ~ in the last token
     fn strip_at(token: &str) -> &str {
-        if token.starts_with('@') {
-            let token = token.strip_prefix('@').unwrap();
-            strip_tilde(token)
-        } else if token.starts_with('~') {
-            strip_tilde(token)
-        } else {
-            token
-        }
-    }
-
-    fn strip_tilde(token: &str) -> &str {
-        if token.starts_with('~') {
-            let token = token.strip_prefix('~').unwrap();
-            strip_at(token)
-        } else if token.starts_with('@') {
-            strip_at(token)
-        } else {
-            token
-        }
+        token.trim_start_matches(['@', '~'])
     }
 
     let last_token = strip_at(last_token);
+    let tokens_no_at: Vec<_> = tokens_new.iter().map(|token| strip_at(token)).collect();
 
     // Check if each token is valid
-    for token in &tokens_new {
-        let token = strip_at(token);
+    for token in &tokens_no_at {
         if key_to_evdev_key.contains_key(token) {
             // Can't have a keysym that's like a modifier
-            if token != last_token {
+            if *token != last_token {
                 return Err(Error::InvalidConfig(ParseError::InvalidModifier(path, line_nr)));
             }
         } else if mod_to_mod_enum.contains_key(token) {
             // Can't have a modifier that's like a keysym
-            if token == last_token {
+            if *token == last_token {
                 return Err(Error::InvalidConfig(ParseError::InvalidKeysym(path, line_nr)));
             }
         } else {
@@ -668,9 +650,9 @@ fn parse_keybind(
     // Translate keypress into evdev key
     let keysym = key_to_evdev_key.get(last_token).unwrap();
 
-    let modifiers: Vec<Modifier> = tokens_new[0..(tokens_new.len() - 1)]
+    let modifiers: Vec<Modifier> = tokens_no_at[0..(tokens_no_at.len() - 1)]
         .iter()
-        .map(|token| *mod_to_mod_enum.get(strip_at(token.as_str())).unwrap())
+        .map(|token| *mod_to_mod_enum.get(token).unwrap())
         .collect();
 
     let mut keybinding = KeyBinding::new(*keysym, modifiers);
