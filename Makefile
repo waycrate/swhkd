@@ -3,7 +3,7 @@
 DESTDIR ?= "/"
 DAEMON_BINARY := swhkd
 SERVER_BINARY := swhks
-BUILDFLAGS := --release
+BUILD_FLAGS := --release
 POLKIT_DIR := /usr/share/polkit-1/actions
 POLKIT_POLICY_FILE := com.github.swhkd.pkexec.policy
 TARGET_DIR := /usr/bin
@@ -14,7 +14,7 @@ VERSION = $(shell awk -F ' = ' '$$1 ~ /version/ { gsub(/["]/, "", $$2); printf("
 all: build
 
 build:
-	@cargo build $(BUILDFLAGS)
+	@cargo build $(BUILD_FLAGS)
 	@./scripts/build-polkit-policy.sh \
 		--policy-path=$(POLKIT_POLICY_FILE) \
 		--swhkd-path=$(TARGET_DIR)/$(DAEMON_BINARY)
