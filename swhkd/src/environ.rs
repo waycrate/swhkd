@@ -16,7 +16,7 @@ pub enum EnvError {
 }
 
 impl Env {
-    pub fn contruct() -> Self {
+    pub fn construct() -> Self {
         let pkexec_id = match Self::get_env("PKEXEC_UID") {
             Ok(val) => match val.parse::<u32>() {
                 Ok(val) => val,
