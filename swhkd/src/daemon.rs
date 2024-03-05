@@ -56,7 +56,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     env_logger::init();
     log::trace!("Logger initialized.");
 
-    let env = environ::Env::contruct();
+    let env = environ::Env::construct();
     log::trace!("Environment Aquired");
 
     let invoking_uid = env.pkexec_id;
