@@ -68,6 +68,7 @@ struct Args {
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     let args = Args::parse();
+    let default_cooldown: u64 = 250;
     env::set_var("RUST_LOG", "swhkd=warn");
 
     if args.debug {
@@ -208,7 +209,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         (Key::KEY_RIGHTSHIFT, config::Modifier::Shift),
     ]);
 
-    let repeat_cooldown_duration: u64 = args.cooldown.unwrap_or(250);
+    let repeat_cooldown_duration: u64 = args.cooldown.unwrap_or(default_cooldown);
 
     let mut signals = Signals::new([
         SIGUSR1, SIGUSR2, SIGHUP, SIGABRT, SIGBUS, SIGCHLD, SIGCONT, SIGINT, SIGPIPE, SIGQUIT,
