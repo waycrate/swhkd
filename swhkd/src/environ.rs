@@ -1,4 +1,7 @@
-use std::{env::VarError, path::PathBuf};
+use std::{
+    env::VarError,
+    path::{Path, PathBuf},
+};
 
 pub struct Env {
     pub pkexec_id: u32,
@@ -12,6 +15,7 @@ pub enum EnvError {
     PkexecNotFound,
     XdgConfigNotFound,
     XdgRuntimeNotFound,
+    PathNotFound,
     GenericError(String),
 }
 
@@ -34,7 +38,19 @@ impl Env {
         };
 
         let xdg_config_home = match Self::get_env("XDG_CONFIG_HOME") {
-            Ok(val) => PathBuf::from(val),
+            Ok(val) => match validate_path(&PathBuf::from(val)) {
+                Ok(val) => val,
+                Err(e) => match e {
+                    EnvError::PathNotFound => {
+                        log::warn!("XDG_CONFIG_HOME does not exist, using hardcoded /etc");
+                        PathBuf::from("/etc")
+                    }
+                    _ => {
+                        eprintln!("Failed to get XDG_CONFIG_HOME: {:?}", e);
+                        std::process::exit(1);
+                    }
+                },
+            },
             Err(e) => match e {
                 EnvError::XdgConfigNotFound => {
                     log::warn!("XDG_CONFIG_HOME not found, using hardcoded /etc");
@@ -48,7 +64,19 @@ impl Env {
         };
 
         let xdg_runtime_socket = match Self::get_env("XDG_RUNTIME_DIR") {
-            Ok(val) => PathBuf::from(val),
+            Ok(val) => match validate_path(&PathBuf::from(val).join("swhkd.sock")) {
+                Ok(val) => val,
+                Err(e) => match e {
+                    EnvError::PathNotFound => {
+                        log::warn!("XDG_RUNTIME_DIR does not exist, using hardcoded /run/user");
+                        PathBuf::from(format!("/run/user/{}", pkexec_id))
+                    }
+                    _ => {
+                        eprintln!("Failed to get XDG_RUNTIME_DIR: {:?}", e);
+                        std::process::exit(1);
+                    }
+                },
+            }
             Err(e) => match e {
                 EnvError::XdgRuntimeNotFound => {
                     log::warn!("XDG_RUNTIME_DIR not found, using hardcoded /run/user");
@@ -101,5 +129,13 @@ impl Env {
 
     pub fn fetch_xdg_runtime_socket_path(&self) -> PathBuf {
         PathBuf::from(&self.xdg_runtime_dir).join("swhkd.sock")
+    }
+}
+
+fn validate_path(path: &Path) -> Result<PathBuf, EnvError> {
+    if path.exists() {
+        Ok(path.to_path_buf())
+    } else {
+        Err(EnvError::PathNotFound)
     }
 }
