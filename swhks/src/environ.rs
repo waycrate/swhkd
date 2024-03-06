@@ -68,9 +68,9 @@ impl Env {
     /// Actual interface to get the environment variable.
     fn get_env(name: &str) -> Result<PathBuf, EnvError> {
         match std::env::var(name) {
-            Ok(val) => match PathBuf::from(&val).exists(){
+            Ok(val) => match PathBuf::from(&val).exists() {
                 true => Ok(PathBuf::from(val)),
-                false => Err(EnvError::PathNotFound)
+                false => Err(EnvError::PathNotFound),
             },
             Err(e) => match e {
                 VarError::NotPresent => match name {

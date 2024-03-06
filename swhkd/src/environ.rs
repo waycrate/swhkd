@@ -76,7 +76,7 @@ impl Env {
                         std::process::exit(1);
                     }
                 },
-            }
+            },
             Err(e) => match e {
                 EnvError::XdgRuntimeNotFound => {
                     log::warn!("XDG_RUNTIME_DIR not found, using hardcoded /run/user");
