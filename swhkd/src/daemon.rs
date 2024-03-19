@@ -49,7 +49,7 @@ impl KeyboardState {
 #[command(version, about, long_about = None)]
 struct Args {
     /// Set a custom config file path.
-    #[arg(short, long, value_name = "FILE")]
+    #[arg(short = 'C', long, value_name = "FILE")]
     config: Option<PathBuf>,
 
     /// Set a custom repeat cooldown duration. Default is 250ms.
@@ -61,7 +61,7 @@ struct Args {
     debug: bool,
 
     /// Take a list of devices from the user
-    #[arg(short, long, num_args = 0.., value_delimiter = ' ')]
+    #[arg(short = 'D', long, num_args = 0.., value_delimiter = ' ')]
     device: Vec<String>,
 }
 
