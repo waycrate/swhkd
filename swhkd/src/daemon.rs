@@ -49,11 +49,11 @@ impl KeyboardState {
 #[command(version, about, long_about = None)]
 struct Args {
     /// Set a custom config file path.
-    #[arg(short = 'C', long, value_name = "FILE")]
+    #[arg(short = 'c', long, value_name = "FILE")]
     config: Option<PathBuf>,
 
     /// Set a custom repeat cooldown duration. Default is 250ms.
-    #[arg(short, long)]
+    #[arg(short = 'C', long)]
     cooldown: Option<u64>,
 
     /// Enable Debug Mode
