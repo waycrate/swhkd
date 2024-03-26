@@ -26,6 +26,7 @@ use tokio_stream::{StreamExt, StreamMap};
 use tokio_udev::{AsyncMonitorSocket, EventType, MonitorBuilder};
 
 mod config;
+mod environ;
 mod perms;
 mod uinput;
 
@@ -55,20 +56,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
     env_logger::init();
     log::trace!("Logger initialized.");
 
-    let invoking_uid = match env::var("PKEXEC_UID") {
-        Ok(uid) => {
-            let uid = uid.parse::<u32>().unwrap();
-            log::trace!("Invoking UID: {}", uid);
-            uid
-        }
-        Err(_) => {
-            log::error!("Failed to launch swhkd!!!");
-            log::error!("Make sure to launch the binary with pkexec.");
-            exit(1);
-        }
-    };
+    let env = environ::Env::construct();
+    log::trace!("Environment Aquired");
 
-    setup_swhkd(invoking_uid);
+    let invoking_uid = env.pkexec_id;
+
+    setup_swhkd(invoking_uid, env.xdg_runtime_dir.clone().to_string_lossy().to_string());
 
     let load_config = || {
         // Drop privileges to the invoking user.
@@ -77,7 +70,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         let config_file_path: PathBuf = if args.is_present("config") {
             Path::new(args.value_of("config").unwrap()).to_path_buf()
         } else {
-            fetch_xdg_config_path()
+            env.fetch_xdg_config_path()
         };
 
         log::debug!("Using config file path: {:#?}", config_file_path);
@@ -231,7 +224,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     tokio::pin!(hotkey_repeat_timer);
 
     // The socket we're sending the commands to.
-    let socket_file_path = fetch_xdg_runtime_socket_path();
+    let socket_file_path = env.fetch_xdg_runtime_socket_path();
     loop {
         select! {
             _ = &mut hotkey_repeat_timer, if &last_hotkey.is_some() => {
@@ -501,50 +494,12 @@ pub fn set_command_line_args() -> Command<'static> {
     app
 }
 
-pub fn fetch_xdg_config_path() -> PathBuf {
-    let config_file_path: PathBuf = match env::var("XDG_CONFIG_HOME") {
-        Ok(val) => {
-            log::debug!("XDG_CONFIG_HOME exists: {:#?}", val);
-            Path::new(&val).join("swhkd/swhkdrc")
-        }
-        Err(_) => {
-            log::error!("XDG_CONFIG_HOME has not been set.");
-            Path::new("/etc/swhkd/swhkdrc").to_path_buf()
-        }
-    };
-    config_file_path
-}
-
-pub fn fetch_xdg_runtime_socket_path() -> PathBuf {
-    match env::var("XDG_RUNTIME_DIR") {
-        Ok(val) => {
-            log::debug!("XDG_RUNTIME_DIR exists: {:#?}", val);
-            Path::new(&val).join("swhkd.sock")
-        }
-        Err(_) => {
-            log::error!("XDG_RUNTIME_DIR has not been set.");
-            Path::new(&format!("/run/user/{}/swhkd.sock", env::var("PKEXEC_UID").unwrap()))
-                .to_path_buf()
-        }
-    }
-}
-
-pub fn setup_swhkd(invoking_uid: u32) {
+pub fn setup_swhkd(invoking_uid: u32, runtime_path: String) {
     // Set a sane process umask.
     log::trace!("Setting process umask.");
     umask(Mode::S_IWGRP | Mode::S_IWOTH);
 
     // Get the runtime path and create it if needed.
-    let runtime_path: String = match env::var("XDG_RUNTIME_DIR") {
-        Ok(runtime_path) => {
-            log::debug!("XDG_RUNTIME_DIR exists: {:#?}", runtime_path);
-            Path::new(&runtime_path).join("swhkd").to_str().unwrap().to_owned()
-        }
-        Err(_) => {
-            log::error!("XDG_RUNTIME_DIR has not been set.");
-            String::from("/run/swhkd/")
-        }
-    };
     if !Path::new(&runtime_path).exists() {
         match fs::create_dir_all(Path::new(&runtime_path)) {
             Ok(_) => {
