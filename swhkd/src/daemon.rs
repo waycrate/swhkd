@@ -90,7 +90,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         perms::drop_privileges(invoking_uid);
 
         let config_file_path: PathBuf =
-            args.config.as_ref().map_or_else(fetch_xdg_config_path, |file| file.clone());
+            args.config.as_ref().map_or_else(|| env.fetch_xdg_config_path(), |file| file.clone());
 
         log::debug!("Using config file path: {:#?}", config_file_path);
 
@@ -476,34 +476,6 @@ pub fn check_device_is_keyboard(device: &Device) -> bool {
     } else {
         log::trace!("Other: {}", device.name().unwrap(),);
         false
-    }
-}
-
-pub fn fetch_xdg_config_path() -> PathBuf {
-    let config_file_path: PathBuf = match env::var("XDG_CONFIG_HOME") {
-        Ok(val) => {
-            log::debug!("XDG_CONFIG_HOME exists: {:#?}", val);
-            Path::new(&val).join("swhkd/swhkdrc")
-        }
-        Err(_) => {
-            log::error!("XDG_CONFIG_HOME has not been set.");
-            Path::new("/etc/swhkd/swhkdrc").to_path_buf()
-        }
-    };
-    config_file_path
-}
-
-pub fn fetch_xdg_runtime_socket_path() -> PathBuf {
-    match env::var("XDG_RUNTIME_DIR") {
-        Ok(val) => {
-            log::debug!("XDG_RUNTIME_DIR exists: {:#?}", val);
-            Path::new(&val).join("swhkd.sock")
-        }
-        Err(_) => {
-            log::error!("XDG_RUNTIME_DIR has not been set.");
-            Path::new(&format!("/run/user/{}/swhkd.sock", env::var("PKEXEC_UID").unwrap()))
-                .to_path_buf()
-        }
     }
 }
 
