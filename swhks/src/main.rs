@@ -1,4 +1,4 @@
-use clap::arg;
+use clap::Parser;
 use environ::Env;
 use nix::{
     sys::stat::{umask, Mode},
@@ -10,26 +10,29 @@ use std::{
     env, fs,
     fs::OpenOptions,
     os::unix::net::UnixListener,
-    path::Path,
+    path::{Path, PathBuf},
     process::{exit, id, Command, Stdio},
 };
 use sysinfo::{ProcessExt, System, SystemExt};
 
 mod environ;
 
+/// IPC Server for swhkd
+#[derive(Parser)]
+#[command(version, about, long_about = None)]
+struct Args {
+    /// Set a custom log file. (Defaults to ${XDG_DATA_HOME:-$HOME/.local/share}/swhks-current_unix_time.log)
+    #[arg(short, long, value_name = "FILE")]
+    log: Option<PathBuf>,
+
+    /// Enable Debug Mode
+    #[arg(short, long)]
+    debug: bool,
+}
+
 fn main() -> std::io::Result<()> {
-    let app = clap::Command::new("swhks")
-        .version(env!("CARGO_PKG_VERSION"))
-        .author(env!("CARGO_PKG_AUTHORS"))
-        .about("IPC Server for swhkd")
-        .arg(arg!(-l --log <FILE>).required(false).takes_value(true).help(
-            "Set a custom log file. (Defaults to ${XDG_DATA_HOME:-$HOME/.local/share}/swhks-current_unix_time.log)",
-        ))
-		.arg(arg!(-d --debug).required(false).takes_value(false).help(
-				"Enable debug mode."
-		));
-    let args = app.get_matches();
-    if args.is_present("debug") {
+    let args = Args::parse();
+    if args.debug {
         env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("swhks=trace"))
             .init();
     } else {
@@ -45,8 +48,8 @@ fn main() -> std::io::Result<()> {
 
     let (pid_file_path, sock_file_path) = get_file_paths(&environment);
 
-    let log_file_name = if let Some(val) = args.value_of("log") {
-        val.to_string()
+    let log_file_name = if let Some(val) = args.log {
+        val
     } else {
         let time = match SystemTime::now().duration_since(UNIX_EPOCH) {
             Ok(n) => n.as_secs().to_string(),
@@ -56,7 +59,7 @@ fn main() -> std::io::Result<()> {
             }
         };
 
-        format!("{}/swhks/swhks-{}.log", environment.data_home.to_string_lossy(), time)
+        format!("{}/swhks/swhks-{}.log", environment.data_home.to_string_lossy(), time).into()
     };
 
     let log_path = Path::new(&log_file_name);
