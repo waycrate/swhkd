@@ -64,6 +64,7 @@ pub const MODE_STATEMENT: &str = "mode";
 pub const MODE_END_STATEMENT: &str = "endmode";
 pub const MODE_ENTER_STATEMENT: &str = "@enter";
 pub const MODE_ESCAPE_STATEMENT: &str = "@escape";
+pub const MODE_PEND_STATEMENT: &str = "@pend";
 pub const MODE_SWALLOW_STATEMENT: &str = "swallow";
 pub const MODE_ONEOFF_STATEMENT: &str = "oneoff";
 
