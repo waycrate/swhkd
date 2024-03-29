@@ -93,8 +93,8 @@ impl Env {
             Ok(val) => PathBuf::from(val),
             Err(e) => match e {
                 EnvError::XdgRuntimeNotFound => {
-                    log::warn!("XDG_RUNTIME_DIR not found, using hardcoded /run/swhkd");
-                    PathBuf::from("/run/swhkd")
+                    log::warn!("XDG_RUNTIME_DIR not found, using hardcoded /run/user");
+                    PathBuf::from(format!("/run/user/{}", pkexec_id))
                 }
                 _ => {
                     eprintln!("Failed to get XDG_RUNTIME_DIR: {:?}", e);
