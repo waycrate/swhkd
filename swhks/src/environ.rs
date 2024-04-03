@@ -20,6 +20,7 @@ pub enum EnvError {
     DataHomeNotSet,
     HomeNotSet,
     RuntimeDirNotSet,
+    PathNotFound,
     GenericError(String),
 }
 
@@ -30,7 +31,7 @@ impl Env {
         let home = match Self::get_env("HOME") {
             Ok(val) => val,
             Err(_) => {
-                eprintln!("HOME Variable is not set, cannot fall back on hardcoded path for XDG_DATA_HOME.");
+                eprintln!("HOME Variable is not set/found, cannot fall back on hardcoded path for XDG_DATA_HOME.");
                 std::process::exit(1);
             }
         };
@@ -38,7 +39,7 @@ impl Env {
         let data_home = match Self::get_env("XDG_DATA_HOME") {
             Ok(val) => val,
             Err(e) => match e {
-                EnvError::DataHomeNotSet => {
+                EnvError::DataHomeNotSet | EnvError::PathNotFound => {
                     log::warn!(
                         "XDG_DATA_HOME Variable is not set, falling back on hardcoded path."
                     );
@@ -51,7 +52,7 @@ impl Env {
         let runtime_dir = match Self::get_env("XDG_RUNTIME_DIR") {
             Ok(val) => val,
             Err(e) => match e {
-                EnvError::RuntimeDirNotSet => {
+                EnvError::RuntimeDirNotSet | EnvError::PathNotFound => {
                     log::warn!(
                         "XDG_RUNTIME_DIR Variable is not set, falling back on hardcoded path."
                     );
@@ -67,7 +68,10 @@ impl Env {
     /// Actual interface to get the environment variable.
     fn get_env(name: &str) -> Result<PathBuf, EnvError> {
         match std::env::var(name) {
-            Ok(val) => Ok(PathBuf::from(val)),
+            Ok(val) => match PathBuf::from(&val).exists() {
+                true => Ok(PathBuf::from(val)),
+                false => Err(EnvError::PathNotFound),
+            },
             Err(e) => match e {
                 VarError::NotPresent => match name {
                     "XDG_DATA_HOME" => Err(EnvError::DataHomeNotSet),
