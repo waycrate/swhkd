@@ -1,6 +1,6 @@
 use crate::config::Value;
-use config::Hotkey;
 use clap::Parser;
+use config::Hotkey;
 use evdev::{AttributeSet, Device, InputEventKind, Key};
 use nix::{
     sys::stat::{umask, Mode},
