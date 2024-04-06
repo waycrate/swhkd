@@ -1,44 +1,60 @@
 {
-  description = "Swhkd devel";
+  description = "Swhkd";
 
-  inputs = { nixpkgs.url = "github:nixos/nixpkgs/nixpkgs-unstable"; };
+  inputs = { 
+    nixpkgs.url = "github:nixos/nixpkgs/nixpkgs-unstable";
+    systems.url = "github:nix-systems/default-linux";
+  };
 
-  outputs = { self, nixpkgs, ... }:
-    let
-      pkgsFor = system:
-        import nixpkgs {
-          inherit system;
-          overlays = [ ];
-        };
+  outputs = inputs @ 
+  { self
+  , nixpkgs
+  , systems
+  , ... 
+  }:
+  let
+    eachSystem = nixpkgs.lib.genAttrs (import systems);
 
-      targetSystems = [ "aarch64-linux" "x86_64-linux" ];
-    in {
-      devShells = nixpkgs.lib.genAttrs targetSystems (system:
-        let pkgs = pkgsFor system;
-        in {
-          default = pkgs.mkShell {
-            name = "Swhkd-devel";
-            nativeBuildInputs = with pkgs; [
-              # Compilers
-              cargo
-              rustc
-              scdoc
+    pkgsFor = (system: import nixpkgs {
+      inherit system;
+      overlays = [ ];
+    });
+  in 
+  {
+    packages = eachSystem (system: {
+      swhkd = nixpkgs.legacyPackages.${system}.callPackage ./swhkd.nix { };
+    });
 
-              # libs
-              udev
+    defaultPackage = eachSystem (system: self.packages.${system}.swhkd);
 
-              # Tools
-              pkg-config
-              clippy
-              gdb
-              gnumake
-              rust-analyzer
-              rustfmt
-              strace
-              valgrind
-              zip
-            ];
-          };
-        });
-    };
+    devShells = eachSystem (system:
+    let 
+      pkgs = pkgsFor system;
+    in 
+    {
+      default = pkgs.mkShell {
+        name = "Swhkd-devel";
+        nativeBuildInputs = with pkgs; [
+          # Compilers
+          cargo
+          rustc
+          scdoc
+
+          # libs
+          udev
+
+          # Tools
+          pkg-config
+          clippy
+          gdb
+          gnumake
+          rust-analyzer
+          rustfmt
+          strace
+          valgrind
+          zip
+        ];
+      };
+    });
+  };
 }
