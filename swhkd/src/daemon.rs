@@ -1,5 +1,6 @@
 use crate::config::Value;
 use clap::Parser;
+use config::Hotkey;
 use evdev::{AttributeSet, Device, InputEventKind, Key};
 use nix::{
     sys::stat::{umask, Mode},
@@ -109,52 +110,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let mut modes = load_config();
     let mut mode_stack: Vec<usize> = vec![0];
-
-    macro_rules! send_command {
-        ($hotkey: expr, $socket_path: expr) => {
-            log::info!("Hotkey pressed: {:#?}", $hotkey);
-            let command = $hotkey.command;
-            let mut commands_to_send = String::new();
-            if modes[mode_stack[mode_stack.len() - 1]].options.oneoff {
-                mode_stack.pop();
-            }
-            if command.contains('@') {
-                let commands = command.split("&&").map(|s| s.trim()).collect::<Vec<_>>();
-                for cmd in commands {
-                    match cmd.split(' ').next().unwrap() {
-                        config::MODE_ENTER_STATEMENT => {
-                            let enter_mode = cmd.split(' ').nth(1).unwrap();
-                            for (i, mode) in modes.iter().enumerate() {
-                                if mode.name == enter_mode {
-                                    mode_stack.push(i);
-                                    break;
-                                }
-                            }
-                            log::info!(
-                                "Entering mode: {}",
-                                modes[mode_stack[mode_stack.len() - 1]].name
-                            );
-                        }
-                        config::MODE_ESCAPE_STATEMENT => {
-                            mode_stack.pop();
-                        }
-                        _ => commands_to_send.push_str(format!("{cmd} &&").as_str()),
-                    }
-                }
-            } else {
-                commands_to_send = command;
-            }
-            if commands_to_send.ends_with(" &&") {
-                commands_to_send = commands_to_send.strip_suffix(" &&").unwrap().to_string();
-            }
-            if let Err(e) = socket_write(&commands_to_send, $socket_path.to_path_buf()) {
-                log::error!("Failed to send command to swhks through IPC.");
-                log::error!("Please make sure that swhks is running.");
-                log::error!("Err: {:#?}", e)
-            }
-        };
-    }
-
     let arg_devices: Vec<String> = args.device;
 
     let keyboard_devices: Vec<_> = {
@@ -247,7 +202,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 if hotkey.keybinding.on_release {
                     continue;
                 }
-                send_command!(hotkey.clone(), &socket_file_path);
+                send_command(hotkey.clone(), &socket_file_path, &modes, &mut mode_stack);
                 hotkey_repeat_timer.as_mut().reset(Instant::now() + Duration::from_millis(repeat_cooldown_duration));
             }
 
@@ -367,7 +322,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     0 => {
                         if last_hotkey.is_some() && pending_release {
                             pending_release = false;
-                            send_command!(last_hotkey.clone().unwrap(), &socket_file_path);
+                            send_command(last_hotkey.clone().unwrap(), &socket_file_path, &modes, &mut mode_stack);
                             last_hotkey = None;
                         }
                         if let Some(modifier) = modifiers_map.get(&key) {
@@ -430,7 +385,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                             pending_release = true;
                             break;
                         }
-                        send_command!(hotkey.clone(), &socket_file_path);
+                        send_command(hotkey.clone(), &socket_file_path, &modes, &mut mode_stack);
                         hotkey_repeat_timer.as_mut().reset(Instant::now() + Duration::from_millis(repeat_cooldown_duration));
                         continue;
                     }
@@ -537,4 +492,50 @@ pub fn setup_swhkd(invoking_uid: u32, runtime_path: String) {
     if check_input_group().is_err() {
         exit(1);
     }
+}
+
+pub fn send_command(
+    hotkey: Hotkey,
+    socket_path: &Path,
+    modes: &[config::Mode],
+    mode_stack: &mut Vec<usize>,
+) {
+    log::info!("Hotkey pressed: {:#?}", hotkey);
+    let command = hotkey.command;
+    let mut commands_to_send = String::new();
+    if modes[mode_stack[mode_stack.len() - 1]].options.oneoff {
+        mode_stack.pop();
+    }
+    if command.contains('@') {
+        let commands = command.split("&&").map(|s| s.trim()).collect::<Vec<_>>();
+        for cmd in commands {
+            let mut words = cmd.split_whitespace();
+            match words.next().unwrap() {
+                config::MODE_ENTER_STATEMENT => {
+                    let enter_mode = cmd.split(' ').nth(1).unwrap();
+                    for (i, mode) in modes.iter().enumerate() {
+                        if mode.name == enter_mode {
+                            mode_stack.push(i);
+                            break;
+                        }
+                    }
+                    log::info!("Entering mode: {}", modes[mode_stack[mode_stack.len() - 1]].name);
+                }
+                config::MODE_ESCAPE_STATEMENT => {
+                    mode_stack.pop();
+                }
+                _ => commands_to_send.push_str(format!("{cmd} &&").as_str()),
+            }
+        }
+    } else {
+        commands_to_send = command;
+    }
+    if commands_to_send.ends_with(" &&") {
+        commands_to_send = commands_to_send.strip_suffix(" &&").unwrap().to_string();
+    }
+    if let Err(e) = socket_write(&commands_to_send, socket_path.to_path_buf()) {
+        log::error!("Failed to send command to swhks through IPC.");
+        log::error!("Please make sure that swhks is running.");
+        log::error!("Err: {:#?}", e)
+    };
 }
