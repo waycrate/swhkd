@@ -509,19 +509,15 @@ pub fn send_command(
     if command.contains('@') {
         let commands = command.split("&&").map(|s| s.trim()).collect::<Vec<_>>();
         for cmd in commands {
-            let mut words = cmd.split_whitespace();
-            match words.next().unwrap() {
-                config::MODE_ENTER_STATEMENT => {
-                    let enter_mode = cmd.split(' ').nth(1).unwrap();
-                    for (i, mode) in modes.iter().enumerate() {
-                        if mode.name == enter_mode {
-                            mode_stack.push(i);
-                            break;
-                        }
+            let words: Vec<_> = cmd.split_whitespace().collect();
+            match &words[..] {
+                &[config::MODE_ENTER_STATEMENT, enter_mode, ..] => {
+                    if let Some(i) = modes.iter().position(|mode| mode.name == enter_mode) {
+                        mode_stack.push(i);
+                        log::info!("Entering mode: {}", enter_mode);
                     }
-                    log::info!("Entering mode: {}", modes[mode_stack[mode_stack.len() - 1]].name);
                 }
-                config::MODE_ESCAPE_STATEMENT => {
+                &[config::MODE_ESCAPE_STATEMENT, ..] => {
                     mode_stack.pop();
                 }
                 _ => commands_to_send.push_str(format!("{cmd} &&").as_str()),
