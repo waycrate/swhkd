@@ -64,6 +64,10 @@ struct Args {
     /// Take a list of devices from the user
     #[arg(short = 'D', long, num_args = 0.., value_delimiter = ' ')]
     device: Vec<String>,
+
+    /// Take a list of devices to ignore from the user
+    #[arg(short = 'I', long, num_args = 0.., value_delimiter = ' ')]
+    ignoredevice: Vec<String>,
 }
 
 #[tokio::main]
@@ -110,16 +114,22 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let mut modes = load_config();
     let mut mode_stack: Vec<usize> = vec![0];
-    let arg_devices: Vec<String> = args.device;
+    let arg_add_devices = args.device;
+    let arg_ignore_devices = args.ignoredevice;
+
+    let to_add =
+        |dev: &Device| arg_add_devices.contains(&dev.name().unwrap_or("[unknown]").to_string());
+    let to_ignore =
+        |dev: &Device| arg_ignore_devices.contains(&dev.name().unwrap_or("[unknown]").to_string());
 
     let keyboard_devices: Vec<_> = {
-        if arg_devices.is_empty() {
+        if arg_add_devices.is_empty() {
             log::trace!("Attempting to find all keyboard file descriptors.");
-            evdev::enumerate().filter(|(_, dev)| check_device_is_keyboard(dev)).collect()
-        } else {
             evdev::enumerate()
-                .filter(|(_, dev)| arg_devices.contains(&dev.name().unwrap_or("").to_string()))
+                .filter(|(_, dev)| !to_ignore(dev) && check_device_is_keyboard(dev))
                 .collect()
+        } else {
+            evdev::enumerate().filter(|(_, dev)| !to_ignore(dev) && to_add(dev)).collect()
         }
     };
 
@@ -271,8 +281,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
                             },
                             Ok(device) => device
                         };
-                        let name = device.name().unwrap_or("[unknown]").to_string();
-                        if arg_devices.contains(&name) || check_device_is_keyboard(&device) {
+                        if !to_ignore(&device) && (to_add(&device) || check_device_is_keyboard(&device)) {
+                            let name = device.name().unwrap_or("[unknown]");
                             log::info!("Device '{}' at '{}' added.", name, node);
                             let _ = device.grab();
                             keyboard_states.insert(node.to_string(), KeyboardState::new());
