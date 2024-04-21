@@ -3,6 +3,7 @@ members = [
 	"swhkd",
 	"swhks"
 ]
+resolver = "2"
 
 [profile.release]
 lto = true          # Enable Link Time Optimization
