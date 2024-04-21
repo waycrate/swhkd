@@ -67,5 +67,10 @@
             buildInputs = with pkgs; [ udev ];
           };
         });
+      overlays = nixpkgs.lib.genAttrs targetSystems (system: {
+        default = final: prev: {
+          swhkd = self.packages.${system}.default;
+        };
+      });
     };
 }
