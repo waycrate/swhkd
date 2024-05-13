@@ -103,18 +103,18 @@ impl Config {
 
     pub fn load_and_merge(config: Self) -> Result<Vec<Self>, Error> {
         let mut configs = vec![config];
-        let mut prev_count = 0;
-        let mut current_count = configs.len();
-        while prev_count != current_count {
-            prev_count = configs.len();
-            for config in configs.clone() {
-                for import in Self::load_to_configs(&config)? {
+        let mut processed = 0;
+
+        while processed != configs.len() {
+            let unprocessed_range = processed..configs.len();
+            for unprocessed in unprocessed_range {
+                for import in Self::load_to_configs(&configs[unprocessed])? {
                     if !configs.contains(&import) {
                         configs.push(import);
                     }
                 }
+                processed += 1;
             }
-            current_count = configs.len();
         }
         Ok(configs)
     }
