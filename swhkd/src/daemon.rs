@@ -1,7 +1,10 @@
 use crate::config::Value;
-use clap::Parser;
+use clap::{Parser, Subcommand};
 use config::Hotkey;
 use evdev::{AttributeSet, Device, InputEventKind, Key};
+use fuzzy_matcher::skim::SkimMatcherV2;
+use fuzzy_matcher::FuzzyMatcher;
+use itertools::Itertools;
 use nix::{
     sys::stat::{umask, Mode},
     unistd::{Group, Uid},
@@ -45,10 +48,8 @@ impl KeyboardState {
     }
 }
 
-/// Simple Wayland Hotkey Daemon
-#[derive(Parser)]
-#[command(version, about, long_about = None)]
-struct Args {
+#[derive(clap::Args)]
+struct RunArgs {
     /// Set a custom config file path.
     #[arg(short = 'c', long, value_name = "FILE")]
     config: Option<PathBuf>,
@@ -64,6 +65,86 @@ struct Args {
     /// Take a list of devices from the user
     #[arg(short = 'D', long, num_args = 0.., value_delimiter = ' ')]
     device: Vec<String>,
+
+    #[arg(short = 'n', long, num_args = 0.., value_delimiter = ' ')]
+    device_by_name: Vec<String>,
+}
+
+/// Simple Wayland Hotkey Daemon
+#[derive(Parser)]
+#[command(version, about, long_about = None)]
+struct Args {
+    #[command(subcommand)]
+    command: Commands,
+}
+
+#[derive(Subcommand)]
+enum Commands {
+    Run(RunArgs),
+    ListDevices,
+}
+
+fn list_device_names() {
+    for (path, device) in evdev::enumerate() {
+        match device.name() {
+            Some(name) => {
+                println!("name: {}, path: {}", name, path.display())
+            }
+            None => {
+                println!("path: {}", path.display())
+            }
+        }
+    }
+}
+
+fn filter_keyboard_devices(paths: &[String], names: &[String]) -> Vec<(PathBuf, Device)> {
+    if paths.is_empty() && names.is_empty() {
+        log::trace!("Attempting to find all keyboard file descriptors.");
+        return evdev::enumerate().filter(|(_, dev)| check_device_is_keyboard(dev)).collect();
+    }
+
+    let mut keyboard_devices = vec![];
+
+    for in_path in paths {
+        if let Some(pair) =
+            evdev::enumerate().find(|(path, _device)| in_path == path.to_str().unwrap_or_default())
+        {
+            keyboard_devices.push(pair);
+        }
+    }
+
+    let matcher = SkimMatcherV2::default();
+
+    for in_name in names {
+        let possible_devices: Vec<_> = evdev::enumerate()
+            .filter(|(_path, device)| {
+                device.name().is_some_and(|n| matcher.fuzzy_match(n, in_name.as_str()).is_some())
+            })
+            .collect();
+        match possible_devices.len() {
+            0 => log::warn!("found no device with the name `{}`", in_name),
+            1 => {
+                log::warn!(
+                    "correcting device name `{}` to its closes match `{}`",
+                    in_name,
+                    possible_devices[0].1.name().unwrap_or_default()
+                );
+                keyboard_devices.push(possible_devices.into_iter().next().unwrap());
+            }
+            _ => {
+                log::warn!(
+                    "found no device with the name `{}`, did you mean any of {}?",
+                    in_name,
+                    possible_devices
+                        .iter()
+                        .map(|(_, d)| format!("`{}`", d.name().unwrap_or_default()))
+                        .join(", ")
+                );
+            }
+        }
+    }
+
+    keyboard_devices
 }
 
 #[tokio::main]
@@ -71,6 +152,14 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let args = Args::parse();
     let default_cooldown: u64 = 250;
     env::set_var("RUST_LOG", "swhkd=warn");
+
+    let args = match args.command {
+        Commands::Run(run_args) => run_args,
+        Commands::ListDevices => {
+            list_device_names();
+            return Ok(());
+        }
+    };
 
     if args.debug {
         env::set_var("RUST_LOG", "swhkd=trace");
@@ -112,16 +201,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let mut mode_stack: Vec<usize> = vec![0];
     let arg_devices: Vec<String> = args.device;
 
-    let keyboard_devices: Vec<_> = {
-        if arg_devices.is_empty() {
-            log::trace!("Attempting to find all keyboard file descriptors.");
-            evdev::enumerate().filter(|(_, dev)| check_device_is_keyboard(dev)).collect()
-        } else {
-            evdev::enumerate()
-                .filter(|(_, dev)| arg_devices.contains(&dev.name().unwrap_or("").to_string()))
-                .collect()
-        }
-    };
+    let keyboard_devices = filter_keyboard_devices(&arg_devices, &args.device_by_name);
 
     if keyboard_devices.is_empty() {
         log::error!("No valid keyboard device was detected!");
