@@ -62,11 +62,12 @@ struct RunArgs {
     #[arg(short, long)]
     debug: bool,
 
-    /// Take a list of devices from the user
-    #[arg(short = 'D', long, num_args = 0.., value_delimiter = ' ')]
+    /// Take a list of device paths from the user
+    #[arg(short = 'D', long, num_args = 0.., value_delimiter = ' ', value_name = "PATH")]
     device: Vec<String>,
 
-    #[arg(short = 'n', long, num_args = 0.., value_delimiter = ' ')]
+    /// Fuzzy match one or more device names
+    #[arg(short = 'n', long, num_args = 0.., value_delimiter = ' ', value_name = "DEVICE_NAME")]
     device_by_name: Vec<String>,
 }
 
@@ -80,20 +81,19 @@ struct Args {
 
 #[derive(Subcommand)]
 enum Commands {
+    /// Run the hotkey daemon
     Run(RunArgs),
+
+    /// List the names and paths of available devices
     ListDevices,
 }
 
 fn list_device_names() {
     for (path, device) in evdev::enumerate() {
-        match device.name() {
-            Some(name) => {
-                println!("name: {}, path: {}", name, path.display())
-            }
-            None => {
-                println!("path: {}", path.display())
-            }
+        if let Some(name) = device.name() {
+            print!("name {}, ", name)
         }
+        println!("path: {}", path.display())
     }
 }
 
