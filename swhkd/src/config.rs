@@ -5,6 +5,8 @@ use std::{
     fmt,
     path::{Path, PathBuf},
 };
+use sweet::token::KeyAttribute;
+use sweet::SwhkdParser;
 
 #[derive(Debug)]
 pub enum Error {
@@ -67,80 +69,10 @@ pub const MODE_ESCAPE_STATEMENT: &str = "@escape";
 pub const MODE_SWALLOW_STATEMENT: &str = "swallow";
 pub const MODE_ONEOFF_STATEMENT: &str = "oneoff";
 
-#[derive(Debug, PartialEq, Clone, Eq)]
-pub struct Config {
-    pub path: PathBuf,
-    pub contents: String,
-    pub imports: Vec<PathBuf>,
-}
-
-impl Config {
-    pub fn get_imports(contents: &str) -> Result<Vec<PathBuf>, Error> {
-        let mut imports = Vec::new();
-        for line in contents.lines() {
-            if line.split(' ').next().unwrap() == IMPORT_STATEMENT {
-                if let Some(import_path) = line.split(' ').nth(1) {
-                    imports.push(Path::new(import_path).to_path_buf());
-                }
-            }
-        }
-        Ok(imports)
-    }
-
-    pub fn new(path: &Path) -> Result<Self, Error> {
-        let contents = fs::read_to_string(path)?;
-        let imports = Self::get_imports(&contents)?;
-        Ok(Config { path: path.to_path_buf(), contents, imports })
-    }
-
-    pub fn load_to_configs(&self) -> Result<Vec<Self>, Error> {
-        let mut configs = Vec::new();
-        for import in &self.imports {
-            configs.push(Self::new(import)?)
-        }
-        Ok(configs)
-    }
-
-    pub fn load_and_merge(config: Self) -> Result<Vec<Self>, Error> {
-        let mut configs = vec![config];
-        let mut prev_count = 0;
-        let mut current_count = configs.len();
-        while prev_count != current_count {
-            prev_count = configs.len();
-            for config in configs.clone() {
-                for import in Self::load_to_configs(&config)? {
-                    if !configs.contains(&import) {
-                        configs.push(import);
-                    }
-                }
-            }
-            current_count = configs.len();
-        }
-        Ok(configs)
-    }
-}
-
 pub fn load(path: &Path) -> Result<Vec<Mode>, Error> {
-    let config_self = Config::new(path)?;
-    let mut configs: Vec<Config> = Config::load_and_merge(config_self.clone())?;
-    configs.remove(0);
-    configs.push(config_self);
+    let config_self = sweet::SwhkdParser::from(sweet::ParserInput::Path(path)).unwrap();
     let mut modes: Vec<Mode> = vec![Mode::default()];
-    for config in configs {
-        let mut output = parse_contents(path.to_path_buf(), config.contents)?;
-        for hotkey in output[0].hotkeys.drain(..) {
-            modes[0].hotkeys.retain(|hk| hk.keybinding != hotkey.keybinding);
-            modes[0].hotkeys.push(hotkey);
-        }
-        for unbind in output[0].unbinds.drain(..) {
-            modes[0].hotkeys.retain(|hk| hk.keybinding != unbind);
-        }
-        output.remove(0);
-        for mut mode in output {
-            mode.hotkeys.retain(|x| !mode.unbinds.contains(&x.keybinding));
-            modes.push(mode);
-        }
-    }
+    let mut output = parse_contents(config_self)?;
     Ok(modes)
 }
 
@@ -262,7 +194,7 @@ impl Value for &Hotkey {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct Mode {
     pub name: String,
     pub hotkeys: Vec<Hotkey>,
@@ -286,7 +218,7 @@ impl Mode {
     }
 }
 
-pub fn parse_contents(path: PathBuf, contents: String) -> Result<Vec<Mode>, Error> {
+pub fn parse_contents(contents: SwhkdParser) -> Result<Vec<Mode>, Error> {
     // Don't forget to update valid key list on the man page if you do change this list.
     let key_to_evdev_key: HashMap<&str, evdev::Key> = HashMap::from([
         ("q", evdev::Key::KEY_Q),
@@ -451,145 +383,74 @@ pub fn parse_contents(path: PathBuf, contents: String) -> Result<Vec<Mode>, Erro
         ("any", Modifier::Any),
     ]);
 
-    let lines: Vec<&str> = contents.split('\n').collect();
     let mut modes: Vec<Mode> = vec![Mode::default()];
     let mut current_mode: usize = 0;
 
-    // Go through each line, ignore comments and empty lines, mark lines starting with whitespace
-    // as commands, and mark the other lines as keysyms. Mark means storing a line's type and the
-    // line number in a vector.
-    let mut lines_with_types: Vec<(&str, u32)> = Vec::new();
-    for (line_number, line) in lines.iter().enumerate() {
-        if line.trim().starts_with('#')
-            || line.split(' ').next().unwrap() == IMPORT_STATEMENT
-            || line.trim().is_empty()
-        {
-            continue;
-        }
-        if line.starts_with(' ') || line.starts_with('\t') {
-            lines_with_types.push(("command", line_number as u32));
-        } else if line.starts_with(UNBIND_STATEMENT) {
-            lines_with_types.push(("unbind", line_number as u32));
-        } else if line.starts_with(MODE_STATEMENT) {
-            lines_with_types.push(("modestart", line_number as u32));
-        } else if line.starts_with(MODE_END_STATEMENT) {
-            lines_with_types.push(("modeend", line_number as u32));
-        } else {
-            lines_with_types.push(("keysym", line_number as u32));
-        }
+    for binding in &contents.bindings {
+        let keysym = key_to_evdev_key
+            .get(binding.definition.key.key.to_lowercase().as_str())
+            .cloned()
+            .unwrap();
+        let modifiers = binding
+            .definition
+            .modifiers
+            .iter()
+            .map(|sweet::token::Modifier(modifier)| {
+                mod_to_mod_enum.get(modifier.to_lowercase().as_str()).cloned().unwrap()
+            })
+            .collect();
+        let send = binding.definition.key.attribute == KeyAttribute::Send;
+        let on_release = binding.definition.key.attribute == KeyAttribute::OnRelease;
+        modes[current_mode].hotkeys.push(Hotkey {
+            keybinding: KeyBinding { keysym, modifiers, send, on_release },
+            command: binding.command.clone(),
+        });
+    }
+    for unbind in contents.unbinds {
+        let keysym = key_to_evdev_key.get(unbind.key.key.to_lowercase().as_str()).cloned().unwrap();
+        let modifiers = unbind
+            .modifiers
+            .iter()
+            .map(|sweet::token::Modifier(modifier)| {
+                mod_to_mod_enum.get(modifier.to_lowercase().as_str()).cloned().unwrap()
+            })
+            .collect();
+        let send = unbind.key.attribute == KeyAttribute::Send;
+        let on_release = unbind.key.attribute == KeyAttribute::OnRelease;
+        modes[current_mode].unbinds.push(KeyBinding { keysym, modifiers, send, on_release });
     }
 
-    // Edge case: return a blank vector if no lines detected
-    if lines_with_types.is_empty() {
-        return Ok(modes);
+    // shadowing current_mode
+    for mode in contents.modes.iter() {
+        let mut pushmode = Mode {
+            name: mode.name.clone(),
+            options: ModeOptions { swallow: mode.swallow, oneoff: mode.oneoff },
+            ..Default::default()
+        };
+        for binding in &contents.bindings {
+            let keysym = key_to_evdev_key
+                .get(binding.definition.key.key.to_lowercase().as_str())
+                .cloned()
+                .unwrap();
+            let modifiers = binding
+                .definition
+                .modifiers
+                .iter()
+                .map(|sweet::token::Modifier(modifier)| {
+                    mod_to_mod_enum.get(modifier.to_lowercase().as_str()).cloned().unwrap()
+                })
+                .collect();
+            let send = binding.definition.key.attribute == KeyAttribute::Send;
+            let on_release = binding.definition.key.attribute == KeyAttribute::OnRelease;
+            let hotkey = Hotkey {
+                keybinding: KeyBinding { keysym, modifiers, send, on_release },
+                command: binding.command.clone(),
+            };
+            pushmode.hotkeys.retain(|h| h.keybinding != hotkey.keybinding);
+            pushmode.hotkeys.push(hotkey);
+        }
+        modes.push(pushmode);
     }
-
-    let mut actual_lines: Vec<(&str, u32, String)> = Vec::new();
-
-    if contents.contains('\\') {
-        // Go through lines_with_types, and add the next line over and over until the current line no
-        // longer ends with backslash. (Only if the lines have the same type)
-        let mut current_line_type = lines_with_types[0].0;
-        let mut current_line_number = lines_with_types[0].1;
-        let mut current_line_string = String::new();
-        let mut continue_backslash;
-
-        for (line_type, line_number) in lines_with_types {
-            if line_type != current_line_type {
-                current_line_type = line_type;
-                current_line_number = line_number;
-                current_line_string = String::new();
-            }
-
-            let line_to_add = lines[line_number as usize].trim();
-            continue_backslash = line_to_add.ends_with('\\');
-
-            let line_to_add = line_to_add.strip_suffix('\\').unwrap_or(line_to_add);
-
-            current_line_string.push_str(line_to_add);
-
-            if !continue_backslash {
-                actual_lines.push((current_line_type, current_line_number, current_line_string));
-                current_line_type = line_type;
-                current_line_number = line_number;
-                current_line_string = String::new();
-            }
-        }
-    } else {
-        for (line_type, line_number) in lines_with_types {
-            actual_lines.push((
-                line_type,
-                line_number,
-                lines[line_number as usize].trim().to_string(),
-            ));
-        }
-    }
-
-    drop(lines);
-
-    for (i, item) in actual_lines.iter().enumerate() {
-        let line_type = item.0;
-        let line_number = item.1;
-        let line = &item.2;
-
-        if line_type == "unbind" {
-            let to_unbind = line.trim_start_matches(UNBIND_STATEMENT).trim();
-            modes[current_mode].unbinds.push(parse_keybind(
-                path.clone(),
-                to_unbind,
-                line_number + 1,
-                &key_to_evdev_key,
-                &mod_to_mod_enum,
-            )?);
-        }
-
-        if line_type == "modestart" {
-            let tokens = line.split(' ').collect_vec();
-            let modename = tokens[1];
-            let mut mode = Mode::new(modename.to_string());
-            mode.options.swallow = tokens.contains(&MODE_SWALLOW_STATEMENT);
-            mode.options.oneoff = tokens.contains(&MODE_ONEOFF_STATEMENT);
-            modes.push(mode);
-            current_mode = modes.len() - 1;
-        }
-
-        if line_type == "modeend" {
-            current_mode = 0;
-        }
-
-        if line_type != "keysym" {
-            continue;
-        }
-
-        let next_line = actual_lines.get(i + 1);
-        if next_line.is_none() {
-            break;
-        }
-        let next_line = next_line.unwrap();
-
-        if next_line.0 != "command" {
-            continue; // this should ignore keysyms that are not followed by a command
-        }
-
-        let extracted_keys = extract_curly_brace(line);
-        let extracted_commands = extract_curly_brace(&next_line.2);
-
-        for (key, command) in extracted_keys.iter().zip(extracted_commands.iter()) {
-            let keybinding = parse_keybind(
-                path.clone(),
-                key,
-                line_number + 1,
-                &key_to_evdev_key,
-                &mod_to_mod_enum,
-            )?;
-            let hotkey = Hotkey::from_keybinding(keybinding, command.to_string());
-
-            // Override latter
-            modes[current_mode].hotkeys.retain(|h| h.keybinding != hotkey.keybinding);
-            modes[current_mode].hotkeys.push(hotkey);
-        }
-    }
-
     Ok(modes)
 }
 
