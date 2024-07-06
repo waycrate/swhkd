@@ -163,8 +163,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let repeat_cooldown_duration: u64 = args.cooldown.unwrap_or(default_cooldown);
 
     let mut signals = Signals::new([
-        SIGUSR1, SIGUSR2, SIGHUP, SIGABRT, SIGBUS, SIGCHLD, SIGCONT, SIGINT, SIGPIPE, SIGQUIT,
-        SIGSYS, SIGTERM, SIGTRAP, SIGTSTP, SIGVTALRM, SIGXCPU, SIGXFSZ,
+        SIGUSR1, SIGUSR2, SIGHUP, SIGABRT, SIGBUS, SIGCONT, SIGINT, SIGPIPE, SIGQUIT, SIGSYS,
+        SIGTERM, SIGTRAP, SIGTSTP, SIGVTALRM, SIGXCPU, SIGXFSZ,
     ])?;
 
     let mut execution_is_paused = false;
@@ -502,7 +502,29 @@ pub fn send_command(
 
 /// Launch Commands
 fn launch(command: &str, uname: &str) {
-    let cmd = Command::new("su").arg("-c").arg(uname).arg(command).spawn();
+    // temporary log_path
+    let log_path = "/tmp/swhkd.log";
+
+    let cmd = Command::new("su")
+        .arg(uname)
+        .arg("-c")
+        .arg(command)
+        .stdin(Stdio::null())
+        .stdout(match OpenOptions::new().append(true).create(true).open(log_path) {
+            Ok(file) => file,
+            Err(e) => {
+                _ = Command::new("notify-send").arg(format!("ERROR {}", e)).spawn();
+                exit(1);
+            }
+        })
+        .stderr(match OpenOptions::new().append(true).create(true).open(log_path) {
+            Ok(file) => file,
+            Err(e) => {
+                _ = Command::new("notify-send").arg(format!("ERROR {}", e)).spawn();
+                exit(1);
+            }
+        })
+        .spawn();
     match cmd {
         Ok(_) => log::info!("Command executed successfully."),
         Err(e) => log::error!("Failed to execute command: {}", e),
