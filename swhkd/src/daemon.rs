@@ -14,15 +14,14 @@ use std::{
     error::Error,
     fs,
     fs::Permissions,
-    io::prelude::*,
-    os::unix::{fs::PermissionsExt, net::UnixStream},
+    os::unix::fs::PermissionsExt,
     path::{Path, PathBuf},
     process::{exit, id},
 };
 use sysinfo::{ProcessExt, System, SystemExt};
-use tokio::select;
 use tokio::time::Duration;
 use tokio::time::{sleep, Instant};
+use tokio::{process::Command, select};
 use tokio_stream::{StreamExt, StreamMap};
 use tokio_udev::{AsyncMonitorSocket, EventType, MonitorBuilder};
 
@@ -82,7 +81,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let env = environ::Env::construct();
     log::trace!("Environment Aquired");
 
-    let invoking_uid = env.pkexec_id;
+    let invoking_uid = get_uid()?;
+    let uname = get_uname_from_uid(invoking_uid)?;
 
     setup_swhkd(invoking_uid, env.xdg_runtime_dir.clone().to_string_lossy().to_string());
 
@@ -193,8 +193,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let hotkey_repeat_timer = sleep(Duration::from_millis(0));
     tokio::pin!(hotkey_repeat_timer);
 
-    // The socket we're sending the commands to.
-    let socket_file_path = env.fetch_xdg_runtime_socket_path();
     loop {
         select! {
             _ = &mut hotkey_repeat_timer, if &last_hotkey.is_some() => {
@@ -202,7 +200,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 if hotkey.keybinding.on_release {
                     continue;
                 }
-                send_command(hotkey.clone(), &socket_file_path, &modes, &mut mode_stack);
+                send_command(hotkey.clone(), &modes, &mut mode_stack, &uname);
                 hotkey_repeat_timer.as_mut().reset(Instant::now() + Duration::from_millis(repeat_cooldown_duration));
             }
 
@@ -322,7 +320,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     0 => {
                         if last_hotkey.is_some() && pending_release {
                             pending_release = false;
-                            send_command(last_hotkey.clone().unwrap(), &socket_file_path, &modes, &mut mode_stack);
+                            send_command(last_hotkey.clone().unwrap(), &modes, &mut mode_stack, &uname);
                             last_hotkey = None;
                         }
                         if let Some(modifier) = modifiers_map.get(&key) {
@@ -385,7 +383,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                             pending_release = true;
                             break;
                         }
-                        send_command(hotkey.clone(), &socket_file_path, &modes, &mut mode_stack);
+                        send_command(hotkey.clone(), &modes, &mut mode_stack, &uname);
                         hotkey_repeat_timer.as_mut().reset(Instant::now() + Duration::from_millis(repeat_cooldown_duration));
                         continue;
                     }
@@ -393,12 +391,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
             }
         }
     }
-}
-
-fn socket_write(command: &str, socket_path: PathBuf) -> Result<(), Box<dyn Error>> {
-    let mut stream = UnixStream::connect(socket_path)?;
-    stream.write_all(command.as_bytes())?;
-    Ok(())
 }
 
 pub fn check_input_group() -> Result<(), Box<dyn Error>> {
@@ -487,18 +479,13 @@ pub fn setup_swhkd(invoking_uid: u32, runtime_path: String) {
             exit(1);
         }
     }
-
-    // Check if the user is in input group.
-    if check_input_group().is_err() {
-        exit(1);
-    }
 }
 
 pub fn send_command(
     hotkey: Hotkey,
-    socket_path: &Path,
     modes: &[config::Mode],
     mode_stack: &mut Vec<usize>,
+    uname: &str,
 ) {
     log::info!("Hotkey pressed: {:#?}", hotkey);
     let command = hotkey.command;
@@ -533,9 +520,37 @@ pub fn send_command(
     if commands_to_send.ends_with(" &&") {
         commands_to_send = commands_to_send.strip_suffix(" &&").unwrap().to_string();
     }
-    if let Err(e) = socket_write(&commands_to_send, socket_path.to_path_buf()) {
-        log::error!("Failed to send command to swhks through IPC.");
-        log::error!("Please make sure that swhks is running.");
-        log::error!("Err: {:#?}", e)
-    };
+
+    launch(&commands_to_send, uname);
+}
+
+/// Launch Commands
+fn launch(command: &str, uname: &str) {
+    let cmd = Command::new("su").arg("-c").arg(uname).arg(command).spawn();
+    match cmd {
+        Ok(_) => log::info!("Command executed successfully."),
+        Err(e) => log::error!("Failed to execute command: {}", e),
+    }
+}
+
+/// Get the UID of the user that is not a system user
+fn get_uid() -> Result<u32, Box<dyn Error>> {
+    let status_content = fs::read_to_string(format!("/proc/{}/loginuid", std::process::id()))?;
+    let uid = status_content.trim().parse::<u32>()?;
+    Ok(uid)
+}
+
+fn get_uname_from_uid(uid: u32) -> Result<String, Box<dyn Error>> {
+    let passwd = fs::read_to_string("/etc/passwd").unwrap();
+    let lines: Vec<&str> = passwd.split('\n').collect();
+    for line in lines {
+        let parts: Vec<&str> = line.split(':').collect();
+        if parts.len() > 2 {
+            let user_id = parts[2].parse::<u32>().unwrap();
+            if user_id == uid {
+                return Ok(parts[0].to_string());
+            }
+        }
+    }
+    Err("User not found".into())
 }
