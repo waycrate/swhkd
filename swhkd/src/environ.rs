@@ -4,14 +4,12 @@ use std::{
 };
 
 pub struct Env {
-    pub pkexec_id: u32,
     pub xdg_config_home: PathBuf,
     pub xdg_runtime_dir: PathBuf,
 }
 
 #[derive(Debug)]
 pub enum EnvError {
-    PkexecNotFound,
     XdgConfigNotFound,
     XdgRuntimeNotFound,
     PathNotFound,
@@ -19,23 +17,7 @@ pub enum EnvError {
 }
 
 impl Env {
-    pub fn construct() -> Self {
-        let pkexec_id = match Self::get_env("PKEXEC_UID") {
-            Ok(val) => match val.parse::<u32>() {
-                Ok(val) => val,
-                Err(_) => {
-                    log::error!("Failed to launch swhkd!!!");
-                    log::error!("Make sure to launch the binary with pkexec.");
-                    std::process::exit(1);
-                }
-            },
-            Err(_) => {
-                log::error!("Failed to launch swhkd!!!");
-                log::error!("Make sure to launch the binary with pkexec.");
-                std::process::exit(1);
-            }
-        };
-
+    pub fn construct(uid: u32) -> Self {
         let xdg_config_home = match Self::get_env("XDG_CONFIG_HOME") {
             Ok(val) => match validate_path(&PathBuf::from(val)) {
                 Ok(val) => val,
@@ -67,7 +49,7 @@ impl Env {
             Err(e) => match e {
                 EnvError::XdgRuntimeNotFound => {
                     log::warn!("XDG_RUNTIME_DIR not found, using hardcoded /run/user");
-                    PathBuf::from(format!("/run/user/{}", pkexec_id))
+                    PathBuf::from(format!("/run/user/{}", uid))
                 }
                 _ => {
                     eprintln!("Failed to get XDG_RUNTIME_DIR: {:?}", e);
@@ -76,7 +58,7 @@ impl Env {
             },
         };
 
-        Self { pkexec_id, xdg_config_home, xdg_runtime_dir }
+        Self { xdg_config_home, xdg_runtime_dir }
     }
 
     fn get_env(name: &str) -> Result<String, EnvError> {
@@ -84,7 +66,6 @@ impl Env {
             Ok(val) => Ok(val),
             Err(e) => match e {
                 VarError::NotPresent => match name {
-                    "PKEXEC_UID" => Err(EnvError::PkexecNotFound),
                     "XDG_CONFIG_HOME" => Err(EnvError::XdgConfigNotFound),
                     "XDG_RUNTIME_DIR" => Err(EnvError::XdgRuntimeNotFound),
                     _ => Err(EnvError::GenericError(e.to_string())),

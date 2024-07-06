@@ -2,26 +2,22 @@ use crate::config::Value;
 use clap::Parser;
 use config::Hotkey;
 use evdev::{AttributeSet, Device, InputEventKind, Key};
-use nix::{
-    sys::stat::{umask, Mode},
-    unistd::{Group, Uid},
-};
+use nix::sys::stat::{umask, Mode};
 use signal_hook::consts::signal::*;
 use signal_hook_tokio::Signals;
 use std::{
     collections::{HashMap, HashSet},
     env,
     error::Error,
-    fs,
-    fs::Permissions,
+    fs::{self, OpenOptions, Permissions},
     os::unix::fs::PermissionsExt,
     path::{Path, PathBuf},
-    process::{exit, id},
+    process::{exit, id, Command, Stdio},
 };
 use sysinfo::{ProcessExt, System, SystemExt};
+use tokio::select;
 use tokio::time::Duration;
 use tokio::time::{sleep, Instant};
-use tokio::{process::Command, select};
 use tokio_stream::{StreamExt, StreamMap};
 use tokio_udev::{AsyncMonitorSocket, EventType, MonitorBuilder};
 
@@ -78,11 +74,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
     env_logger::init();
     log::trace!("Logger initialized.");
 
-    let env = environ::Env::construct();
-    log::trace!("Environment Aquired");
-
     let invoking_uid = get_uid()?;
     let uname = get_uname_from_uid(invoking_uid)?;
+
+    let env = environ::Env::construct(invoking_uid);
+    log::trace!("Environment Aquired");
 
     setup_swhkd(invoking_uid, env.xdg_runtime_dir.clone().to_string_lossy().to_string());
 
@@ -390,26 +386,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 }
             }
         }
-    }
-}
-
-pub fn check_input_group() -> Result<(), Box<dyn Error>> {
-    if !Uid::current().is_root() {
-        let groups = nix::unistd::getgroups();
-        for groups in groups.iter() {
-            for group in groups {
-                let group = Group::from_gid(*group);
-                if group.unwrap().unwrap().name == "input" {
-                    log::error!("Note: INVOKING USER IS IN INPUT GROUP!!!!");
-                    log::error!("THIS IS A HUGE SECURITY RISK!!!!");
-                }
-            }
-        }
-        log::error!("Consider using `pkexec swhkd ...`");
-        exit(1);
-    } else {
-        log::warn!("Running swhkd as root!");
-        Ok(())
     }
 }
 
