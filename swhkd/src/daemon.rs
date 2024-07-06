@@ -80,8 +80,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let env = environ::Env::construct(&uname);
     log::trace!("Environment Aquired");
 
-    println!("{:?}", &env);
-
     setup_swhkd(invoking_uid, env.xdg_runtime_dir(invoking_uid));
 
     let load_config = || {
@@ -198,7 +196,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 if hotkey.keybinding.on_release {
                     continue;
                 }
-                send_command(hotkey.clone(), &modes, &mut mode_stack, &uname);
+                send_command(hotkey.clone(), &modes, &mut mode_stack, &uname, &env);
                 hotkey_repeat_timer.as_mut().reset(Instant::now() + Duration::from_millis(repeat_cooldown_duration));
             }
 
@@ -318,7 +316,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     0 => {
                         if last_hotkey.is_some() && pending_release {
                             pending_release = false;
-                            send_command(last_hotkey.clone().unwrap(), &modes, &mut mode_stack, &uname);
+                            send_command(last_hotkey.clone().unwrap(), &modes, &mut mode_stack, &uname, &env);
                             last_hotkey = None;
                         }
                         if let Some(modifier) = modifiers_map.get(&key) {
@@ -381,7 +379,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                             pending_release = true;
                             break;
                         }
-                        send_command(hotkey.clone(), &modes, &mut mode_stack, &uname);
+                        send_command(hotkey.clone(), &modes, &mut mode_stack, &uname, &env);
                         hotkey_repeat_timer.as_mut().reset(Instant::now() + Duration::from_millis(repeat_cooldown_duration));
                         continue;
                     }
@@ -464,6 +462,7 @@ pub fn send_command(
     modes: &[config::Mode],
     mode_stack: &mut Vec<usize>,
     uname: &str,
+    env: &environ::Env,
 ) {
     log::info!("Hotkey pressed: {:#?}", hotkey);
     let command = hotkey.command;
@@ -499,16 +498,16 @@ pub fn send_command(
         commands_to_send = commands_to_send.strip_suffix(" &&").unwrap().to_string();
     }
 
-    launch(&commands_to_send, uname);
+    launch(&commands_to_send, uname, env);
 }
 
 /// Launch Commands
-fn launch(command: &str, uname: &str) {
+fn launch(command: &str, uname: &str, env: &environ::Env) {
     // temporary log_path
     let log_path = "/tmp/swhkd.log";
 
-    let cmd = Command::new("su")
-        .arg(uname)
+    let mut cmd = Command::new("su");
+    cmd.arg(uname)
         .arg("-c")
         .arg(command)
         .stdin(Stdio::null())
@@ -525,9 +524,13 @@ fn launch(command: &str, uname: &str) {
                 _ = Command::new("notify-send").arg(format!("ERROR {}", e)).spawn();
                 exit(1);
             }
-        })
-        .spawn();
-    match cmd {
+        });
+
+    for (key, value) in &env.pairs {
+        cmd.env(key, value);
+    }
+
+    match cmd.spawn() {
         Ok(_) => log::info!("Command executed successfully."),
         Err(e) => log::error!("Failed to execute command: {}", e),
     }
