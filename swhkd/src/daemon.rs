@@ -77,10 +77,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let invoking_uid = get_uid()?;
     let uname = get_uname_from_uid(invoking_uid)?;
 
-    let env = environ::Env::construct(invoking_uid);
+    let env = environ::Env::construct(&uname);
     log::trace!("Environment Aquired");
 
-    setup_swhkd(invoking_uid, env.xdg_runtime_dir.clone().to_string_lossy().to_string());
+    println!("{:?}", &env);
+
+    setup_swhkd(invoking_uid, env.xdg_runtime_dir(invoking_uid));
 
     let load_config = || {
         // Drop privileges to the invoking user.
@@ -402,7 +404,7 @@ pub fn check_device_is_keyboard(device: &Device) -> bool {
     }
 }
 
-pub fn setup_swhkd(invoking_uid: u32, runtime_path: String) {
+pub fn setup_swhkd(invoking_uid: u32, runtime_path: PathBuf) {
     // Set a sane process umask.
     log::trace!("Setting process umask.");
     umask(Mode::S_IWGRP | Mode::S_IWOTH);
@@ -422,7 +424,7 @@ pub fn setup_swhkd(invoking_uid: u32, runtime_path: String) {
     }
 
     // Get the PID file path for instance tracking.
-    let pidfile: String = format!("{}swhkd_{}.pid", runtime_path, invoking_uid);
+    let pidfile: String = format!("{}/swhkd_{}.pid", runtime_path.to_string_lossy(), invoking_uid);
     if Path::new(&pidfile).exists() {
         log::trace!("Reading {} file and checking for running instances.", pidfile);
         let swhkd_pid = match fs::read_to_string(&pidfile) {

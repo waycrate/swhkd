@@ -1,97 +1,45 @@
-use std::{
-    env::VarError,
-    path::{Path, PathBuf},
-};
-
-pub struct Env {
-    pub xdg_config_home: PathBuf,
-    pub xdg_runtime_dir: PathBuf,
-}
+use std::{collections::HashMap, error::Error, path::PathBuf, process::Command};
 
 #[derive(Debug)]
-pub enum EnvError {
-    XdgConfigNotFound,
-    XdgRuntimeNotFound,
-    PathNotFound,
-    GenericError(String),
+pub struct Env {
+    pub pairs: HashMap<String, String>,
 }
 
 impl Env {
-    pub fn construct(uid: u32) -> Self {
-        let xdg_config_home = match Self::get_env("XDG_CONFIG_HOME") {
-            Ok(val) => match validate_path(&PathBuf::from(val)) {
-                Ok(val) => val,
-                Err(e) => match e {
-                    EnvError::PathNotFound => {
-                        log::warn!("XDG_CONFIG_HOME does not exist, using hardcoded /etc");
-                        PathBuf::from("/etc")
-                    }
-                    _ => {
-                        eprintln!("Failed to get XDG_CONFIG_HOME: {:?}", e);
-                        std::process::exit(1);
-                    }
-                },
-            },
-            Err(e) => match e {
-                EnvError::XdgConfigNotFound => {
-                    log::warn!("XDG_CONFIG_HOME not found, using hardcoded /etc");
-                    PathBuf::from("/etc")
-                }
-                _ => {
-                    eprintln!("Failed to get XDG_CONFIG_HOME: {:?}", e);
-                    std::process::exit(1);
-                }
-            },
-        };
-
-        let xdg_runtime_dir = match Self::get_env("XDG_RUNTIME_DIR") {
-            Ok(val) => PathBuf::from(val),
-            Err(e) => match e {
-                EnvError::XdgRuntimeNotFound => {
-                    log::warn!("XDG_RUNTIME_DIR not found, using hardcoded /run/user");
-                    PathBuf::from(format!("/run/user/{}", uid))
-                }
-                _ => {
-                    eprintln!("Failed to get XDG_RUNTIME_DIR: {:?}", e);
-                    std::process::exit(1);
-                }
-            },
-        };
-
-        Self { xdg_config_home, xdg_runtime_dir }
+    fn get_env(uname: &str) -> Result<String, Box<dyn Error>> {
+        let cmd =
+            Command::new("su").arg(uname).arg("-c").arg("-l").arg("env").arg(uname).output()?;
+        let stdout = String::from_utf8(cmd.stdout)?;
+        Ok(stdout)
     }
 
-    fn get_env(name: &str) -> Result<String, EnvError> {
-        match std::env::var(name) {
-            Ok(val) => Ok(val),
-            Err(e) => match e {
-                VarError::NotPresent => match name {
-                    "XDG_CONFIG_HOME" => Err(EnvError::XdgConfigNotFound),
-                    "XDG_RUNTIME_DIR" => Err(EnvError::XdgRuntimeNotFound),
-                    _ => Err(EnvError::GenericError(e.to_string())),
-                },
-                VarError::NotUnicode(_) => {
-                    Err(EnvError::GenericError("Not a valid unicode".to_string()))
-                }
-            },
+    fn parse_env(env: &str) -> HashMap<String, String> {
+        let mut pairs = HashMap::new();
+        for line in env.lines() {
+            let mut parts = line.splitn(2, '=');
+            if let (Some(key), Some(value)) = (parts.next(), parts.next()) {
+                pairs.insert(key.to_string(), value.to_string());
+            }
         }
+        pairs
+    }
+
+    pub fn construct(uname: &str) -> Self {
+        let env = Self::get_env(uname).unwrap();
+        let pairs = Self::parse_env(&env);
+        Self { pairs }
     }
 
     pub fn fetch_xdg_config_path(&self) -> PathBuf {
-        let path = PathBuf::from(&self.xdg_config_home).join("swhkd/swhkdrc");
-        // if path doesn't exist, create the file
-        if !path.exists() {
-            std::fs::create_dir_all(path.parent().unwrap()).unwrap();
-            std::fs::write(&path, "# This is the default").unwrap();
-        }
-        path
-    }
-}
+        let default = String::from("/etc");
+        let xdg_config_home = self.pairs.get("XDG_CONFIG_HOME").unwrap_or(&default);
 
-fn validate_path(path: &Path) -> Result<PathBuf, EnvError> {
-    if path.exists() {
-        Ok(path.to_path_buf())
-    } else {
-        Err(EnvError::PathNotFound)
+        PathBuf::from(xdg_config_home).join("swhkd").join("swhkdrc")
+    }
+
+    pub fn xdg_runtime_dir(&self, uid: u32) -> PathBuf {
+        let default = format!("/run/user/{}", uid);
+        let xdg_runtime_dir = self.pairs.get("XDG_RUNTIME_DIR").unwrap_or(&default);
+        PathBuf::from(xdg_runtime_dir)
     }
 }
