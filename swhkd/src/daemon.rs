@@ -502,38 +502,23 @@ pub fn send_command(
 ) {
     log::info!("Hotkey pressed: {:#?}", hotkey);
     let command = hotkey.command;
-    let mut commands_to_send = String::new();
-    if modes[mode_stack[mode_stack.len() - 1]].options.oneoff {
+    if modes[*mode_stack.last().unwrap()].options.oneoff {
         mode_stack.pop();
     }
-    if command.contains('@') {
-        let commands = command.split("&&").map(|s| s.trim()).collect::<Vec<_>>();
-        for cmd in commands {
-            let mut words = cmd.split_whitespace();
-            match words.next().unwrap() {
-                config::MODE_ENTER_STATEMENT => {
-                    let enter_mode = cmd.split(' ').nth(1).unwrap();
-                    for (i, mode) in modes.iter().enumerate() {
-                        if mode.name == enter_mode {
-                            mode_stack.push(i);
-                            break;
-                        }
-                    }
-                    log::info!("Entering mode: {}", modes[mode_stack[mode_stack.len() - 1]].name);
+    for mode in hotkey.mode_instructions.iter() {
+        match mode {
+            sweet::ModeInstruction::Enter(name) => {
+                if let Some(mode_index) = modes.iter().position(|modename| modename.name.eq(name)) {
+                    mode_stack.push(mode_index);
+                    log::info!("Entering mode: {}", name);
                 }
-                config::MODE_ESCAPE_STATEMENT => {
-                    mode_stack.pop();
-                }
-                _ => commands_to_send.push_str(format!("{cmd} &&").as_str()),
+            }
+            sweet::ModeInstruction::Escape => {
+                mode_stack.pop();
             }
         }
-    } else {
-        commands_to_send = command;
     }
-    if commands_to_send.ends_with(" &&") {
-        commands_to_send = commands_to_send.strip_suffix(" &&").unwrap().to_string();
-    }
-    if let Err(e) = socket_write(&commands_to_send, socket_path.to_path_buf()) {
+    if let Err(e) = socket_write(&command, socket_path.to_path_buf()) {
         log::error!("Failed to send command to swhks through IPC.");
         log::error!("Please make sure that swhks is running.");
         log::error!("Err: {:#?}", e)

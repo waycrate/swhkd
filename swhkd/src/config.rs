@@ -1,7 +1,7 @@
 use std::path::Path;
 use sweet::token::KeyAttribute;
-use sweet::ParseError;
 use sweet::{Definition, SwhkdParser};
+use sweet::{ModeInstruction, ParseError};
 
 /// TODO: implement these in the code side of the parser crate
 pub const MODE_ENTER_STATEMENT: &str = "@enter";
@@ -82,6 +82,7 @@ impl Value for KeyBinding {
 pub struct Hotkey {
     pub keybinding: KeyBinding,
     pub command: String,
+    pub mode_instructions: Vec<ModeInstruction>,
 }
 
 #[derive(Debug, PartialEq, Eq, Copy, Clone, Hash)]
@@ -96,11 +97,15 @@ pub enum Modifier {
 
 impl Hotkey {
     pub fn from_keybinding(keybinding: KeyBinding, command: String) -> Self {
-        Hotkey { keybinding, command }
+        Hotkey { keybinding, command, mode_instructions: vec![] }
     }
     #[cfg(test)]
     pub fn new(keysym: evdev::Key, modifiers: Vec<Modifier>, command: String) -> Self {
-        Hotkey { keybinding: KeyBinding::new(keysym, modifiers), command }
+        Hotkey {
+            keybinding: KeyBinding::new(keysym, modifiers),
+            command,
+            mode_instructions: vec![],
+        }
     }
 }
 
@@ -162,6 +167,7 @@ pub fn parse_contents(contents: SwhkdParser) -> Result<Vec<Mode>, ParseError> {
         default_mode.hotkeys.push(Hotkey {
             keybinding: sweet_def_to_kb(&binding.definition),
             command: binding.command.clone(),
+            mode_instructions: binding.mode_instructions.clone(),
         });
     }
     for unbind in contents.unbinds {
@@ -177,6 +183,7 @@ pub fn parse_contents(contents: SwhkdParser) -> Result<Vec<Mode>, ParseError> {
             let hotkey = Hotkey {
                 keybinding: sweet_def_to_kb(&binding.definition),
                 command: binding.command,
+                mode_instructions: binding.mode_instructions.clone(),
             };
             pushmode.hotkeys.retain(|h| h.keybinding != hotkey.keybinding);
             pushmode.hotkeys.push(hotkey);
