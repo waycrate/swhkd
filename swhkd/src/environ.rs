@@ -30,8 +30,21 @@ impl Env {
         Self { pairs }
     }
 
+    pub fn fetch_home(&self) -> Option<PathBuf> {
+        let home = match self.pairs.get("HOME") {
+            Some(it) => it,
+            None => return None,
+        };
+        Some(PathBuf::from(home))
+    }
+
     pub fn fetch_xdg_config_path(&self) -> PathBuf {
-        let default = String::from("/etc");
+        let default = match self.fetch_home() {
+            Some(x) => x.join(".config"),
+            None => PathBuf::from("/etc"),
+        }
+        .to_string_lossy()
+        .to_string();
         let xdg_config_home = self.pairs.get("XDG_CONFIG_HOME").unwrap_or(&default);
 
         PathBuf::from(xdg_config_home).join("swhkd").join("swhkdrc")
