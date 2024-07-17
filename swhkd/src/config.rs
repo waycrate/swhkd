@@ -3,10 +3,6 @@ use sweet::token::KeyAttribute;
 use sweet::{Definition, SwhkdParser};
 use sweet::{ModeInstruction, ParseError};
 
-/// TODO: implement these in the code side of the parser crate
-pub const MODE_ENTER_STATEMENT: &str = "@enter";
-pub const MODE_ESCAPE_STATEMENT: &str = "@escape";
-
 pub fn load(path: &Path) -> Result<Vec<Mode>, ParseError> {
     let config_self = sweet::SwhkdParser::from(sweet::ParserInput::Path(path)).unwrap();
     parse_contents(config_self)
