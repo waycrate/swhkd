@@ -192,12 +192,8 @@ pub fn parse_contents(contents: SwhkdParser) -> Result<Vec<Mode>, ParseError> {
     Ok(modes)
 }
 
-/// This is a temporary function as glue code between
-/// the SWEET parser and the structures here.
-/// TODO: Bake this into the parser itself.
+/// A small function to convert a `sweet::token::Modifier` into the local `Modifier` enum
 fn sweet_def_to_kb(def: &Definition) -> KeyBinding {
-    // Don't forget to update modifier list on the man page if you do change this list.
-
     let modifiers = def
         .modifiers
         .iter()
