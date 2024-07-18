@@ -3,12 +3,28 @@ use std::{collections::HashMap, error::Error, path::PathBuf, process::Command};
 #[derive(Debug)]
 pub struct Env {
     pub pairs: HashMap<String, String>,
+    pub uname: String,
 }
 
 impl Env {
+    pub fn get_default_shell() -> Result<String, Box<dyn Error>> {
+        // read from /etc/passwd
+        let passwd = std::fs::read_to_string("/etc/passwd")?;
+        let lines: Vec<&str> = passwd.split('\n').collect();
+        for line in lines {
+            let parts: Vec<&str> = line.split(':').collect();
+            if parts.len() > 2 {
+                let user_shell = parts[6];
+                return Ok(user_shell.to_string());
+            }
+        }
+        Err("User shell not found".into())
+    }
+
     fn get_env(uname: &str) -> Result<String, Box<dyn Error>> {
+        let shell = Self::get_default_shell()?;
         let cmd =
-            Command::new("su").arg(uname).arg("-c").arg("-l").arg("env").arg(uname).output()?;
+            Command::new("su").arg(uname).arg(shell).arg("-c").arg("-l").arg("env").output()?;
         let stdout = String::from_utf8(cmd.stdout)?;
         Ok(stdout)
     }
@@ -24,10 +40,13 @@ impl Env {
         pairs
     }
 
-    pub fn construct(uname: &str) -> Self {
-        let env = Self::get_env(uname).unwrap();
+    pub fn construct(uname: &str, env: Option<&str>) -> Self {
+        let env = match env {
+            Some(env) => env.to_string(),
+            None => Self::get_env(uname).unwrap(),
+        };
         let pairs = Self::parse_env(&env);
-        Self { pairs }
+        Self { pairs, uname: uname.to_string() }
     }
 
     pub fn fetch_home(&self) -> Option<PathBuf> {

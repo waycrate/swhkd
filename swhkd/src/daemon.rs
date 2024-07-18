@@ -10,7 +10,8 @@ use std::{
     env,
     error::Error,
     fs::{self, OpenOptions, Permissions},
-    os::unix::fs::PermissionsExt,
+    io::Read,
+    os::unix::{fs::PermissionsExt, net::UnixListener, process::CommandExt},
     path::{Path, PathBuf},
     process::{exit, id, Command, Stdio},
 };
@@ -77,10 +78,38 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let invoking_uid = get_uid()?;
     let uname = get_uname_from_uid(invoking_uid)?;
 
-    let env = environ::Env::construct(&uname);
+    let env = environ::Env::construct(&uname, None);
     log::trace!("Environment Aquired");
 
     setup_swhkd(invoking_uid, env.xdg_runtime_dir(invoking_uid));
+
+    let (_pid_path, sock_path) =
+        get_file_paths(env.xdg_runtime_dir(invoking_uid).to_str().unwrap());
+
+    if Path::new(&sock_path).exists() {
+        fs::remove_file(&sock_path)?;
+    }
+
+    // bind to socketpath, on recieving any data, write it to result string and break
+    let mut result: String = String::new();
+    let listener = UnixListener::bind(&sock_path)?;
+    fs::set_permissions(sock_path, fs::Permissions::from_mode(0o666))?;
+    loop {
+        match listener.accept() {
+            Ok((mut socket, _addr)) => {
+                let mut buf = String::new();
+                socket.read_to_string(&mut buf)?;
+                if buf.is_empty() {
+                    continue;
+                }
+                result.push_str(&buf);
+                break;
+            }
+            Err(e) => log::info!("Error: {}", e),
+        }
+    }
+
+    let env = environ::Env::construct(&uname, Some(&result));
 
     let load_config = || {
         // Drop privileges to the invoking user.
@@ -509,6 +538,7 @@ fn launch(command: &str, uname: &str, env: &environ::Env) {
     let mut cmd = Command::new("su");
     cmd.arg(uname)
         .arg("-c")
+        .arg("-l")
         .arg(command)
         .stdin(Stdio::null())
         .stdout(match OpenOptions::new().append(true).create(true).open(log_path) {
@@ -528,6 +558,10 @@ fn launch(command: &str, uname: &str, env: &environ::Env) {
 
     for (key, value) in &env.pairs {
         cmd.env(key, value);
+    }
+
+    for (key, value) in cmd.get_envs() {
+        println!("{:?}={:?}", key, value);
     }
 
     match cmd.spawn() {
@@ -556,4 +590,11 @@ fn get_uname_from_uid(uid: u32) -> Result<String, Box<dyn Error>> {
         }
     }
     Err("User not found".into())
+}
+
+fn get_file_paths(runtime_dir: &str) -> (String, String) {
+    let pid_file_path = format!("{}/swhks.pid", runtime_dir);
+    let sock_file_path = format!("{}/swhkd.sock", runtime_dir);
+
+    (pid_file_path, sock_file_path)
 }

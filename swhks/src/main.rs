@@ -1,4 +1,6 @@
-use std::path::PathBuf;
+use std::{
+    collections::HashMap, io::Write, os::unix::net::UnixStream, path::PathBuf, process::Command,
+};
 
 use clap::Parser;
 
@@ -15,6 +17,24 @@ struct Args {
     debug: bool,
 }
 
+fn get_env() -> Result<String, Box<dyn std::error::Error>> {
+    let shell = std::env::var("SHELL")?;
+    let cmd = Command::new(shell).arg("-c").arg("env").output()?;
+    let stdout = String::from_utf8(cmd.stdout)?;
+    Ok(stdout)
+}
+
+fn parse_env(env: &str) -> HashMap<String, String> {
+    let mut pairs = HashMap::new();
+    for line in env.lines() {
+        let mut parts = line.splitn(2, '=');
+        if let (Some(key), Some(value)) = (parts.next(), parts.next()) {
+            pairs.insert(key.to_string(), value.to_string());
+        }
+    }
+    pairs
+}
+
 fn main() -> std::io::Result<()> {
     let args = Args::parse();
     if args.debug {
@@ -25,7 +45,29 @@ fn main() -> std::io::Result<()> {
             .init();
     }
 
+    let env_raw = match get_env() {
+        Ok(env) => env,
+        Err(_) => "".to_string(),
+    };
+
+    let env = parse_env(&env_raw);
+
+    let runtime_dir = env.get("XDG_RUNTIME_DIR").unwrap();
+
+    let (pid_file_path, sock_file_path) = get_file_paths(runtime_dir);
+    println!("pid_file_path: {}", pid_file_path);
+    println!("sock_file_path: {}", sock_file_path);
+
     log::info!("Started SWHKS placeholder server");
+    let mut stream = UnixStream::connect(sock_file_path)?;
+    stream.write_all(env_raw.as_bytes())?;
 
     Ok(())
+}
+
+fn get_file_paths(runtime_dir: &str) -> (String, String) {
+    let pid_file_path = format!("{}/swhks.pid", runtime_dir);
+    let sock_file_path = format!("{}/swhkd.sock", runtime_dir);
+
+    (pid_file_path, sock_file_path)
 }
