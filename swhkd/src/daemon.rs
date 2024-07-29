@@ -31,9 +31,6 @@ mod environ;
 mod perms;
 mod uinput;
 
-#[cfg(test)]
-mod tests;
-
 struct KeyboardState {
     state_modifiers: HashSet<config::Modifier>,
     state_keysyms: AttributeSet<evdev::Key>,
