@@ -197,13 +197,14 @@ fn sweet_def_to_kb(def: &Definition) -> KeyBinding {
     let modifiers = def
         .modifiers
         .iter()
-        .map(|m| match m {
-            sweet::token::Modifier::Super => Modifier::Super,
-            sweet::token::Modifier::Any => Modifier::Any,
-            sweet::token::Modifier::Control => Modifier::Control,
-            sweet::token::Modifier::Alt => Modifier::Alt,
-            sweet::token::Modifier::Altgr => Modifier::Altgr,
-            sweet::token::Modifier::Shift => Modifier::Shift,
+        .filter_map(|m| match m {
+            sweet::token::Modifier::Super => Some(Modifier::Super),
+            sweet::token::Modifier::Any => Some(Modifier::Any),
+            sweet::token::Modifier::Control => Some(Modifier::Control),
+            sweet::token::Modifier::Alt => Some(Modifier::Alt),
+            sweet::token::Modifier::Altgr => Some(Modifier::Altgr),
+            sweet::token::Modifier::Shift => Some(Modifier::Shift),
+            sweet::token::Modifier::Omission => None,
         })
         .collect();
 
