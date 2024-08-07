@@ -3,6 +3,7 @@ use std::{
 };
 
 use clap::Parser;
+use nix::unistd::daemon;
 
 /// IPC Server for swhkd
 #[derive(Parser)]
@@ -59,8 +60,18 @@ fn main() -> std::io::Result<()> {
     println!("sock_file_path: {}", sock_file_path);
 
     log::info!("Started SWHKS placeholder server");
-    let mut stream = UnixStream::connect(sock_file_path)?;
-    stream.write_all(env_raw.as_bytes())?;
+    let _ = daemon(true, false);
+    loop{
+        match UnixStream::connect(&sock_file_path){
+            Ok(mut stream) => {
+                let _ = stream.write_all(env_raw.as_bytes());
+                break;
+            },
+            Err(_) => {
+                println!("Waiting...");
+            },
+        };
+    }
 
     Ok(())
 }
