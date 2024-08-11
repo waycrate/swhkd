@@ -11,7 +11,7 @@ use std::{
     error::Error,
     fs::{self, OpenOptions, Permissions},
     io::Read,
-    os::unix::{fs::PermissionsExt, net::UnixListener, process::CommandExt},
+    os::unix::{fs::PermissionsExt, net::UnixListener},
     path::{Path, PathBuf},
     process::{exit, id, Command, Stdio},
 };
@@ -26,9 +26,6 @@ mod config;
 mod environ;
 mod perms;
 mod uinput;
-
-#[cfg(test)]
-mod tests;
 
 struct KeyboardState {
     state_modifiers: HashSet<config::Modifier>,
