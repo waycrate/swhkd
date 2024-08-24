@@ -59,14 +59,14 @@ fn main() -> std::io::Result<()> {
 
     log::info!("Started SWHKS placeholder server");
     let _ = daemon(true, false);
-    loop{
-        match UnixStream::connect(&sock_file_path){
+    loop {
+        match UnixStream::connect(&sock_file_path) {
             Ok(mut stream) => {
                 let _ = stream.write_all(env_raw.as_bytes());
-            },
+            }
             Err(_) => {
                 println!("Waiting...");
-            },
+            }
         };
     }
 }

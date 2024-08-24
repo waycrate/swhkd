@@ -23,8 +23,7 @@ impl Env {
 
     fn get_env(uname: &str) -> Result<String, Box<dyn Error>> {
         // let shell = Self::get_default_shell()?;
-        let cmd =
-            Command::new("su").arg(uname).arg("-c").arg("-l").arg("env").output()?;
+        let cmd = Command::new("su").arg(uname).arg("-c").arg("-l").arg("env").output()?;
         let stdout = String::from_utf8(cmd.stdout)?;
         Ok(stdout)
     }
@@ -80,7 +79,6 @@ impl Env {
 
         PathBuf::from(xdg_config_home)
     }
-
 
     pub fn xdg_runtime_dir(&self, uid: u32) -> PathBuf {
         let default = format!("/run/user/{}", uid);
