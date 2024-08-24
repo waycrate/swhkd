@@ -80,6 +80,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     env_logger::init();
     log::trace!("Logger initialized.");
+    perms::raise_privileges();
 
     let invoking_uid = get_uid()?;
     let uname = get_uname_from_uid(invoking_uid)?;
@@ -115,9 +116,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let config_file_path: PathBuf =
         args.config.as_ref().map_or_else(|| env.fetch_xdg_config_path(), |file| file.clone());
     let load_config = || {
-        // Drop privileges to the invoking user.
-        perms::drop_privileges(invoking_uid);
-
         log::debug!("Using config file path: {:#?}", config_file_path);
 
         match config::load(&config_file_path) {
@@ -125,11 +123,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 log::error!("Config Error: {}", e);
                 exit(1)
             }
-            Ok(out) => {
-                // Escalate back to the root user after reading the config file.
-                perms::raise_privileges();
-                out
-            }
+            Ok(out) => out,
         }
     };
 
