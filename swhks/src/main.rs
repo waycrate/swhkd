@@ -55,9 +55,7 @@ fn main() -> std::io::Result<()> {
 
     let runtime_dir = env.get("XDG_RUNTIME_DIR").unwrap();
 
-    let (pid_file_path, sock_file_path) = get_file_paths(runtime_dir);
-    println!("pid_file_path: {}", pid_file_path);
-    println!("sock_file_path: {}", sock_file_path);
+    let (_pid_file_path, sock_file_path) = get_file_paths(runtime_dir);
 
     log::info!("Started SWHKS placeholder server");
     let _ = daemon(true, false);

@@ -6,7 +6,15 @@ use nix::sys::stat::{umask, Mode};
 use signal_hook::consts::signal::*;
 use signal_hook_tokio::Signals;
 use std::{
-    collections::{HashMap, HashSet}, env, error::Error, fs::{self, OpenOptions, Permissions}, io::Read, os::unix::{fs::PermissionsExt, net::UnixListener}, path::{Path, PathBuf}, process::{exit, id, Command, Stdio}
+    collections::{HashMap, HashSet},
+    env,
+    error::Error,
+    fs::{self, OpenOptions, Permissions},
+    io::Read,
+    os::unix::{fs::PermissionsExt, net::UnixListener},
+    path::{Path, PathBuf},
+    process::{exit, id, Command, Stdio},
+    time::{SystemTime, UNIX_EPOCH},
 };
 use sysinfo::{ProcessExt, System, SystemExt};
 use tokio::select;
@@ -54,6 +62,10 @@ struct Args {
     /// Take a list of devices from the user
     #[arg(short = 'D', long, num_args = 0.., value_delimiter = ' ')]
     device: Vec<String>,
+
+    /// Set a custom log file. (Defaults to ${XDG_DATA_HOME:-$HOME/.local/share}/swhks-current_unix_time.log)
+    #[arg(short, long, value_name = "FILE")]
+    log: Option<PathBuf>,
 }
 
 #[tokio::main]
@@ -75,10 +87,33 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let mut env = refresh_env(&uname, invoking_uid).unwrap();
     log::trace!("Environment Aquired");
 
+    let log_file_name = if let Some(val) = args.log {
+        val
+    } else {
+        let time = match SystemTime::now().duration_since(UNIX_EPOCH) {
+            Ok(n) => n.as_secs().to_string(),
+            Err(_) => {
+                log::error!("SystemTime before UnixEpoch!");
+                exit(1);
+            }
+        };
+
+        format!("{}/swhkd/swhkd-{}.log", env.fetch_xdg_data_path().to_string_lossy(), time).into()
+    };
+
+    let log_path = Path::new(&log_file_name);
+    if let Some(p) = log_path.parent() {
+        if !p.exists() {
+            if let Err(e) = fs::create_dir_all(p) {
+                log::error!("Failed to create log dir: {}", e);
+            }
+        }
+    }
+
     setup_swhkd(invoking_uid, env.xdg_runtime_dir(invoking_uid));
 
     let config_file_path: PathBuf =
-            args.config.as_ref().map_or_else(|| env.fetch_xdg_config_path(), |file| file.clone());
+        args.config.as_ref().map_or_else(|| env.fetch_xdg_config_path(), |file| file.clone());
     let load_config = || {
         // Drop privileges to the invoking user.
         perms::drop_privileges(invoking_uid);
@@ -98,7 +133,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
         }
     };
 
-    let server_cooldown = args.refresh.unwrap_or(650);
+    // The server cool down is set to 650ms by default
+    // which is calculated based on the default repeat cooldown
+    // along with it, an additional 120ms is added to it, just to be safe.
+    let server_cooldown = args.refresh.unwrap_or(650 + 120);
 
     let mut modes = load_config();
     let mut mode_stack: Vec<usize> = vec![0];
@@ -194,10 +232,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 if hotkey.keybinding.on_release {
                     continue;
                 }
-                send_command(hotkey.clone(), &modes, &mut mode_stack, &uname, &env);
+                send_command(hotkey.clone(), &modes, &mut mode_stack, &uname, &env, log_path);
                 hotkey_repeat_timer.as_mut().reset(Instant::now() + Duration::from_millis(repeat_cooldown_duration));
             }
 
+            // Refresh the environment
             _ = &mut next_env => {
                 log::info!("Refreshing Env");
                 env = refresh_env(&uname, invoking_uid).unwrap();
@@ -320,7 +359,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     0 => {
                         if last_hotkey.is_some() && pending_release {
                             pending_release = false;
-                            send_command(last_hotkey.clone().unwrap(), &modes, &mut mode_stack, &uname, &env);
+                            send_command(last_hotkey.clone().unwrap(), &modes, &mut mode_stack, &uname, &env, log_path);
                             last_hotkey = None;
                         }
                         if let Some(modifier) = modifiers_map.get(&key) {
@@ -383,7 +422,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                             pending_release = true;
                             break;
                         }
-                        send_command(hotkey.clone(), &modes, &mut mode_stack, &uname, &env);
+                        send_command(hotkey.clone(), &modes, &mut mode_stack, &uname, &env, log_path);
                         hotkey_repeat_timer.as_mut().reset(Instant::now() + Duration::from_millis(repeat_cooldown_duration));
                         continue;
                     }
@@ -467,6 +506,7 @@ pub fn send_command(
     mode_stack: &mut Vec<usize>,
     uname: &str,
     env: &environ::Env,
+    log_path: &Path,
 ) {
     log::info!("Hotkey pressed: {:#?}", hotkey);
     let command = hotkey.command;
@@ -502,14 +542,11 @@ pub fn send_command(
         commands_to_send = commands_to_send.strip_suffix(" &&").unwrap().to_string();
     }
 
-    launch(&commands_to_send, uname, env);
+    launch(&commands_to_send, uname, env, log_path);
 }
 
 /// Launch Commands
-fn launch(command: &str, uname: &str, env: &environ::Env) {
-    // temporary log_path
-    let log_path = "/tmp/swhkd.log";
-
+fn launch(command: &str, uname: &str, env: &environ::Env, log_path: &Path) {
     let mut cmd = Command::new("su");
     cmd.arg(uname)
         .arg("-c")
@@ -533,10 +570,6 @@ fn launch(command: &str, uname: &str, env: &environ::Env) {
 
     for (key, value) in &env.pairs {
         cmd.env(key, value);
-    }
-
-    for (key, value) in cmd.get_envs() {
-        println!("{:?}={:?}", key, value);
     }
 
     match cmd.spawn() {
@@ -576,7 +609,7 @@ fn get_file_paths(runtime_dir: &str) -> (String, String) {
     (pid_file_path, sock_file_path)
 }
 
-fn refresh_env(uname: &str, invoking_uid: u32) -> Result<environ::Env, Box<dyn Error>>{
+fn refresh_env(uname: &str, invoking_uid: u32) -> Result<environ::Env, Box<dyn Error>> {
     let env = environ::Env::construct(uname, None);
 
     let (_pid_path, sock_path) =
@@ -605,7 +638,7 @@ fn refresh_env(uname: &str, invoking_uid: u32) -> Result<environ::Env, Box<dyn E
             }
             Err(e) => {
                 log::info!("Sock Err: {}", e);
-            },
+            }
         }
     }
     log::trace!("Environment Refreshed");

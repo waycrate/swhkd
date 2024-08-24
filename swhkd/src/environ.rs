@@ -69,6 +69,19 @@ impl Env {
         PathBuf::from(xdg_config_home).join("swhkd").join("swhkdrc")
     }
 
+    pub fn fetch_xdg_data_path(&self) -> PathBuf {
+        let default = match self.fetch_home() {
+            Some(x) => x.join(".local").join("share"),
+            None => PathBuf::from("/etc"),
+        }
+        .to_string_lossy()
+        .to_string();
+        let xdg_config_home = self.pairs.get("XDG_DATA_HOME").unwrap_or(&default);
+
+        PathBuf::from(xdg_config_home)
+    }
+
+
     pub fn xdg_runtime_dir(&self, uid: u32) -> PathBuf {
         let default = format!("/run/user/{}", uid);
         let xdg_runtime_dir = self.pairs.get("XDG_RUNTIME_DIR").unwrap_or(&default);
