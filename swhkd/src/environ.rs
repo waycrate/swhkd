@@ -22,9 +22,9 @@ impl Env {
     }
 
     fn get_env(uname: &str) -> Result<String, Box<dyn Error>> {
-        let shell = Self::get_default_shell()?;
+        // let shell = Self::get_default_shell()?;
         let cmd =
-            Command::new("su").arg(uname).arg(shell).arg("-c").arg("-l").arg("env").output()?;
+            Command::new("su").arg(uname).arg("-c").arg("-l").arg("env").output()?;
         let stdout = String::from_utf8(cmd.stdout)?;
         Ok(stdout)
     }

@@ -65,15 +65,12 @@ fn main() -> std::io::Result<()> {
         match UnixStream::connect(&sock_file_path){
             Ok(mut stream) => {
                 let _ = stream.write_all(env_raw.as_bytes());
-                break;
             },
             Err(_) => {
                 println!("Waiting...");
             },
         };
     }
-
-    Ok(())
 }
 
 fn get_file_paths(runtime_dir: &str) -> (String, String) {

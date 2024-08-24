@@ -6,14 +6,7 @@ use nix::sys::stat::{umask, Mode};
 use signal_hook::consts::signal::*;
 use signal_hook_tokio::Signals;
 use std::{
-    collections::{HashMap, HashSet},
-    env,
-    error::Error,
-    fs::{self, OpenOptions, Permissions},
-    io::Read,
-    os::unix::{fs::PermissionsExt, net::UnixListener},
-    path::{Path, PathBuf},
-    process::{exit, id, Command, Stdio},
+    collections::{HashMap, HashSet}, env, error::Error, fs::{self, OpenOptions, Permissions}, io::Read, os::unix::{fs::PermissionsExt, net::UnixListener}, path::{Path, PathBuf}, process::{exit, id, Command, Stdio}
 };
 use sysinfo::{ProcessExt, System, SystemExt};
 use tokio::select;
@@ -54,6 +47,10 @@ struct Args {
     #[arg(short, long)]
     debug: bool,
 
+    /// Set Server Refresh Time in milliseconds
+    #[arg(short, long)]
+    refresh: Option<u64>,
+
     /// Take a list of devices from the user
     #[arg(short = 'D', long, num_args = 0.., value_delimiter = ' ')]
     device: Vec<String>,
@@ -75,45 +72,16 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let invoking_uid = get_uid()?;
     let uname = get_uname_from_uid(invoking_uid)?;
 
-    let env = environ::Env::construct(&uname, None);
+    let mut env = refresh_env(&uname, invoking_uid).unwrap();
     log::trace!("Environment Aquired");
 
     setup_swhkd(invoking_uid, env.xdg_runtime_dir(invoking_uid));
 
-    let (_pid_path, sock_path) =
-        get_file_paths(env.xdg_runtime_dir(invoking_uid).to_str().unwrap());
-
-    if Path::new(&sock_path).exists() {
-        fs::remove_file(&sock_path)?;
-    }
-
-    // bind to socketpath, on recieving any data, write it to result string and break
-    let mut result: String = String::new();
-    let listener = UnixListener::bind(&sock_path)?;
-    fs::set_permissions(sock_path, fs::Permissions::from_mode(0o666))?;
-    loop {
-        match listener.accept() {
-            Ok((mut socket, _addr)) => {
-                let mut buf = String::new();
-                socket.read_to_string(&mut buf)?;
-                if buf.is_empty() {
-                    continue;
-                }
-                result.push_str(&buf);
-                break;
-            }
-            Err(e) => log::info!("Error: {}", e),
-        }
-    }
-
-    let env = environ::Env::construct(&uname, Some(&result));
-
+    let config_file_path: PathBuf =
+            args.config.as_ref().map_or_else(|| env.fetch_xdg_config_path(), |file| file.clone());
     let load_config = || {
         // Drop privileges to the invoking user.
         perms::drop_privileges(invoking_uid);
-
-        let config_file_path: PathBuf =
-            args.config.as_ref().map_or_else(|| env.fetch_xdg_config_path(), |file| file.clone());
 
         log::debug!("Using config file path: {:#?}", config_file_path);
 
@@ -129,6 +97,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
             }
         }
     };
+
+    let server_cooldown = args.refresh.unwrap_or(650);
 
     let mut modes = load_config();
     let mut mode_stack: Vec<usize> = vec![0];
@@ -213,7 +183,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     // The initial sleep duration is never read because last_hotkey is initialized to None
     let hotkey_repeat_timer = sleep(Duration::from_millis(0));
+    let next_env = sleep(Duration::from_millis(server_cooldown));
     tokio::pin!(hotkey_repeat_timer);
+    tokio::pin!(next_env);
 
     loop {
         select! {
@@ -224,6 +196,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 }
                 send_command(hotkey.clone(), &modes, &mut mode_stack, &uname, &env);
                 hotkey_repeat_timer.as_mut().reset(Instant::now() + Duration::from_millis(repeat_cooldown_duration));
+            }
+
+            _ = &mut next_env => {
+                log::info!("Refreshing Env");
+                env = refresh_env(&uname, invoking_uid).unwrap();
+                next_env.as_mut().reset(Instant::now() + Duration::from_secs(server_cooldown));
             }
 
             Some(signal) = signals.next() => {
@@ -580,7 +558,9 @@ fn get_uname_from_uid(uid: u32) -> Result<String, Box<dyn Error>> {
     for line in lines {
         let parts: Vec<&str> = line.split(':').collect();
         if parts.len() > 2 {
-            let user_id = parts[2].parse::<u32>().unwrap();
+            let Ok(user_id) = parts[2].parse::<u32>() else {
+                continue;
+            };
             if user_id == uid {
                 return Ok(parts[0].to_string());
             }
@@ -594,4 +574,40 @@ fn get_file_paths(runtime_dir: &str) -> (String, String) {
     let sock_file_path = format!("{}/swhkd.sock", runtime_dir);
 
     (pid_file_path, sock_file_path)
+}
+
+fn refresh_env(uname: &str, invoking_uid: u32) -> Result<environ::Env, Box<dyn Error>>{
+    let env = environ::Env::construct(uname, None);
+
+    let (_pid_path, sock_path) =
+        get_file_paths(env.xdg_runtime_dir(invoking_uid).to_str().unwrap());
+
+    if Path::new(&sock_path).exists() {
+        fs::remove_file(&sock_path)?;
+    }
+
+    let mut result: String = String::new();
+    let listener = UnixListener::bind(&sock_path)?;
+    fs::set_permissions(sock_path, fs::Permissions::from_mode(0o666))?;
+    // TODO: Implement Wait mechanism
+    loop {
+        log::warn!("Waiting for Server...");
+        match listener.accept() {
+            Ok((mut socket, _addr)) => {
+                let mut buf = String::new();
+                socket.read_to_string(&mut buf)?;
+                if buf.is_empty() {
+                    continue;
+                }
+                log::info!("Server Instance found!");
+                result.push_str(&buf);
+                break;
+            }
+            Err(e) => {
+                log::info!("Sock Err: {}", e);
+            },
+        }
+    }
+    log::trace!("Environment Refreshed");
+    Ok(environ::Env::construct(uname, Some(&result)))
 }
