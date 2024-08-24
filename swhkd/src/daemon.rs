@@ -2,14 +2,17 @@ use crate::config::Value;
 use clap::Parser;
 use config::Hotkey;
 use evdev::{AttributeSet, Device, InputEventKind, Key};
-use nix::sys::stat::{umask, Mode};
+use nix::{
+    sys::stat::{umask, Mode},
+    unistd::{setgid, setuid, Gid, Uid},
+};
 use signal_hook::consts::signal::*;
 use signal_hook_tokio::Signals;
 use std::{
     collections::{HashMap, HashSet},
     env,
     error::Error,
-    fs::{self, OpenOptions, Permissions},
+    fs::{self, File, OpenOptions, Permissions},
     io::Read,
     os::unix::{fs::PermissionsExt, net::UnixListener},
     path::{Path, PathBuf},
@@ -102,7 +105,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         format!("{}/swhkd/swhkd-{}.log", env.fetch_xdg_data_path().to_string_lossy(), time).into()
     };
 
-    let log_path = Path::new(&log_file_name);
+    let log_path = PathBuf::from(&log_file_name);
     if let Some(p) = log_path.parent() {
         if !p.exists() {
             if let Err(e) = fs::create_dir_all(p) {
@@ -110,6 +113,16 @@ async fn main() -> Result<(), Box<dyn Error>> {
             }
         }
     }
+    // if file doesnt exist, create it with 0666 permissions
+    if !log_path.exists() {
+        if let Err(e) = OpenOptions::new().append(true).create(true).open(&log_path) {
+            log::error!("Failed to create log file: {}", e);
+            exit(1);
+        }
+        fs::set_permissions(&log_path, Permissions::from_mode(0o666)).unwrap();
+    }
+
+
 
     setup_swhkd(invoking_uid, env.xdg_runtime_dir(invoking_uid));
 
@@ -226,7 +239,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 if hotkey.keybinding.on_release {
                     continue;
                 }
-                send_command(hotkey.clone(), &modes, &mut mode_stack, &uname, &env, log_path);
+                send_command(hotkey.clone(), &modes, &mut mode_stack, invoking_uid, &env, log_path.as_path());
                 hotkey_repeat_timer.as_mut().reset(Instant::now() + Duration::from_millis(repeat_cooldown_duration));
             }
 
@@ -353,7 +366,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     0 => {
                         if last_hotkey.is_some() && pending_release {
                             pending_release = false;
-                            send_command(last_hotkey.clone().unwrap(), &modes, &mut mode_stack, &uname, &env, log_path);
+                            send_command(last_hotkey.clone().unwrap(), &modes, &mut mode_stack, invoking_uid, &env, log_path.as_path());
                             last_hotkey = None;
                         }
                         if let Some(modifier) = modifiers_map.get(&key) {
@@ -416,7 +429,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                             pending_release = true;
                             break;
                         }
-                        send_command(hotkey.clone(), &modes, &mut mode_stack, &uname, &env, log_path);
+                        send_command(hotkey.clone(), &modes, &mut mode_stack, invoking_uid, &env, log_path.as_path());
                         hotkey_repeat_timer.as_mut().reset(Instant::now() + Duration::from_millis(repeat_cooldown_duration));
                         continue;
                     }
@@ -498,7 +511,7 @@ pub fn send_command(
     hotkey: Hotkey,
     modes: &[config::Mode],
     mode_stack: &mut Vec<usize>,
-    uname: &str,
+    user_id: u32,
     env: &environ::Env,
     log_path: &Path,
 ) {
@@ -536,40 +549,51 @@ pub fn send_command(
         commands_to_send = commands_to_send.strip_suffix(" &&").unwrap().to_string();
     }
 
-    launch(&commands_to_send, uname, env, log_path);
+    launch(commands_to_send, user_id, env, log_path);
 }
 
 /// Launch Commands
-fn launch(command: &str, uname: &str, env: &environ::Env, log_path: &Path) {
-    let mut cmd = Command::new("su");
-    cmd.arg(uname)
-        .arg("-c")
-        .arg("-l")
-        .arg(command)
-        .stdin(Stdio::null())
-        .stdout(match OpenOptions::new().append(true).create(true).open(log_path) {
-            Ok(file) => file,
-            Err(e) => {
-                _ = Command::new("notify-send").arg(format!("ERROR {}", e)).spawn();
-                exit(1);
-            }
-        })
-        .stderr(match OpenOptions::new().append(true).create(true).open(log_path) {
-            Ok(file) => file,
-            Err(e) => {
-                _ = Command::new("notify-send").arg(format!("ERROR {}", e)).spawn();
-                exit(1);
-            }
-        });
+fn launch(command: String, user_id: u32, env: &environ::Env, log_path: &Path) {
+    let pairs = env.pairs.clone();
+    let log_path = log_path.to_path_buf();
+    println!("Log Path: {:?}", log_path);
 
-    for (key, value) in &env.pairs {
-        cmd.env(key, value);
-    }
+    tokio::spawn(async move {
+        setgid(Gid::from_raw(user_id)).unwrap();
+        setuid(Uid::from_raw(user_id)).unwrap();
 
-    match cmd.spawn() {
-        Ok(_) => log::info!("Command executed successfully."),
-        Err(e) => log::error!("Failed to execute command: {}", e),
-    }
+        let mut cmd = Command::new("sh");
+        cmd.arg("-c")
+            .arg(command)
+            .stdin(Stdio::null())
+            .stdout(match File::open(&log_path) {
+                Ok(file) => file,
+                Err(e) => {
+                    println!("Error: {}", e);
+                    _ = Command::new("notify-send").arg(format!("ERROR {}", e)).spawn();
+                    exit(1);
+                }
+            })
+            .stderr(match File::open(log_path) {
+                Ok(file) => file,
+                Err(e) => {
+                    println!("Error: {}", e);
+                    _ = Command::new("notify-send").arg(format!("ERROR {}", e)).spawn();
+                    exit(1);
+                }
+            });
+
+        for (key, value) in pairs {
+            cmd.env(key, value);
+        }
+
+        match cmd.spawn() {
+            Ok(_) => {
+                log::info!("Command executed successfully.");
+            }
+            Err(e) => log::error!("Failed to execute command: {}", e),
+        }
+    });
 }
 
 /// Get the UID of the user that is not a system user
@@ -616,7 +640,6 @@ fn refresh_env(uname: &str, invoking_uid: u32) -> Result<environ::Env, Box<dyn E
     let mut result: String = String::new();
     let listener = UnixListener::bind(&sock_path)?;
     fs::set_permissions(sock_path, fs::Permissions::from_mode(0o666))?;
-    // TODO: Implement Wait mechanism
     loop {
         log::warn!("Waiting for Server...");
         match listener.accept() {
