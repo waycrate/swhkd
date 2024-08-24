@@ -20,9 +20,9 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 use sysinfo::{ProcessExt, System, SystemExt};
-use tokio::select;
 use tokio::time::Duration;
 use tokio::time::{sleep, Instant};
+use tokio::{select, sync::mpsc};
 use tokio_stream::{StreamExt, StreamMap};
 use tokio_udev::{AsyncMonitorSocket, EventType, MonitorBuilder};
 
@@ -122,7 +122,58 @@ async fn main() -> Result<(), Box<dyn Error>> {
         fs::set_permissions(&log_path, Permissions::from_mode(0o666)).unwrap();
     }
 
+    let (tx, mut rx) = tokio::sync::mpsc::channel::<String>(30);
+    let pairs = env.pairs.clone();
+    let log = log_path.clone();
 
+    tokio::spawn(async move {
+        while let Some(command) = rx.recv().await {
+            let pairs = pairs.clone();
+            let log = log.clone();
+            tokio::spawn(async move {
+                setgid(Gid::from_raw(invoking_uid)).unwrap();
+                setuid(Uid::from_raw(invoking_uid)).unwrap();
+
+                let mut cmd = Command::new("sh");
+                cmd.arg("-c")
+                    .arg(command)
+                    .stdin(Stdio::null())
+                    .stdout(match File::open(&log) {
+                        Ok(file) => file,
+                        Err(e) => {
+                            println!("Error: {}", e);
+                            _ = Command::new("notify-send").arg(format!("ERROR {}", e)).spawn();
+                            exit(1);
+                        }
+                    })
+                    .stderr(match File::open(&log) {
+                        Ok(file) => file,
+                        Err(e) => {
+                            println!("Error: {}", e);
+                            _ = Command::new("notify-send").arg(format!("ERROR {}", e)).spawn();
+                            exit(1);
+                        }
+                    });
+
+                for (key, value) in pairs.clone() {
+                    cmd.env(key, value);
+                }
+
+                match cmd.spawn() {
+                    Ok(_) => {
+                        log::info!("Command executed successfully.");
+                    }
+                    Err(e) => log::error!("Failed to execute command: {}", e),
+                }
+            });
+        }
+    });
+
+    //tx.send("gnome-text-editor".to_string()).await.unwrap();
+    //let mut input = String::new();
+    //println!("Press Enter to exit");
+    //std::io::stdin().read_line(&mut input).unwrap();
+    //exit(0);
 
     setup_swhkd(invoking_uid, env.xdg_runtime_dir(invoking_uid));
 
@@ -239,7 +290,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 if hotkey.keybinding.on_release {
                     continue;
                 }
-                send_command(hotkey.clone(), &modes, &mut mode_stack, invoking_uid, &env, log_path.as_path());
+                send_command(hotkey.clone(), &modes, &mut mode_stack, tx.clone()).await;
                 hotkey_repeat_timer.as_mut().reset(Instant::now() + Duration::from_millis(repeat_cooldown_duration));
             }
 
@@ -366,7 +417,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     0 => {
                         if last_hotkey.is_some() && pending_release {
                             pending_release = false;
-                            send_command(last_hotkey.clone().unwrap(), &modes, &mut mode_stack, invoking_uid, &env, log_path.as_path());
+                            send_command(last_hotkey.clone().unwrap(), &modes, &mut mode_stack, tx.clone()).await;
                             last_hotkey = None;
                         }
                         if let Some(modifier) = modifiers_map.get(&key) {
@@ -429,7 +480,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                             pending_release = true;
                             break;
                         }
-                        send_command(hotkey.clone(), &modes, &mut mode_stack, invoking_uid, &env, log_path.as_path());
+                        send_command(hotkey.clone(), &modes, &mut mode_stack, tx.clone()).await;
                         hotkey_repeat_timer.as_mut().reset(Instant::now() + Duration::from_millis(repeat_cooldown_duration));
                         continue;
                     }
@@ -507,13 +558,11 @@ pub fn setup_swhkd(invoking_uid: u32, runtime_path: PathBuf) {
     }
 }
 
-pub fn send_command(
+pub async fn send_command(
     hotkey: Hotkey,
     modes: &[config::Mode],
     mode_stack: &mut Vec<usize>,
-    user_id: u32,
-    env: &environ::Env,
-    log_path: &Path,
+    tx: mpsc::Sender<String>,
 ) {
     log::info!("Hotkey pressed: {:#?}", hotkey);
     let command = hotkey.command;
@@ -549,51 +598,13 @@ pub fn send_command(
         commands_to_send = commands_to_send.strip_suffix(" &&").unwrap().to_string();
     }
 
-    launch(commands_to_send, user_id, env, log_path);
-}
-
-/// Launch Commands
-fn launch(command: String, user_id: u32, env: &environ::Env, log_path: &Path) {
-    let pairs = env.pairs.clone();
-    let log_path = log_path.to_path_buf();
-    println!("Log Path: {:?}", log_path);
-
-    tokio::spawn(async move {
-        setgid(Gid::from_raw(user_id)).unwrap();
-        setuid(Uid::from_raw(user_id)).unwrap();
-
-        let mut cmd = Command::new("sh");
-        cmd.arg("-c")
-            .arg(command)
-            .stdin(Stdio::null())
-            .stdout(match File::open(&log_path) {
-                Ok(file) => file,
-                Err(e) => {
-                    println!("Error: {}", e);
-                    _ = Command::new("notify-send").arg(format!("ERROR {}", e)).spawn();
-                    exit(1);
-                }
-            })
-            .stderr(match File::open(log_path) {
-                Ok(file) => file,
-                Err(e) => {
-                    println!("Error: {}", e);
-                    _ = Command::new("notify-send").arg(format!("ERROR {}", e)).spawn();
-                    exit(1);
-                }
-            });
-
-        for (key, value) in pairs {
-            cmd.env(key, value);
+    //launch(commands_to_send, user_id, env, log_path);
+    match tx.send(commands_to_send).await {
+        Ok(_) => {}
+        Err(e) => {
+            log::error!("Failed to send command: {}", e);
         }
-
-        match cmd.spawn() {
-            Ok(_) => {
-                log::info!("Command executed successfully.");
-            }
-            Err(e) => log::error!("Failed to execute command: {}", e),
-        }
-    });
+    }
 }
 
 /// Get the UID of the user that is not a system user
