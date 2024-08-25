@@ -75,7 +75,7 @@ struct Args {
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     let args = Args::parse();
-    let default_cooldown: u64 = 650;
+    let default_cooldown: u64 = 5;
     env::set_var("RUST_LOG", "swhkd=warn");
 
     if args.debug {
@@ -89,7 +89,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let invoking_uid = get_uid()?;
     let uname = get_uname_from_uid(invoking_uid)?;
 
-    let env = refresh_env(&uname, invoking_uid).unwrap();
+    let env = refresh_env(&uname, invoking_uid, true).unwrap();
     log::trace!("Environment Aquired");
     let log_file_name = if let Some(val) = args.log {
         val
@@ -125,7 +125,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // The server cool down is set to 650ms by default
     // which is calculated based on the default repeat cooldown
     // along with it, an additional 120ms is added to it, just to be safe.
-    let server_cooldown = args.refresh.unwrap_or(default_cooldown + 1024);
+    let server_cooldown = args.refresh.unwrap_or(default_cooldown);
 
     let (tx, mut rx) = tokio::sync::mpsc::channel::<String>(100);
     let pairs = Arc::new(Mutex::new(env.pairs.clone()));
@@ -137,9 +137,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
             loop {
                 {
                     let mut pairs = pairs_clone.lock().unwrap();
-                    pairs.clone_from(&refresh_env(&uname, invoking_uid).unwrap().pairs);
+                    pairs.clone_from(&refresh_env(&uname, invoking_uid, false).unwrap().pairs);
                 }
-                sleep(Duration::from_millis(server_cooldown)).await;
+                sleep(Duration::from_secs(server_cooldown)).await;
             }
         });
 
@@ -623,7 +623,7 @@ fn get_file_paths(runtime_dir: &str) -> (String, String) {
     (pid_file_path, sock_file_path)
 }
 
-fn refresh_env(uname: &str, invoking_uid: u32) -> Result<environ::Env, Box<dyn Error>> {
+fn refresh_env(uname: &str, invoking_uid: u32, skip: bool) -> Result<environ::Env, Box<dyn Error>> {
     let env = environ::Env::construct(uname, None);
 
     let (_pid_path, sock_path) =
@@ -637,7 +637,7 @@ fn refresh_env(uname: &str, invoking_uid: u32) -> Result<environ::Env, Box<dyn E
     let listener = UnixListener::bind(&sock_path)?;
     fs::set_permissions(sock_path, fs::Permissions::from_mode(0o666))?;
     loop {
-        log::warn!("Waiting for Server...");
+        log::trace!("Waiting for Server...");
         match listener.accept() {
             Ok((mut socket, _addr)) => {
                 let mut buf = String::new();
@@ -650,7 +650,14 @@ fn refresh_env(uname: &str, invoking_uid: u32) -> Result<environ::Env, Box<dyn E
                 break;
             }
             Err(e) => {
-                log::info!("Sock Err: {}", e);
+                if skip {
+                    log::warn!("Sock Err: {}", e);
+                    log::warn!("Unable to connect to server which is needed for environment");
+                    exit(1);
+                } else {
+                    log::info!("Sock Err: {}", e);
+                    log::info!("Server not found, skipping...");
+                }
             }
         }
     }

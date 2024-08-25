@@ -49,7 +49,6 @@ fn parse_env(env: &str) -> HashMap<String, String> {
     }
     pairs
 }
-
 fn main() -> std::io::Result<()> {
     let args = Args::parse();
     if args.debug {
@@ -80,6 +79,7 @@ fn main() -> std::io::Result<()> {
         if let Ok(mut stream) = UnixStream::connect(&sock_file_path) {
             let _ = stream.write_all(env_raw.as_bytes());
         };
+        std::thread::sleep(std::time::Duration::from_secs(3));
     }
 }
 

@@ -7,20 +7,6 @@ pub struct Env {
 }
 
 impl Env {
-    pub fn get_default_shell() -> Result<String, Box<dyn Error>> {
-        // read from /etc/passwd
-        let passwd = std::fs::read_to_string("/etc/passwd")?;
-        let lines: Vec<&str> = passwd.split('\n').collect();
-        for line in lines {
-            let parts: Vec<&str> = line.split(':').collect();
-            if parts.len() > 2 {
-                let user_shell = parts[6];
-                return Ok(user_shell.to_string());
-            }
-        }
-        Err("User shell not found".into())
-    }
-
     fn get_env(uname: &str) -> Result<String, Box<dyn Error>> {
         // let shell = Self::get_default_shell()?;
         let cmd = Command::new("su").arg(uname).arg("-c").arg("-l").arg("env").output()?;
