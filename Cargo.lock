@@ -768,7 +768,7 @@ checksum = "7da8b5736845d9f2fcb837ea5d9e2628564b3b043a70948a3f0b778838c5fb4f"
 [[package]]
 name = "sweet"
 version = "0.3.0"
-source = "git+https://github.com/lavafroth/sweet.git#6146627ee75be8bda87dc443c2f1d153590d3610"
+source = "git+https://github.com/waycrate/sweet.git#a91d1ab6fb7988578ce359cfbf55e75b813d84db"
 dependencies = [
  "anyhow",
  "bitflags 2.6.0",
