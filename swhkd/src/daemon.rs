@@ -563,7 +563,7 @@ pub async fn send_command(
     tx: mpsc::Sender<String>,
 ) {
     log::info!("Hotkey pressed: {:#?}", hotkey);
-    let command = hotkey.command;
+    let mut command = hotkey.command;
     if modes[*mode_stack.last().unwrap()].options.oneoff {
         mode_stack.pop();
     }
@@ -580,8 +580,11 @@ pub async fn send_command(
             }
         }
     }
+    if command.ends_with(" &&") {
+        command = command.strip_suffix(" &&").unwrap().to_string();
+    }
 
-    match tx.send(commands_to_send).await {
+    match tx.send(command).await {
         Ok(_) => {}
         Err(e) => {
             log::error!("Failed to send command: {}", e);
