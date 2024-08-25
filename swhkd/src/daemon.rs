@@ -17,6 +17,7 @@ use std::{
     os::unix::{fs::PermissionsExt, net::UnixListener},
     path::{Path, PathBuf},
     process::{exit, id, Command, Stdio},
+    sync::{Arc, Mutex},
     time::{SystemTime, UNIX_EPOCH},
 };
 use sysinfo::{ProcessExt, System, SystemExt};
@@ -74,7 +75,7 @@ struct Args {
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     let args = Args::parse();
-    let default_cooldown: u64 = 250;
+    let default_cooldown: u64 = 650;
     env::set_var("RUST_LOG", "swhkd=warn");
 
     if args.debug {
@@ -88,9 +89,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let invoking_uid = get_uid()?;
     let uname = get_uname_from_uid(invoking_uid)?;
 
-    let mut env = refresh_env(&uname, invoking_uid).unwrap();
+    let env = refresh_env(&uname, invoking_uid).unwrap();
     log::trace!("Environment Aquired");
-
     let log_file_name = if let Some(val) = args.log {
         val
     } else {
@@ -122,11 +122,27 @@ async fn main() -> Result<(), Box<dyn Error>> {
         fs::set_permissions(&log_path, Permissions::from_mode(0o666)).unwrap();
     }
 
-    let (tx, mut rx) = tokio::sync::mpsc::channel::<String>(30);
-    let pairs = env.pairs.clone();
+    // The server cool down is set to 650ms by default
+    // which is calculated based on the default repeat cooldown
+    // along with it, an additional 120ms is added to it, just to be safe.
+    let server_cooldown = args.refresh.unwrap_or(default_cooldown + 1024);
+
+    let (tx, mut rx) = tokio::sync::mpsc::channel::<String>(100);
+    let pairs = Arc::new(Mutex::new(env.pairs.clone()));
+    let pairs_clone = Arc::clone(&pairs);
     let log = log_path.clone();
 
     tokio::spawn(async move {
+        tokio::spawn(async move {
+            loop {
+                {
+                    let mut pairs = pairs_clone.lock().unwrap();
+                    pairs.clone_from(&refresh_env(&uname, invoking_uid).unwrap().pairs);
+                }
+                sleep(Duration::from_millis(server_cooldown)).await;
+            }
+        });
+
         while let Some(command) = rx.recv().await {
             let pairs = pairs.clone();
             let log = log.clone();
@@ -155,7 +171,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                         }
                     });
 
-                for (key, value) in pairs.clone() {
+                for (key, value) in pairs.lock().unwrap().iter() {
                     cmd.env(key, value);
                 }
 
@@ -168,12 +184,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
             });
         }
     });
-
-    //tx.send("gnome-text-editor".to_string()).await.unwrap();
-    //let mut input = String::new();
-    //println!("Press Enter to exit");
-    //std::io::stdin().read_line(&mut input).unwrap();
-    //exit(0);
 
     setup_swhkd(invoking_uid, env.xdg_runtime_dir(invoking_uid));
 
@@ -190,11 +200,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
             Ok(out) => out,
         }
     };
-
-    // The server cool down is set to 650ms by default
-    // which is calculated based on the default repeat cooldown
-    // along with it, an additional 120ms is added to it, just to be safe.
-    let server_cooldown = args.refresh.unwrap_or(650 + 120);
 
     let mut modes = load_config();
     let mut mode_stack: Vec<usize> = vec![0];
@@ -279,9 +284,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     // The initial sleep duration is never read because last_hotkey is initialized to None
     let hotkey_repeat_timer = sleep(Duration::from_millis(0));
-    let next_env = sleep(Duration::from_millis(server_cooldown));
     tokio::pin!(hotkey_repeat_timer);
-    tokio::pin!(next_env);
 
     loop {
         select! {
@@ -294,12 +297,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 hotkey_repeat_timer.as_mut().reset(Instant::now() + Duration::from_millis(repeat_cooldown_duration));
             }
 
-            // Refresh the environment
-            _ = &mut next_env => {
-                log::info!("Refreshing Env");
-                env = refresh_env(&uname, invoking_uid).unwrap();
-                next_env.as_mut().reset(Instant::now() + Duration::from_secs(server_cooldown));
-            }
+
 
             Some(signal) = signals.next() => {
                 match signal {
