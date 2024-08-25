@@ -1,5 +1,5 @@
 use std::path::Path;
-use sweet::token::KeyAttribute;
+use sweet::KeyAttribute;
 use sweet::{Definition, SwhkdParser};
 use sweet::{ModeInstruction, ParseError};
 
@@ -192,19 +192,19 @@ pub fn parse_contents(contents: SwhkdParser) -> Result<Vec<Mode>, ParseError> {
     Ok(modes)
 }
 
-/// A small function to convert a `sweet::token::Modifier` into the local `Modifier` enum
+/// A small function to convert a `sweet::Modifier` into the local `Modifier` enum
 fn sweet_def_to_kb(def: &Definition) -> KeyBinding {
     let modifiers = def
         .modifiers
         .iter()
         .filter_map(|m| match m {
-            sweet::token::Modifier::Super => Some(Modifier::Super),
-            sweet::token::Modifier::Any => Some(Modifier::Any),
-            sweet::token::Modifier::Control => Some(Modifier::Control),
-            sweet::token::Modifier::Alt => Some(Modifier::Alt),
-            sweet::token::Modifier::Altgr => Some(Modifier::Altgr),
-            sweet::token::Modifier::Shift => Some(Modifier::Shift),
-            sweet::token::Modifier::Omission => None,
+            sweet::Modifier::Super => Some(Modifier::Super),
+            sweet::Modifier::Any => Some(Modifier::Any),
+            sweet::Modifier::Control => Some(Modifier::Control),
+            sweet::Modifier::Alt => Some(Modifier::Alt),
+            sweet::Modifier::Altgr => Some(Modifier::Altgr),
+            sweet::Modifier::Shift => Some(Modifier::Shift),
+            sweet::Modifier::Omission => None,
         })
         .collect();
 
