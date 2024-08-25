@@ -79,7 +79,7 @@ fn main() -> std::io::Result<()> {
         if let Ok(mut stream) = UnixStream::connect(&sock_file_path) {
             let _ = stream.write_all(env_raw.as_bytes());
         };
-        std::thread::sleep(std::time::Duration::from_secs(3));
+        std::thread::sleep(std::time::Duration::from_millis(512));
     }
 }
 

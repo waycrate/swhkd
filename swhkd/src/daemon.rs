@@ -75,7 +75,7 @@ struct Args {
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     let args = Args::parse();
-    let default_cooldown: u64 = 5;
+    let default_cooldown: u64 = 650;
     env::set_var("RUST_LOG", "swhkd=warn");
 
     if args.debug {
@@ -125,7 +125,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // The server cool down is set to 650ms by default
     // which is calculated based on the default repeat cooldown
     // along with it, an additional 120ms is added to it, just to be safe.
-    let server_cooldown = args.refresh.unwrap_or(default_cooldown);
+    let server_cooldown = args.refresh.unwrap_or(default_cooldown + 1024);
 
     let (tx, mut rx) = tokio::sync::mpsc::channel::<String>(100);
     let pairs = Arc::new(Mutex::new(env.pairs.clone()));
@@ -139,7 +139,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     let mut pairs = pairs_clone.lock().unwrap();
                     pairs.clone_from(&refresh_env(&uname, invoking_uid, false).unwrap().pairs);
                 }
-                sleep(Duration::from_secs(server_cooldown)).await;
+                sleep(Duration::from_millis(server_cooldown)).await;
             }
         });
 
