@@ -25,7 +25,7 @@ impl Env {
         pairs
     }
 
-    pub fn refresh_env(&mut self, pairs: HashMap<String, String>){
+    pub fn refresh_env(&mut self, pairs: HashMap<String, String>) {
         self.pairs = pairs;
     }
 

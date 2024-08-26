@@ -127,7 +127,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // The server cool down is set to 650ms by default
     // which is calculated based on the default repeat cooldown
     // along with it, an additional 120ms is added to it, just to be safe.
-    let server_cooldown = args.refresh.unwrap_or(default_cooldown + 1024);
+    let delta = (args.cooldown.unwrap_or(250) as f64 * 0.1) as u64;
+    let server_cooldown = args.refresh.unwrap_or(default_cooldown - delta);
 
     let (tx, mut rx) = tokio::sync::mpsc::channel::<String>(100);
     let pairs = Arc::new(Mutex::new(env.pairs.clone()));
