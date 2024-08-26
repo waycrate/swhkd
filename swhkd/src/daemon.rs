@@ -89,7 +89,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let invoking_uid = get_uid()?;
     let uname = get_uname_from_uid(invoking_uid)?;
 
-    let env = refresh_env(&uname, invoking_uid, true).unwrap();
+    let env = refresh_env(&uname, invoking_uid, true)
+        .unwrap()
+        .unwrap_or(environ::Env::construct(&uname, None));
     log::trace!("Environment Aquired");
     let log_file_name = if let Some(val) = args.log {
         val
@@ -137,7 +139,17 @@ async fn main() -> Result<(), Box<dyn Error>> {
             loop {
                 {
                     let mut pairs = pairs_clone.lock().unwrap();
-                    pairs.clone_from(&refresh_env(&uname, invoking_uid, false).unwrap().pairs);
+                    match refresh_env(&uname, invoking_uid, false) {
+                        Ok(Some(env)) => {
+                            pairs.clone_from(&env.pairs);
+                        }
+                        Ok(None) => {}
+                        Err(e) => {
+                            log::error!("Error: {}", e);
+                            _ = Command::new("notify-send").arg(format!("ERROR {}", e)).spawn();
+                            exit(1);
+                        }
+                    }
                 }
                 sleep(Duration::from_millis(server_cooldown)).await;
             }
@@ -623,7 +635,11 @@ fn get_file_paths(runtime_dir: &str) -> (String, String) {
     (pid_file_path, sock_file_path)
 }
 
-fn refresh_env(uname: &str, invoking_uid: u32, skip: bool) -> Result<environ::Env, Box<dyn Error>> {
+fn refresh_env(
+    uname: &str,
+    invoking_uid: u32,
+    skip: bool,
+) -> Result<Option<environ::Env>, Box<dyn Error>> {
     let env = environ::Env::construct(uname, None);
 
     let (_pid_path, sock_path) =
@@ -643,7 +659,7 @@ fn refresh_env(uname: &str, invoking_uid: u32, skip: bool) -> Result<environ::En
                 let mut buf = String::new();
                 socket.read_to_string(&mut buf)?;
                 if buf.is_empty() {
-                    continue;
+                    return Ok(None);
                 }
                 log::info!("Server Instance found!");
                 result.push_str(&buf);
@@ -662,5 +678,5 @@ fn refresh_env(uname: &str, invoking_uid: u32, skip: bool) -> Result<environ::En
         }
     }
     log::trace!("Environment Refreshed");
-    Ok(environ::Env::construct(uname, Some(&result)))
+    Ok(Some(environ::Env::construct(uname, Some(&result))))
 }

@@ -1,6 +1,6 @@
 use std::{collections::HashMap, error::Error, path::PathBuf, process::Command};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Env {
     pub pairs: HashMap<String, String>,
     pub uname: String,
@@ -23,6 +23,10 @@ impl Env {
             }
         }
         pairs
+    }
+
+    pub fn refresh_env(&mut self, pairs: HashMap<String, String>){
+        self.pairs = pairs;
     }
 
     pub fn construct(uname: &str, env: Option<&str>) -> Self {

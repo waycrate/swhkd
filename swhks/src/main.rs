@@ -1,6 +1,6 @@
-use std::collections::HashMap;
 use std::error::Error;
 use std::fs::Permissions;
+use std::hash::{DefaultHasher, Hash, Hasher};
 use std::{
     fs::{self},
     io::Write,
@@ -39,16 +39,6 @@ fn get_env() -> Result<String, Box<dyn std::error::Error>> {
     Ok(stdout)
 }
 
-fn parse_env(env: &str) -> HashMap<String, String> {
-    let mut pairs = HashMap::new();
-    for line in env.lines() {
-        let mut parts = line.splitn(2, '=');
-        if let (Some(key), Some(value)) = (parts.next(), parts.next()) {
-            pairs.insert(key.to_string(), value.to_string());
-        }
-    }
-    pairs
-}
 fn main() -> std::io::Result<()> {
     let args = Args::parse();
     if args.debug {
@@ -59,28 +49,33 @@ fn main() -> std::io::Result<()> {
             .init();
     }
 
-    let env_raw = match get_env() {
-        Ok(env) => env,
-        Err(_) => "".to_string(),
-    };
-
-    let env = parse_env(&env_raw);
+    let mut prev_hash = calculate_hash(String::new());
 
     let invoking_uid = get_uid().unwrap();
-    let default_runtime_dir = format!("/run/user/{}", invoking_uid);
-    let runtime_dir = env.get("XDG_RUNTIME_DIR").unwrap_or(&default_runtime_dir);
+    let runtime_dir = format!("/run/user/{}", invoking_uid);
 
-    let (_pid_file_path, sock_file_path) = get_file_paths(runtime_dir);
+    let (_pid_file_path, sock_file_path) = get_file_paths(&runtime_dir);
 
     log::info!("Started SWHKS placeholder server");
-    let _ = daemon(true, false);
+    //let _ = daemon(true, false);
     setup_swhks(invoking_uid, PathBuf::from(runtime_dir));
     loop {
         if let Ok(mut stream) = UnixStream::connect(&sock_file_path) {
-            let _ = stream.write_all(env_raw.as_bytes());
+            if prev_hash != calculate_hash(get_env().unwrap()) {
+                log::debug!("Env changed, sending to swhkd");
+                let new_env = get_env().unwrap();
+                let _ = stream.write_all(new_env.as_bytes());
+                log::debug!("Sent env to swhkd");
+                prev_hash = calculate_hash(new_env);
+            }
         };
-        std::thread::sleep(std::time::Duration::from_millis(512));
     }
+}
+
+pub fn calculate_hash(t: String) -> u64 {
+    let mut hasher = DefaultHasher::new();
+    t.hash(&mut hasher);
+    hasher.finish()
 }
 
 pub fn setup_swhks(invoking_uid: u32, runtime_path: PathBuf) {
