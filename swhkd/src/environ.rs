@@ -3,13 +3,12 @@ use std::{collections::HashMap, error::Error, path::PathBuf, process::Command};
 #[derive(Debug, Clone)]
 pub struct Env {
     pub pairs: HashMap<String, String>,
-    pub uname: String,
 }
 
 impl Env {
-    fn get_env(uname: &str) -> Result<String, Box<dyn Error>> {
+    fn get_env() -> Result<String, Box<dyn Error>> {
         // let shell = Self::get_default_shell()?;
-        let cmd = Command::new("su").arg(uname).arg("-c").arg("-l").arg("env").output()?;
+        let cmd = Command::new("env").output()?;
         let stdout = String::from_utf8(cmd.stdout)?;
         Ok(stdout)
     }
@@ -25,17 +24,13 @@ impl Env {
         pairs
     }
 
-    pub fn refresh_env(&mut self, pairs: HashMap<String, String>) {
-        self.pairs = pairs;
-    }
-
-    pub fn construct(uname: &str, env: Option<&str>) -> Self {
+    pub fn construct(env: Option<&str>) -> Self {
         let env = match env {
             Some(env) => env.to_string(),
-            None => Self::get_env(uname).unwrap(),
+            None => Self::get_env().unwrap(),
         };
         let pairs = Self::parse_env(&env);
-        Self { pairs, uname: uname.to_string() }
+        Self { pairs }
     }
 
     pub fn fetch_home(&self) -> Option<PathBuf> {

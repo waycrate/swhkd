@@ -57,7 +57,7 @@ fn main() -> std::io::Result<()> {
     let (_pid_file_path, sock_file_path) = get_file_paths(&runtime_dir);
 
     log::info!("Started SWHKS placeholder server");
-    //let _ = daemon(true, false);
+    let _ = daemon(true, false);
     setup_swhks(invoking_uid, PathBuf::from(runtime_dir));
     loop {
         if let Ok(mut stream) = UnixStream::connect(&sock_file_path) {

@@ -87,11 +87,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
     perms::raise_privileges();
 
     let invoking_uid = get_uid()?;
-    let uname = get_uname_from_uid(invoking_uid)?;
 
-    let env = refresh_env(&uname, invoking_uid, true)
-        .unwrap()
-        .unwrap_or(environ::Env::construct(&uname, None));
+    log::debug!("Wating for server to start...");
+    let env = refresh_env(invoking_uid)?.unwrap_or(environ::Env::construct(None));
     log::trace!("Environment Aquired");
     let log_file_name = if let Some(val) = args.log {
         val
@@ -140,7 +138,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             loop {
                 {
                     let mut pairs = pairs_clone.lock().unwrap();
-                    match refresh_env(&uname, invoking_uid, false) {
+                    match refresh_env(invoking_uid) {
                         Ok(Some(env)) => {
                             pairs.clone_from(&env.pairs);
                         }
@@ -612,23 +610,6 @@ fn get_uid() -> Result<u32, Box<dyn Error>> {
     Ok(uid)
 }
 
-fn get_uname_from_uid(uid: u32) -> Result<String, Box<dyn Error>> {
-    let passwd = fs::read_to_string("/etc/passwd").unwrap();
-    let lines: Vec<&str> = passwd.split('\n').collect();
-    for line in lines {
-        let parts: Vec<&str> = line.split(':').collect();
-        if parts.len() > 2 {
-            let Ok(user_id) = parts[2].parse::<u32>() else {
-                continue;
-            };
-            if user_id == uid {
-                return Ok(parts[0].to_string());
-            }
-        }
-    }
-    Err("User not found".into())
-}
-
 fn get_file_paths(runtime_dir: &str) -> (String, String) {
     let pid_file_path = format!("{}/swhks.pid", runtime_dir);
     let sock_file_path = format!("{}/swhkd.sock", runtime_dir);
@@ -636,12 +617,8 @@ fn get_file_paths(runtime_dir: &str) -> (String, String) {
     (pid_file_path, sock_file_path)
 }
 
-fn refresh_env(
-    uname: &str,
-    invoking_uid: u32,
-    skip: bool,
-) -> Result<Option<environ::Env>, Box<dyn Error>> {
-    let env = environ::Env::construct(uname, None);
+fn refresh_env(invoking_uid: u32) -> Result<Option<environ::Env>, Box<dyn Error>> {
+    let env = environ::Env::construct(None);
 
     let (_pid_path, sock_path) =
         get_file_paths(env.xdg_runtime_dir(invoking_uid).to_str().unwrap());
@@ -653,31 +630,14 @@ fn refresh_env(
     let mut result: String = String::new();
     let listener = UnixListener::bind(&sock_path)?;
     fs::set_permissions(sock_path, fs::Permissions::from_mode(0o666))?;
-    loop {
-        log::trace!("Waiting for Server...");
-        match listener.accept() {
-            Ok((mut socket, _addr)) => {
-                let mut buf = String::new();
-                socket.read_to_string(&mut buf)?;
-                if buf.is_empty() {
-                    return Ok(None);
-                }
-                log::info!("Server Instance found!");
-                result.push_str(&buf);
-                break;
-            }
-            Err(e) => {
-                if skip {
-                    log::warn!("Sock Err: {}", e);
-                    log::warn!("Unable to connect to server which is needed for environment");
-                    exit(1);
-                } else {
-                    log::info!("Sock Err: {}", e);
-                    log::info!("Server not found, skipping...");
-                }
-            }
+    for mut socket in listener.incoming().flatten() {
+        let mut buf = String::new();
+        socket.read_to_string(&mut buf)?;
+        if buf.is_empty() {
+            return Ok(None);
         }
+        log::info!("Env refreshed from server.");
+        result.push_str(&buf);
     }
-    log::trace!("Environment Refreshed");
-    Ok(Some(environ::Env::construct(uname, Some(&result))))
+    Ok(Some(environ::Env::construct(Some(&result))))
 }
