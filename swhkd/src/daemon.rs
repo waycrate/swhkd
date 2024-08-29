@@ -75,6 +75,8 @@ struct Args {
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     let args = Args::parse();
+    // we take the default cooldown to the server connection as 650ms
+    // to make sure that everytime we send a new command, the env is guaranteed to be updated
     let default_cooldown: u64 = 650;
     env::set_var("RUST_LOG", "swhkd=warn");
 
@@ -89,6 +91,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let invoking_uid = get_uid()?;
 
     log::debug!("Wating for server to start...");
+    // The first and the most important request for the env
     let env = refresh_env(invoking_uid)?.unwrap_or(environ::Env::construct(None));
     log::trace!("Environment Aquired");
     let log_file_name = if let Some(val) = args.log {
@@ -128,11 +131,19 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let delta = (args.cooldown.unwrap_or(250) as f64 * 0.1) as u64;
     let server_cooldown = args.refresh.unwrap_or(default_cooldown - delta);
 
+    // Set up a channel to communicate with the server
+    // The channel can have upto 100 commands in the queue
     let (tx, mut rx) = tokio::sync::mpsc::channel::<String>(100);
+
+    // We use a arc mutex to make sure that our pairs are valid and also concurrent
+    // while being used by the threads.
     let pairs = Arc::new(Mutex::new(env.pairs.clone()));
     let pairs_clone = Arc::clone(&pairs);
     let log = log_path.clone();
 
+    // We spawn a new thread in the user space to act as the execution thread
+    // This again has a thread for running the env refresh module when a change is detected from
+    // the server.
     tokio::spawn(async move {
         tokio::spawn(async move {
             loop {
@@ -146,7 +157,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                         Err(e) => {
                             log::error!("Error: {}", e);
                             _ = Command::new("notify-send").arg(format!("ERROR {}", e)).spawn();
-                            exit(1);
+                            log::warn!("Skipping refresh...");
                         }
                     }
                 }
@@ -154,6 +165,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
             }
         });
 
+        // When we do receive a command, we spawn a new thread to execute the command
+        // This thread is spawned in the user space and is used to execute the command and it
+        // exits after the command is executed.
         while let Some(command) = rx.recv().await {
             let pairs = pairs.clone();
             let log = log.clone();
@@ -617,7 +631,9 @@ fn get_file_paths(runtime_dir: &str) -> (String, String) {
     (pid_file_path, sock_file_path)
 }
 
+/// Refreshes the environment variables from the server
 fn refresh_env(invoking_uid: u32) -> Result<Option<environ::Env>, Box<dyn Error>> {
+    // A simple placeholder for the env that is to be refreshed
     let env = environ::Env::construct(None);
 
     let (_pid_path, sock_path) =
@@ -633,6 +649,7 @@ fn refresh_env(invoking_uid: u32) -> Result<Option<environ::Env>, Box<dyn Error>
     for mut socket in listener.incoming().flatten() {
         let mut buf = String::new();
         socket.read_to_string(&mut buf)?;
+        // If the server doesn't return any variables, return None
         if buf.is_empty() {
             return Ok(None);
         }

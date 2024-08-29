@@ -10,7 +10,7 @@ use std::{
 };
 
 use clap::Parser;
-use nix::unistd::daemon;
+//use nix::unistd::daemon;
 use std::{
     env,
     os::unix::fs::PermissionsExt,
@@ -32,6 +32,8 @@ struct Args {
     debug: bool,
 }
 
+/// Get the environment variables
+/// These would be requested from the default shell to make sure that the environment is up-to-date
 fn get_env() -> Result<String, Box<dyn std::error::Error>> {
     let shell = std::env::var("SHELL")?;
     let cmd = Command::new(shell).arg("-c").arg("env").output()?;
@@ -57,10 +59,14 @@ fn main() -> std::io::Result<()> {
     let (_pid_file_path, sock_file_path) = get_file_paths(&runtime_dir);
 
     log::info!("Started SWHKS placeholder server");
-    let _ = daemon(true, false);
+
+    // Daemonize the process
+    let _ = nix::unistd::daemon(true, false);
+
     setup_swhks(invoking_uid, PathBuf::from(runtime_dir));
     loop {
         if let Ok(mut stream) = UnixStream::connect(&sock_file_path) {
+            // Only if the environment has changed, send it to swhkd, else do nothing.
             if prev_hash != calculate_hash(get_env().unwrap()) {
                 log::debug!("Env changed, sending to swhkd");
                 let new_env = get_env().unwrap();
@@ -72,6 +78,9 @@ fn main() -> std::io::Result<()> {
     }
 }
 
+/// Calculates a simple hash of the string
+/// Uses the DefaultHasher from the std::hash module which is not a cryptographically secure hash,
+/// however, it is good enough for our use case.
 pub fn calculate_hash(t: String) -> u64 {
     let mut hasher = DefaultHasher::new();
     t.hash(&mut hasher);

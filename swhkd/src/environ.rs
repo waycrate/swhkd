@@ -7,7 +7,6 @@ pub struct Env {
 
 impl Env {
     fn get_env() -> Result<String, Box<dyn Error>> {
-        // let shell = Self::get_default_shell()?;
         let cmd = Command::new("env").output()?;
         let stdout = String::from_utf8(cmd.stdout)?;
         Ok(stdout)
@@ -24,6 +23,7 @@ impl Env {
         pairs
     }
 
+    /// Construct the env from the environment variables
     pub fn construct(env: Option<&str>) -> Self {
         let env = match env {
             Some(env) => env.to_string(),
