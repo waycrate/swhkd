@@ -23,10 +23,6 @@ use sysinfo::{ProcessExt, SystemExt};
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
 struct Args {
-    /// Set a custom log file. (Defaults to ${XDG_DATA_HOME:-$HOME/.local/share}/swhks-current_unix_time.log)
-    #[arg(short, long, value_name = "FILE")]
-    log: Option<PathBuf>,
-
     /// Enable Debug Mode
     #[arg(short, long)]
     debug: bool,
