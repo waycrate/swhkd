@@ -1,6 +1,8 @@
 use std::error::Error;
 use std::fs::Permissions;
 use std::hash::{DefaultHasher, Hash, Hasher};
+use std::io::Read;
+use std::os::unix::net::UnixListener;
 use std::{
     fs::{self},
     io::Write,
@@ -57,21 +59,53 @@ fn main() -> std::io::Result<()> {
     log::info!("Started SWHKS placeholder server");
 
     // Daemonize the process
-    let _ = nix::unistd::daemon(true, false);
+    //let _ = nix::unistd::daemon(true, false);
 
     setup_swhks(invoking_uid, PathBuf::from(runtime_dir));
-    loop {
-        if let Ok(mut stream) = UnixStream::connect(&sock_file_path) {
-            // Only if the environment has changed, send it to swhkd, else do nothing.
-            if prev_hash != calculate_hash(get_env().unwrap()) {
-                log::debug!("Env changed, sending to swhkd");
-                let new_env = get_env().unwrap();
-                let _ = stream.write_all(new_env.as_bytes());
-                log::debug!("Sent env to swhkd");
-                prev_hash = calculate_hash(new_env);
-            }
-        };
+
+    if Path::new(&sock_file_path).exists() {
+        fs::remove_file(&sock_file_path)?;
     }
+
+    let listener = UnixListener::bind(sock_file_path)?;
+    let mut buff = [0; 1];
+    println!("Listening for incoming connections...");
+
+    for stream in listener.incoming() {
+        match stream {
+            Ok(mut stream) => {
+                println!("Connection established!");
+                stream.read_exact(&mut buff)?;
+                println!("Received: {:?}", buff);
+                if buff == [1] {
+                    log::debug!("Received VERIFY message from swhkd");
+                    let _ = stream.write_all(prev_hash.to_string().as_bytes());
+                    log::debug!("Sent hash to swhkd");
+                    stream.flush()?;
+                    continue;
+                }
+                if buff == [2] {
+                    log::debug!("Received GET message from swhkd");
+                    let env = get_env().unwrap();
+                    if prev_hash == calculate_hash(env.clone()) {
+                        log::debug!("No changes in environment variables");
+                    } else {
+                        log::debug!("Changes in environment variables");
+                    }
+                    prev_hash = calculate_hash(env.clone());
+                    let _ = stream.write_all(env.as_bytes());
+                    stream.flush()?;
+                    continue;
+                }
+            }
+            Err(e) => {
+                log::error!("Error: {}", e);
+                break;
+            }
+        }
+    }
+
+    Ok(())
 }
 
 /// Calculates a simple hash of the string

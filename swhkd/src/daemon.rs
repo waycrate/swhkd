@@ -13,8 +13,9 @@ use std::{
     env,
     error::Error,
     fs::{self, File, OpenOptions, Permissions},
-    io::Read,
-    os::unix::{fs::PermissionsExt, net::UnixListener},
+    hash::{DefaultHasher, Hash, Hasher},
+    io::{Read, Write},
+    os::unix::{fs::PermissionsExt, net::UnixStream},
     path::{Path, PathBuf},
     process::{exit, id, Command, Stdio},
     sync::{Arc, Mutex},
@@ -92,7 +93,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     log::debug!("Wating for server to start...");
     // The first and the most important request for the env
-    let env = refresh_env(invoking_uid)?.unwrap_or(environ::Env::construct(None));
+    let (env, mut env_hash) = refresh_env(invoking_uid, 0)?;
+    let env = env.unwrap_or(environ::Env::construct(None));
     log::trace!("Environment Aquired");
     let log_file_name = if let Some(val) = args.log {
         val
@@ -130,6 +132,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // along with it, an additional 120ms is added to it, just to be safe.
     let delta = (args.cooldown.unwrap_or(250) as f64 * 0.1) as u64;
     let server_cooldown = args.refresh.unwrap_or(default_cooldown - delta);
+    let server_cooldown = 30;
 
     // Set up a channel to communicate with the server
     // The channel can have upto 100 commands in the queue
@@ -149,19 +152,22 @@ async fn main() -> Result<(), Box<dyn Error>> {
             loop {
                 {
                     let mut pairs = pairs_clone.lock().unwrap();
-                    match refresh_env(invoking_uid) {
-                        Ok(Some(env)) => {
+                    match refresh_env(invoking_uid, env_hash) {
+                        Ok((Some(env), hash)) => {
                             pairs.clone_from(&env.pairs);
+                            env_hash = hash;
                         }
-                        Ok(None) => {}
+                        Ok((None, hash)) => {
+                            env_hash = hash;
+                        }
                         Err(e) => {
                             log::error!("Error: {}", e);
                             _ = Command::new("notify-send").arg(format!("ERROR {}", e)).spawn();
-                            log::warn!("Skipping refresh...");
+                            exit(1);
                         }
                     }
                 }
-                sleep(Duration::from_millis(server_cooldown)).await;
+                sleep(Duration::from_secs(server_cooldown)).await;
             }
         });
 
@@ -632,29 +638,48 @@ fn get_file_paths(runtime_dir: &str) -> (String, String) {
 }
 
 /// Refreshes the environment variables from the server
-fn refresh_env(invoking_uid: u32) -> Result<Option<environ::Env>, Box<dyn Error>> {
+fn refresh_env(
+    invoking_uid: u32,
+    prev_hash: u64,
+) -> Result<(Option<environ::Env>, u64), Box<dyn Error>> {
     // A simple placeholder for the env that is to be refreshed
     let env = environ::Env::construct(None);
 
     let (_pid_path, sock_path) =
         get_file_paths(env.xdg_runtime_dir(invoking_uid).to_str().unwrap());
 
-    if Path::new(&sock_path).exists() {
-        fs::remove_file(&sock_path)?;
+    let mut result: String = String::new();
+    if let Ok(mut stream) = UnixStream::connect(&sock_path) {
+        let n = stream.write(&[1])?;
+        if n != 1 {
+            log::error!("Failed to write to socket.");
+            exit(1);
+        }
+        stream.read_to_string(&mut result)?;
+    }
+    let env_hash = calculate_hash(result.clone());
+
+    if env_hash == prev_hash {
+        log::info!("No change in env detected.");
+        return Ok((None, env_hash));
     }
 
-    let mut result: String = String::new();
-    let listener = UnixListener::bind(&sock_path)?;
-    fs::set_permissions(sock_path, fs::Permissions::from_mode(0o666))?;
-    for mut socket in listener.incoming().flatten() {
-        let mut buf = String::new();
-        socket.read_to_string(&mut buf)?;
-        // If the server doesn't return any variables, return None
-        if buf.is_empty() {
-            return Ok(None);
+    if let Ok(mut stream) = UnixStream::connect(&sock_path) {
+        let n = stream.write(&[2])?;
+        if n != 1 {
+            log::error!("Failed to write to socket.");
+            exit(1);
         }
-        log::info!("Env refreshed from server.");
-        result.push_str(&buf);
+        log::info!("wrote get");
+        stream.read_to_string(&mut result)?;
+        log::info!("read get");
     }
-    Ok(Some(environ::Env::construct(Some(&result))))
+
+    Ok((Some(environ::Env::construct(Some(&result))), env_hash))
+}
+
+pub fn calculate_hash(t: String) -> u64 {
+    let mut hasher = DefaultHasher::new();
+    t.hash(&mut hasher);
+    hasher.finish()
 }
