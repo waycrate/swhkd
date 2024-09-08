@@ -13,7 +13,6 @@ use std::{
     env,
     error::Error,
     fs::{self, File, OpenOptions, Permissions},
-    hash::{DefaultHasher, Hash, Hasher},
     io::{Read, Write},
     os::unix::{fs::PermissionsExt, net::UnixStream},
     path::{Path, PathBuf},
@@ -53,16 +52,12 @@ struct Args {
     config: Option<PathBuf>,
 
     /// Set a custom repeat cooldown duration. Default is 250ms.
-    #[arg(short = 'C', long)]
-    cooldown: Option<u64>,
+    #[arg(short = 'C', long, default_value_t = 250)]
+    cooldown: u64,
 
     /// Enable Debug Mode
     #[arg(short, long)]
     debug: bool,
-
-    /// Set Server Refresh Time in milliseconds
-    #[arg(short, long)]
-    refresh: Option<u64>,
 
     /// Take a list of devices from the user
     #[arg(short = 'D', long, num_args = 0.., value_delimiter = ' ')]
@@ -76,9 +71,6 @@ struct Args {
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     let args = Args::parse();
-    // we take the default cooldown to the server connection as 650ms
-    // to make sure that everytime we send a new command, the env is guaranteed to be updated
-    let default_cooldown: u64 = 650;
     env::set_var("RUST_LOG", "swhkd=warn");
 
     if args.debug {
@@ -93,8 +85,23 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     log::debug!("Wating for server to start...");
     // The first and the most important request for the env
-    let (env, mut env_hash) = refresh_env(invoking_uid, 0)?;
-    let env = env.unwrap_or(environ::Env::construct(None));
+    let mut env = environ::Env::construct(None);
+    let mut env_hash = 0;
+    loop {
+        match refresh_env(invoking_uid, 0) {
+            Ok((Some(new_env), hash)) => {
+                env_hash = hash;
+                env = new_env;
+                break;
+            }
+            Ok((None, hash)) => {
+                env_hash = hash;
+                log::debug!("Waiting for env...");
+                continue;
+            }
+            Err(_) => {}
+        }
+    }
     log::trace!("Environment Aquired");
     let log_file_name = if let Some(val) = args.log {
         val
@@ -127,12 +134,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
         fs::set_permissions(&log_path, Permissions::from_mode(0o666)).unwrap();
     }
 
-    // The server cool down is set to 650ms by default
-    // which is calculated based on the default repeat cooldown
-    // along with it, an additional 120ms is added to it, just to be safe.
-    let delta = (args.cooldown.unwrap_or(250) as f64 * 0.1) as u64;
-    let server_cooldown = args.refresh.unwrap_or(default_cooldown - delta);
-    let server_cooldown = 30;
+    let x = args.cooldown;
+    let delta = (x as f64 * 0.1) as u64;
+    let server_cooldown = std::cmp::max(0, x - delta);
 
     // Set up a channel to communicate with the server
     // The channel can have upto 100 commands in the queue
@@ -167,7 +171,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                         }
                     }
                 }
-                sleep(Duration::from_secs(server_cooldown)).await;
+                sleep(Duration::from_millis(server_cooldown)).await;
             }
         });
 
@@ -288,7 +292,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         (Key::KEY_RIGHTSHIFT, config::Modifier::Shift),
     ]);
 
-    let repeat_cooldown_duration: u64 = args.cooldown.unwrap_or(default_cooldown);
+    let repeat_cooldown_duration: u64 = args.cooldown;
 
     let mut signals = Signals::new([
         SIGUSR1, SIGUSR2, SIGHUP, SIGABRT, SIGBUS, SIGCONT, SIGINT, SIGPIPE, SIGQUIT, SIGSYS,
@@ -657,11 +661,10 @@ fn refresh_env(
         }
         stream.read_to_string(&mut result)?;
     }
-    let env_hash = calculate_hash(result.clone());
+    let env_hash = result.parse().unwrap_or_default();
 
     if env_hash == prev_hash {
-        log::info!("No change in env detected.");
-        return Ok((None, env_hash));
+        return Ok((None, prev_hash));
     }
 
     if let Ok(mut stream) = UnixStream::connect(&sock_path) {
@@ -670,16 +673,9 @@ fn refresh_env(
             log::error!("Failed to write to socket.");
             exit(1);
         }
-        log::info!("wrote get");
         stream.read_to_string(&mut result)?;
-        log::info!("read get");
+        log::info!("Env refreshed");
     }
 
     Ok((Some(environ::Env::construct(Some(&result))), env_hash))
-}
-
-pub fn calculate_hash(t: String) -> u64 {
-    let mut hasher = DefaultHasher::new();
-    t.hash(&mut hasher);
-    hasher.finish()
 }

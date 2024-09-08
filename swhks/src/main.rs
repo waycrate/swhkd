@@ -6,13 +6,12 @@ use std::os::unix::net::UnixListener;
 use std::{
     fs::{self},
     io::Write,
-    os::unix::net::UnixStream,
     path::{Path, PathBuf},
     process::Command,
 };
 
 use clap::Parser;
-//use nix::unistd::daemon;
+use nix::unistd::daemon;
 use std::{
     env,
     os::unix::fs::PermissionsExt,
@@ -59,7 +58,7 @@ fn main() -> std::io::Result<()> {
     log::info!("Started SWHKS placeholder server");
 
     // Daemonize the process
-    //let _ = nix::unistd::daemon(true, false);
+    let _ = nix::unistd::daemon(true, false);
 
     setup_swhks(invoking_uid, PathBuf::from(runtime_dir));
 
@@ -69,7 +68,7 @@ fn main() -> std::io::Result<()> {
 
     let listener = UnixListener::bind(sock_file_path)?;
     let mut buff = [0; 1];
-    println!("Listening for incoming connections...");
+    log::debug!("Listening for incoming connections...");
 
     for stream in listener.incoming() {
         match stream {
