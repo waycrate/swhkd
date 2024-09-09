@@ -27,15 +27,17 @@ pub fn server_loop(sock_file_path: &str) -> std::io::Result<()> {
     let mut prev_hash = calculate_hash(String::new());
 
     let listener = UnixListener::bind(sock_file_path)?;
+    // Init a buffer to read the incoming message
     let mut buff = [0; 1];
     log::debug!("Listening for incoming connections...");
 
     for stream in listener.incoming() {
         match stream {
             Ok(mut stream) => {
-                println!("Connection established!");
                 stream.read_exact(&mut buff)?;
-                println!("Received: {:?}", buff);
+                // If the buffer is [1] then it is a VERIFY message
+                // the hash of the environment variables is sent back to the client
+                // then the stream is flushed and the loop continues
                 if buff == [1] {
                     log::debug!("Received VERIFY message from swhkd");
                     let _ = stream.write_all(prev_hash.to_string().as_bytes());
@@ -43,6 +45,9 @@ pub fn server_loop(sock_file_path: &str) -> std::io::Result<()> {
                     stream.flush()?;
                     continue;
                 }
+                // If the buffer is [2] then it is a GET message
+                // the environment variables are sent back to the client
+                // then the stream is flushed and the loop continues
                 if buff == [2] {
                     log::debug!("Received GET message from swhkd");
                     let env = get_env().unwrap();
