@@ -79,12 +79,19 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     env_logger::init();
     log::trace!("Logger initialized.");
+
+    // Just to double check that we are in root
     perms::raise_privileges();
 
+    // Get the UID of the user that is not a system user
     let invoking_uid = get_uid()?;
 
     log::debug!("Wating for server to start...");
     // The first and the most important request for the env
+    // Without this request, the environmental variables responsible for the reading for the config
+    // file will not be available.
+    // Thus, it is important to wait for the server to start before proceeding.
+    // TODO: Refactor the loop to agree with clippy.
     let mut env = environ::Env::construct(None);
     let mut env_hash = 0;
     loop {
@@ -103,6 +110,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
         }
     }
     log::trace!("Environment Aquired");
+
+    // Now that we have the env, we can safely proceed with the rest of the program.
+    // Log handling
     let log_file_name = if let Some(val) = args.log {
         val
     } else {
@@ -134,9 +144,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
         fs::set_permissions(&log_path, Permissions::from_mode(0o666)).unwrap();
     }
 
-    let x = args.cooldown;
-    let delta = (x as f64 * 0.1) as u64;
-    let server_cooldown = std::cmp::max(0, x - delta);
+    // Calculate a server cooldown at which the server will be pinged to check for env changes.
+    let cooldown = args.cooldown;
+    let delta = (cooldown as f64 * 0.1) as u64;
+    let server_cooldown = std::cmp::max(0, cooldown - delta);
 
     // Set up a channel to communicate with the server
     // The channel can have upto 100 commands in the queue
@@ -152,6 +163,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // This again has a thread for running the env refresh module when a change is detected from
     // the server.
     tokio::spawn(async move {
+        // This is the thread that is responsible for refreshing the env
+        // It's sleep time is determined by the server cooldown.
         tokio::spawn(async move {
             loop {
                 {
@@ -179,47 +192,52 @@ async fn main() -> Result<(), Box<dyn Error>> {
         // This thread is spawned in the user space and is used to execute the command and it
         // exits after the command is executed.
         while let Some(command) = rx.recv().await {
+            // Clone the arc references to be used in the thread
             let pairs = pairs.clone();
             let log = log.clone();
-            tokio::spawn(async move {
-                setgid(Gid::from_raw(invoking_uid)).unwrap();
-                setuid(Uid::from_raw(invoking_uid)).unwrap();
 
-                let mut cmd = Command::new("sh");
-                cmd.arg("-c")
-                    .arg(command)
-                    .stdin(Stdio::null())
-                    .stdout(match File::open(&log) {
-                        Ok(file) => file,
-                        Err(e) => {
-                            println!("Error: {}", e);
-                            _ = Command::new("notify-send").arg(format!("ERROR {}", e)).spawn();
-                            exit(1);
-                        }
-                    })
-                    .stderr(match File::open(&log) {
-                        Ok(file) => file,
-                        Err(e) => {
-                            println!("Error: {}", e);
-                            _ = Command::new("notify-send").arg(format!("ERROR {}", e)).spawn();
-                            exit(1);
-                        }
-                    });
+            // Set the user and group id to the invoking user for the thread
+            setgid(Gid::from_raw(invoking_uid)).unwrap();
+            setuid(Uid::from_raw(invoking_uid)).unwrap();
 
-                for (key, value) in pairs.lock().unwrap().iter() {
-                    cmd.env(key, value);
-                }
-
-                match cmd.spawn() {
-                    Ok(_) => {
-                        log::info!("Command executed successfully.");
+            // Command execution
+            let mut cmd = Command::new("sh");
+            cmd.arg("-c")
+                .arg(command)
+                .stdin(Stdio::null())
+                .stdout(match File::open(&log) {
+                    Ok(file) => file,
+                    Err(e) => {
+                        println!("Error: {}", e);
+                        _ = Command::new("notify-send").arg(format!("ERROR {}", e)).spawn();
+                        exit(1);
                     }
-                    Err(e) => log::error!("Failed to execute command: {}", e),
+                })
+                .stderr(match File::open(&log) {
+                    Ok(file) => file,
+                    Err(e) => {
+                        println!("Error: {}", e);
+                        _ = Command::new("notify-send").arg(format!("ERROR {}", e)).spawn();
+                        exit(1);
+                    }
+                });
+
+            // Set the environment variables for the command
+            for (key, value) in pairs.lock().unwrap().iter() {
+                cmd.env(key, value);
+            }
+
+            match cmd.spawn() {
+                Ok(_) => {
+                    log::info!("Command executed successfully.");
                 }
-            });
+                Err(e) => log::error!("Failed to execute command: {}", e),
+            }
         }
     });
 
+    // With the threads responsible for refresh and execution being in place, we can finally
+    // start the main loop of the program.
     setup_swhkd(invoking_uid, env.xdg_runtime_dir(invoking_uid));
 
     let config_file_path: PathBuf =
@@ -642,7 +660,7 @@ fn get_file_paths(runtime_dir: &str) -> (String, String) {
 }
 
 /// Refreshes the environment variables from the server
-fn refresh_env(
+pub fn refresh_env(
     invoking_uid: u32,
     prev_hash: u64,
 ) -> Result<(Option<environ::Env>, u64), Box<dyn Error>> {
@@ -652,30 +670,40 @@ fn refresh_env(
     let (_pid_path, sock_path) =
         get_file_paths(env.xdg_runtime_dir(invoking_uid).to_str().unwrap());
 
-    let mut result: String = String::new();
+    let mut buff: String = String::new();
+
+    // Follows a two part process to recieve the env hash and the env itself
+    // First part: Send a "1" as a byte to the socket to request the hash
     if let Ok(mut stream) = UnixStream::connect(&sock_path) {
         let n = stream.write(&[1])?;
         if n != 1 {
             log::error!("Failed to write to socket.");
-            exit(1);
+            return Ok((None, prev_hash));
         }
-        stream.read_to_string(&mut result)?;
+        stream.read_to_string(&mut buff)?;
     }
-    let env_hash = result.parse().unwrap_or_default();
 
+    let env_hash = buff.parse().unwrap_or_default();
+
+    // If the hash is the same as the previous hash, return early
+    // no need to refresh the env
     if env_hash == prev_hash {
         return Ok((None, prev_hash));
     }
 
+    // Now that we know the env hash is different, we can request the env
+    // Second part: Send a "2" as a byte to the socket to request the env
     if let Ok(mut stream) = UnixStream::connect(&sock_path) {
         let n = stream.write(&[2])?;
         if n != 1 {
             log::error!("Failed to write to socket.");
-            exit(1);
+            return Ok((None, prev_hash));
         }
-        stream.read_to_string(&mut result)?;
-        log::info!("Env refreshed");
+        stream.read_to_string(&mut buff)?;
     }
 
-    Ok((Some(environ::Env::construct(Some(&result))), env_hash))
+    log::info!("Env refreshed");
+
+    // Construct the env from the recieved env and return it
+    Ok((Some(environ::Env::construct(Some(&buff))), env_hash))
 }

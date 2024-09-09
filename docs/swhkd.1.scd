@@ -34,9 +34,6 @@ More about the config file syntax in `swhkd(5)`
 *-D, --device* <DEVICE_NAME>
 	Manually set the keyboard devices to use. Can occur multiple times.
 
-*-r, --refresh* <REFRESH_TIME>
-	Manually set the refresh time to check the server for a new environment
-
 # SIGNALS
 
 	- Reload config file: `sudo pkill -HUP swhkd`
