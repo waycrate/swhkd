@@ -418,17 +418,44 @@ pub fn check_input_group() -> Result<(), Box<dyn Error>> {
     }
 }
 
-pub fn check_device_is_keyboard(device: &Device) -> bool {
-    if device.supported_keys().map_or(false, |keys| keys.contains(Key::KEY_ENTER)) {
-        if device.name() == Some("swhkd virtual output") {
-            return false;
-        }
-        log::debug!("Keyboard: {}", device.name().unwrap(),);
-        true
-    } else {
-        log::trace!("Other: {}", device.name().unwrap(),);
-        false
+fn check_device_is_keyboard(device: &Device) -> bool {
+    let name = device.name();
+    if name == Some("swhkd virtual output") {
+        return false;
     }
+
+    let unique_name = device.unique_name();
+    let properties = device.properties();
+    let events = device.supported_events();
+
+    let mut heuristic = 5;
+
+    if let Some(name) = name {
+        heuristic -= name.to_lowercase().contains("keyboard") as i8;
+    }
+
+    if let Some(name) = unique_name {
+        heuristic -= name.to_lowercase().contains("keyboard") as i8;
+    }
+
+    // properties a keyboard generally has:
+    // keys
+    heuristic -= events.contains(evdev::EventType::KEY) as i8;
+    // leds (capslocks, numpads)
+    heuristic -= events.contains(evdev::EventType::LED) as i8;
+    // repeat: hold a key to spam it
+    heuristic -= events.contains(evdev::EventType::REPEAT) as i8;
+
+    heuristic += events.contains(evdev::EventType::ABSOLUTE) as i8;
+    heuristic += events.contains(evdev::EventType::RELATIVE) as i8;
+    heuristic += events.contains(evdev::EventType::SWITCH) as i8;
+    heuristic += properties.contains(evdev::PropType::POINTER) as i8;
+    heuristic += properties.contains(evdev::PropType::BUTTONPAD) as i8;
+
+    log::debug!("name: {:?}, heuristic: {}", name, heuristic);
+
+    // Increase this threshold to be more lenient
+    heuristic < 3
 }
 
 pub fn setup_swhkd(invoking_uid: u32, runtime_path: String) {
