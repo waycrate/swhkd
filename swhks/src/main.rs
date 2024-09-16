@@ -1,30 +1,25 @@
-use clap::Parser;
-use environ::Env;
-use nix::{
-    sys::stat::{umask, Mode},
-    unistd::daemon,
-};
-use std::io::Read;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::error::Error;
+use std::fs::Permissions;
 use std::{
-    env, fs,
-    fs::OpenOptions,
-    os::unix::net::UnixListener,
+    fs::{self},
     path::{Path, PathBuf},
-    process::{exit, id, Command, Stdio},
 };
-use sysinfo::{ProcessExt, System, SystemExt};
 
-mod environ;
+use clap::Parser;
+use std::{
+    env,
+    os::unix::fs::PermissionsExt,
+    process::{exit, id},
+};
+use sysinfo::System;
+use sysinfo::{ProcessExt, SystemExt};
+
+mod ipc;
 
 /// IPC Server for swhkd
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
 struct Args {
-    /// Set a custom log file. (Defaults to ${XDG_DATA_HOME:-$HOME/.local/share}/swhks-current_unix_time.log)
-    #[arg(short, long, value_name = "FILE")]
-    log: Option<PathBuf>,
-
     /// Enable Debug Mode
     #[arg(short, long)]
     debug: bool,
@@ -40,40 +35,47 @@ fn main() -> std::io::Result<()> {
             .init();
     }
 
-    log::trace!("Setting process umask.");
-    umask(Mode::S_IWGRP | Mode::S_IWOTH);
+    let invoking_uid = get_uid().unwrap();
+    let runtime_dir = format!("/run/user/{}", invoking_uid);
 
-    // This is used to initialize the environment variables only once
-    let environment = environ::Env::construct();
+    let (_pid_file_path, sock_file_path) = get_file_paths(&runtime_dir);
 
-    let (pid_file_path, sock_file_path) = get_file_paths(&environment);
+    log::info!("Started SWHKS placeholder server");
 
-    let log_file_name = if let Some(val) = args.log {
-        val
-    } else {
-        let time = match SystemTime::now().duration_since(UNIX_EPOCH) {
-            Ok(n) => n.as_secs().to_string(),
-            Err(_) => {
-                log::error!("SystemTime before UnixEpoch!");
-                exit(1);
+    // Daemonize the process
+    let _ = nix::unistd::daemon(true, false);
+
+    setup_swhks(invoking_uid, PathBuf::from(runtime_dir));
+
+    if Path::new(&sock_file_path).exists() {
+        fs::remove_file(&sock_file_path)?;
+    }
+
+    ipc::server_loop(&sock_file_path)?;
+
+    Ok(())
+}
+
+pub fn setup_swhks(invoking_uid: u32, runtime_path: PathBuf) {
+    // Get the runtime path and create it if needed.
+    if !Path::new(&runtime_path).exists() {
+        match fs::create_dir_all(Path::new(&runtime_path)) {
+            Ok(_) => {
+                log::debug!("Created runtime directory.");
+                match fs::set_permissions(Path::new(&runtime_path), Permissions::from_mode(0o600)) {
+                    Ok(_) => log::debug!("Set runtime directory to readonly."),
+                    Err(e) => log::error!("Failed to set runtime directory to readonly: {}", e),
+                }
             }
-        };
-
-        format!("{}/swhks/swhks-{}.log", environment.data_home.to_string_lossy(), time).into()
-    };
-
-    let log_path = Path::new(&log_file_name);
-    if let Some(p) = log_path.parent() {
-        if !p.exists() {
-            if let Err(e) = fs::create_dir_all(p) {
-                log::error!("Failed to create log dir: {}", e);
-            }
+            Err(e) => log::error!("Failed to create runtime directory: {}", e),
         }
     }
 
-    if Path::new(&pid_file_path).exists() {
-        log::trace!("Reading {} file and checking for running instances.", pid_file_path);
-        let swhks_pid = match fs::read_to_string(&pid_file_path) {
+    // Get the PID file path for instance tracking.
+    let pidfile: String = format!("{}/swhks_{}.pid", runtime_path.to_string_lossy(), invoking_uid);
+    if Path::new(&pidfile).exists() {
+        log::trace!("Reading {} file and checking for running instances.", pidfile);
+        let swhks_pid = match fs::read_to_string(&pidfile) {
             Ok(swhks_pid) => swhks_pid,
             Err(e) => {
                 log::error!("Unable to read {} to check all running instances", e);
@@ -82,83 +84,38 @@ fn main() -> std::io::Result<()> {
         };
         log::debug!("Previous PID: {}", swhks_pid);
 
+        // Check if swhkd is already running!
         let mut sys = System::new_all();
         sys.refresh_all();
         for (pid, process) in sys.processes() {
             if pid.to_string() == swhks_pid && process.exe() == env::current_exe().unwrap() {
-                log::error!("Server is already running!");
+                log::error!("Swhks is already running!");
+                log::error!("There is no need to run another instance since there is already one running with PID: {}", swhks_pid);
                 exit(1);
             }
         }
     }
 
-    if Path::new(&sock_file_path).exists() {
-        log::trace!("Sockfile exists, attempting to remove it.");
-        match fs::remove_file(&sock_file_path) {
-            Ok(_) => {
-                log::debug!("Removed old socket file");
-            }
-            Err(e) => {
-                log::error!("Error removing the socket file!: {}", e);
-                log::error!("You can manually remove the socket file: {}", sock_file_path);
-                exit(1);
-            }
-        };
-    }
-
-    match fs::write(&pid_file_path, id().to_string()) {
+    // Write to the pid file.
+    match fs::write(&pidfile, id().to_string()) {
         Ok(_) => {}
         Err(e) => {
-            log::error!("Unable to write to {}: {}", pid_file_path, e);
+            log::error!("Unable to write to {}: {}", pidfile, e);
             exit(1);
-        }
-    }
-
-    let listener = UnixListener::bind(sock_file_path)?;
-    loop {
-        match listener.accept() {
-            Ok((mut socket, address)) => {
-                let mut response = String::new();
-                socket.read_to_string(&mut response)?;
-                run_system_command(&response, log_path);
-                log::debug!("Socket: {:?} Address: {:?} Response: {}", socket, address, response);
-            }
-            Err(e) => log::error!("accept function failed: {:?}", e),
         }
     }
 }
 
-fn get_file_paths(env: &Env) -> (String, String) {
-    let pid_file_path = format!("{}/swhks.pid", env.runtime_dir.to_string_lossy());
-    let sock_file_path = format!("{}/swhkd.sock", env.runtime_dir.to_string_lossy());
+fn get_file_paths(runtime_dir: &str) -> (String, String) {
+    let pid_file_path = format!("{}/swhks.pid", runtime_dir);
+    let sock_file_path = format!("{}/swhkd.sock", runtime_dir);
 
     (pid_file_path, sock_file_path)
 }
 
-fn run_system_command(command: &str, log_path: &Path) {
-    _ = daemon(true, false);
-
-    if let Err(e) = Command::new("sh")
-        .arg("-c")
-        .arg(command)
-        .stdin(Stdio::null())
-        .stdout(match OpenOptions::new().append(true).create(true).open(log_path) {
-            Ok(file) => file,
-            Err(e) => {
-                _ = Command::new("notify-send").arg(format!("ERROR {}", e)).spawn();
-                exit(1);
-            }
-        })
-        .stderr(match OpenOptions::new().append(true).create(true).open(log_path) {
-            Ok(file) => file,
-            Err(e) => {
-                _ = Command::new("notify-send").arg(format!("ERROR {}", e)).spawn();
-                exit(1);
-            }
-        })
-        .spawn()
-    {
-        log::error!("Failed to execute {}", command);
-        log::error!("Error: {}", e);
-    }
+/// Get the UID of the user that is not a system user
+fn get_uid() -> Result<u32, Box<dyn Error>> {
+    let status_content = fs::read_to_string(format!("/proc/{}/loginuid", std::process::id()))?;
+    let uid = status_content.trim().parse::<u32>()?;
+    Ok(uid)
 }

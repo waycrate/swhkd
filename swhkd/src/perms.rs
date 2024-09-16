@@ -1,7 +1,7 @@
 use nix::unistd::{Gid, Uid, User};
 use std::process::exit;
 
-pub fn drop_privileges(user_uid: u32) {
+pub fn _drop_privileges(user_uid: u32) {
     let user_uid = Uid::from_raw(user_uid);
     let user = User::from_uid(user_uid).unwrap().unwrap();
 

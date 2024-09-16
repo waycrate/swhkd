@@ -4,8 +4,6 @@ DESTDIR ?= "/"
 DAEMON_BINARY := swhkd
 SERVER_BINARY := swhks
 BUILDFLAGS := --release
-POLKIT_DIR := /usr/share/polkit-1/actions
-POLKIT_POLICY_FILE := com.github.swhkd.pkexec.policy
 TARGET_DIR := /usr/bin
 MAN1_DIR := /usr/share/man/man1
 MAN5_DIR := /usr/share/man/man5
@@ -15,9 +13,6 @@ all: build
 
 build:
 	@cargo build $(BUILDFLAGS)
-	@./scripts/build-polkit-policy.sh \
-		--policy-path=$(POLKIT_POLICY_FILE) \
-		--swhkd-path=$(TARGET_DIR)/$(DAEMON_BINARY)
 
 install:
 	@find ./docs -type f -iname "*.1.gz" \
@@ -25,9 +20,10 @@ install:
 	@find ./docs -type f -iname "*.5.gz" \
 		-exec install -Dm 644 {} -t $(DESTDIR)/$(MAN5_DIR) \;
 	@install -Dm 755 ./target/release/$(DAEMON_BINARY) -t $(DESTDIR)/$(TARGET_DIR)
+	@sudo chown root:root $(DESTDIR)/$(TARGET_DIR)/$(DAEMON_BINARY)
+	@sudo chmod u+s $(DESTDIR)/$(TARGET_DIR)/$(DAEMON_BINARY)
 	@install -Dm 755 ./target/release/$(SERVER_BINARY) -t $(DESTDIR)/$(TARGET_DIR)
-	@install -Dm 644 -o root ./$(POLKIT_POLICY_FILE) -t $(DESTDIR)/$(POLKIT_DIR)
-# Ideally, we would have a default config file instead of an empty one
+	# Ideally, we would have a default config file instead of an empty one
 	@if [ ! -f $(DESTDIR)/etc/$(DAEMON_BINARY)/$(DAEMON_BINARY)rc ]; then \
 		touch ./$(DAEMON_BINARY)rc; \
 		install -Dm 644 ./$(DAEMON_BINARY)rc -t $(DESTDIR)/etc/$(DAEMON_BINARY); \
@@ -38,7 +34,6 @@ uninstall:
 	@$(RM) -f /usr/share/man/**/swhks.*
 	@$(RM) $(TARGET_DIR)/$(SERVER_BINARY)
 	@$(RM) $(TARGET_DIR)/$(DAEMON_BINARY)
-	@$(RM) $(POLKIT_DIR)/$(POLKIT_POLICY_FILE)
 
 check:
 	@cargo fmt
@@ -57,7 +52,6 @@ clean:
 	@cargo clean
 	@$(RM) -f ./docs/*.gz
 	@$(RM) -f $(DAEMON_BINARY)rc
-	@$(RM) -f $(POLKIT_POLICY_FILE)
 
 setup:
 	@rustup install stable

@@ -6,18 +6,11 @@ swhkd - Hotkey daemon inspired by sxhkd written in Rust
 
 # SYNOPSIS
 
-*pkexec swhkd* [_flags_]
+*swhkd* [_flags_]
 
 # CONFIG FILE
 
-The config file goes in */etc/swhkd/swhkdrc*. Since swhkd is written with a pkexec privilege escalation model in mind, we can't detect
-*$XDG_CONFIG_HOME*.
-
-This can be avoided as such:
-	- Using the *include* statement in your config file.
-	- Using the *-c* flag to mention a custom config file at runtime.
-	- Symlinking the config file from *~/.config/swhkd/swhkdrc* or any other directory of choice to */etc/swhkd/swhkdrc*.
-
+The config file goes in *~/.config/swhkd/swhkdrc* with a fallback to */etc/swhkd/swhkdrc*.
 More about the config file syntax in `swhkd(5)`
 
 # OPTIONS
