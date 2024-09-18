@@ -31,5 +31,6 @@
       default = (pkgsFor system).callPackage ./nix/shell.nix { };
     });
 
+    nixosModules.default = import ./nix/module.nix self;
   };
 }
