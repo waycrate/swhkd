@@ -34,7 +34,7 @@ Xorg or Wayland desktops, and you can even use `swhkd` in a TTY.
 
 ```bash
 swhks &
-pkexec swhkd
+swhkd
 ```
 
 ## Runtime signals
@@ -50,9 +50,7 @@ After opening `swhkd`, you can control the program through signals:
 `swhkd` closely follows `sxhkd` syntax, so most existing `sxhkd` configs should
 be functional with `swhkd`.
 
-The default configuration file is in `/etc/swhkd/swhkdrc`. If you don't like
-having to edit the file as root every single time, you can create a symlink from
-`~/.config/swhkd/swhkdrc` to `/etc/swhkd/swhkdrc`.
+The default configuration file is in `~/.config/swhkd/swhkdrc` with a fallback to `etc/swhkd/swhkdrc`.
 
 If you use Vim, you can get `swhkd` config syntax highlighting with the
 [swhkd-vim](https://github.com/waycrate/swhkd-vim) plugin. Install it in
@@ -75,13 +73,13 @@ All supported key and modifier names are listed in `man 5 swhkd-keys`.
 ## Security
 
 We use a server-client model to keep you safe. The daemon (`swhkd` — privileged
-process) communicates to the server (`swhks` — running as non-root user) after
-checking for valid keybindings. Since the daemon is totally separate from the
-server, no other process can read your keystrokes. As for shell commands, you
-might be thinking that any program can send shell commands to the server and
-that's true! But the server runs the commands as the currently logged-in user,
-so no extra permissions are provided (This is essentially the same as any app on
-your desktop calling shell commands).
+process) is responsible for listening to key events and running shell commands.
+The server (`swhks` — non-privileged process) is responsible for keeping a track of the
+environment variables and sending them to the daemon. The daemon
+uses these environment variables while running the shell commands.
+The daemon only runs shell commands that have been parsed from the config file and there is no way to
+run arbitrary shell commands. The server is responsible for only sending the environment variables to the daemon and nothing else.
+This seperation of responsibilities ensures security.
 
 So yes, you're safe!
 

@@ -10,7 +10,6 @@ We have packaged `swhkd-git`. `swhkd-bin` has been packaged separately by a user
 
 **Runtime:**
 
--   Policy Kit Daemon ( polkit )
 -   Uinput kernel module
 -   Evdev kernel module
 
@@ -34,5 +33,5 @@ We have packaged `swhkd-git`. `swhkd-bin` has been packaged separately by a user
 
 ```
 swhks &
-pkexec swhkd
+swhkd
 ```

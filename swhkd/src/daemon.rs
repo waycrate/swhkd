@@ -4,7 +4,7 @@ use config::Hotkey;
 use evdev::{AttributeSet, Device, InputEventKind, Key};
 use nix::{
     sys::stat::{umask, Mode},
-    unistd::{Group, Uid},
+    unistd::{setgid, setuid, Gid, Uid},
 };
 use signal_hook::consts::signal::*;
 use signal_hook_tokio::Signals;
@@ -12,17 +12,18 @@ use std::{
     collections::{HashMap, HashSet},
     env,
     error::Error,
-    fs,
-    fs::Permissions,
-    io::prelude::*,
+    fs::{self, File, OpenOptions, Permissions},
+    io::{Read, Write},
     os::unix::{fs::PermissionsExt, net::UnixStream},
     path::{Path, PathBuf},
-    process::{exit, id},
+    process::{exit, id, Command, Stdio},
+    sync::{Arc, Mutex},
+    time::{SystemTime, UNIX_EPOCH},
 };
 use sysinfo::{ProcessExt, System, SystemExt};
-use tokio::select;
 use tokio::time::Duration;
 use tokio::time::{sleep, Instant};
+use tokio::{select, sync::mpsc};
 use tokio_stream::{StreamExt, StreamMap};
 use tokio_udev::{AsyncMonitorSocket, EventType, MonitorBuilder};
 
@@ -51,8 +52,8 @@ struct Args {
     config: Option<PathBuf>,
 
     /// Set a custom repeat cooldown duration. Default is 250ms.
-    #[arg(short = 'C', long)]
-    cooldown: Option<u64>,
+    #[arg(short = 'C', long, default_value_t = 250)]
+    cooldown: u64,
 
     /// Enable Debug Mode
     #[arg(short, long)]
@@ -61,12 +62,15 @@ struct Args {
     /// Take a list of devices from the user
     #[arg(short = 'D', long, num_args = 0.., value_delimiter = ' ')]
     device: Vec<String>,
+
+    /// Set a custom log file. (Defaults to ${XDG_DATA_HOME:-$HOME/.local/share}/swhks-current_unix_time.log)
+    #[arg(short, long, value_name = "FILE")]
+    log: Option<PathBuf>,
 }
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     let args = Args::parse();
-    let default_cooldown: u64 = 250;
     env::set_var("RUST_LOG", "swhkd=warn");
 
     if args.debug {
@@ -76,20 +80,168 @@ async fn main() -> Result<(), Box<dyn Error>> {
     env_logger::init();
     log::trace!("Logger initialized.");
 
-    let env = environ::Env::construct();
+    // Just to double check that we are in root
+    perms::raise_privileges();
+
+    // Get the UID of the user that is not a system user
+    let invoking_uid = get_uid()?;
+
+    log::debug!("Wating for server to start...");
+    // The first and the most important request for the env
+    // Without this request, the environmental variables responsible for the reading for the config
+    // file will not be available.
+    // Thus, it is important to wait for the server to start before proceeding.
+    let mut env = environ::Env::construct(None);
+    let mut env_hash = 0;
+    loop {
+        match refresh_env(invoking_uid, 0) {
+            Ok((Some(new_env), hash)) => {
+                env_hash = hash;
+                env = new_env;
+                break;
+            }
+            Ok((None, hash)) => {
+                env_hash = hash;
+                log::debug!("Waiting for env...");
+                continue;
+            }
+            Err(_) => {}
+        }
+    }
     log::trace!("Environment Aquired");
 
-    let invoking_uid = env.pkexec_id;
+    // Now that we have the env, we can safely proceed with the rest of the program.
+    // Log handling
+    let log_file_name = if let Some(val) = args.log {
+        val
+    } else {
+        let time = match SystemTime::now().duration_since(UNIX_EPOCH) {
+            Ok(n) => n.as_secs().to_string(),
+            Err(_) => {
+                log::error!("SystemTime before UnixEpoch!");
+                exit(1);
+            }
+        };
 
-    setup_swhkd(invoking_uid, env.xdg_runtime_dir.clone().to_string_lossy().to_string());
+        format!("{}/swhkd/swhkd-{}.log", env.fetch_xdg_data_path().to_string_lossy(), time).into()
+    };
 
+    let log_path = PathBuf::from(&log_file_name);
+    if let Some(p) = log_path.parent() {
+        if !p.exists() {
+            if let Err(e) = fs::create_dir_all(p) {
+                log::error!("Failed to create log dir: {}", e);
+            }
+        }
+    }
+    // if file doesnt exist, create it with 0666 permissions
+    if !log_path.exists() {
+        if let Err(e) = OpenOptions::new().append(true).create(true).open(&log_path) {
+            log::error!("Failed to create log file: {}", e);
+            exit(1);
+        }
+        fs::set_permissions(&log_path, Permissions::from_mode(0o666)).unwrap();
+    }
+
+    // Calculate a server cooldown at which the server will be pinged to check for env changes.
+    let cooldown = args.cooldown;
+    let delta = (cooldown as f64 * 0.1) as u64;
+    let server_cooldown = std::cmp::max(0, cooldown - delta);
+
+    // Set up a channel to communicate with the server
+    // The channel can have upto 100 commands in the queue
+    let (tx, mut rx) = tokio::sync::mpsc::channel::<String>(100);
+
+    // We use a arc mutex to make sure that our pairs are valid and also concurrent
+    // while being used by the threads.
+    let pairs = Arc::new(Mutex::new(env.pairs.clone()));
+    let pairs_clone = Arc::clone(&pairs);
+    let log = log_path.clone();
+
+    // We spawn a new thread in the user space to act as the execution thread
+    // This again has a thread for running the env refresh module when a change is detected from
+    // the server.
+    tokio::spawn(async move {
+        // This is the thread that is responsible for refreshing the env
+        // It's sleep time is determined by the server cooldown.
+        tokio::spawn(async move {
+            loop {
+                {
+                    let mut pairs = pairs_clone.lock().unwrap();
+                    match refresh_env(invoking_uid, env_hash) {
+                        Ok((Some(env), hash)) => {
+                            pairs.clone_from(&env.pairs);
+                            env_hash = hash;
+                        }
+                        Ok((None, hash)) => {
+                            env_hash = hash;
+                        }
+                        Err(e) => {
+                            log::error!("Error: {}", e);
+                            _ = Command::new("notify-send").arg(format!("ERROR {}", e)).spawn();
+                            exit(1);
+                        }
+                    }
+                }
+                sleep(Duration::from_millis(server_cooldown)).await;
+            }
+        });
+
+        // When we do receive a command, we spawn a new thread to execute the command
+        // This thread is spawned in the user space and is used to execute the command and it
+        // exits after the command is executed.
+        while let Some(command) = rx.recv().await {
+            // Clone the arc references to be used in the thread
+            let pairs = pairs.clone();
+            let log = log.clone();
+
+            // Set the user and group id to the invoking user for the thread
+            setgid(Gid::from_raw(invoking_uid)).unwrap();
+            setuid(Uid::from_raw(invoking_uid)).unwrap();
+
+            // Command execution
+            let mut cmd = Command::new("sh");
+            cmd.arg("-c")
+                .arg(command)
+                .stdin(Stdio::null())
+                .stdout(match File::open(&log) {
+                    Ok(file) => file,
+                    Err(e) => {
+                        println!("Error: {}", e);
+                        _ = Command::new("notify-send").arg(format!("ERROR {}", e)).spawn();
+                        exit(1);
+                    }
+                })
+                .stderr(match File::open(&log) {
+                    Ok(file) => file,
+                    Err(e) => {
+                        println!("Error: {}", e);
+                        _ = Command::new("notify-send").arg(format!("ERROR {}", e)).spawn();
+                        exit(1);
+                    }
+                });
+
+            // Set the environment variables for the command
+            for (key, value) in pairs.lock().unwrap().iter() {
+                cmd.env(key, value);
+            }
+
+            match cmd.spawn() {
+                Ok(_) => {
+                    log::info!("Command executed successfully.");
+                }
+                Err(e) => log::error!("Failed to execute command: {}", e),
+            }
+        }
+    });
+
+    // With the threads responsible for refresh and execution being in place, we can finally
+    // start the main loop of the program.
+    setup_swhkd(invoking_uid, env.xdg_runtime_dir(invoking_uid));
+
+    let config_file_path: PathBuf =
+        args.config.as_ref().map_or_else(|| env.fetch_xdg_config_path(), |file| file.clone());
     let load_config = || {
-        // Drop privileges to the invoking user.
-        perms::drop_privileges(invoking_uid);
-
-        let config_file_path: PathBuf =
-            args.config.as_ref().map_or_else(|| env.fetch_xdg_config_path(), |file| file.clone());
-
         log::debug!("Using config file path: {:#?}", config_file_path);
 
         match config::load(&config_file_path) {
@@ -97,11 +249,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 log::error!("Config Error: {}", e);
                 exit(1)
             }
-            Ok(out) => {
-                // Escalate back to the root user after reading the config file.
-                perms::raise_privileges();
-                out
-            }
+            Ok(out) => out,
         }
     };
 
@@ -161,11 +309,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
         (Key::KEY_RIGHTSHIFT, config::Modifier::Shift),
     ]);
 
-    let repeat_cooldown_duration: u64 = args.cooldown.unwrap_or(default_cooldown);
+    let repeat_cooldown_duration: u64 = args.cooldown;
 
     let mut signals = Signals::new([
-        SIGUSR1, SIGUSR2, SIGHUP, SIGABRT, SIGBUS, SIGCHLD, SIGCONT, SIGINT, SIGPIPE, SIGQUIT,
-        SIGSYS, SIGTERM, SIGTRAP, SIGTSTP, SIGVTALRM, SIGXCPU, SIGXFSZ,
+        SIGUSR1, SIGUSR2, SIGHUP, SIGABRT, SIGBUS, SIGCONT, SIGINT, SIGPIPE, SIGQUIT, SIGSYS,
+        SIGTERM, SIGTRAP, SIGTSTP, SIGVTALRM, SIGXCPU, SIGXFSZ,
     ])?;
 
     let mut execution_is_paused = false;
@@ -190,8 +338,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let hotkey_repeat_timer = sleep(Duration::from_millis(0));
     tokio::pin!(hotkey_repeat_timer);
 
-    // The socket we're sending the commands to.
-    let socket_file_path = env.fetch_xdg_runtime_socket_path();
     loop {
         select! {
             _ = &mut hotkey_repeat_timer, if &last_hotkey.is_some() => {
@@ -199,9 +345,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 if hotkey.keybinding.on_release {
                     continue;
                 }
-                send_command(hotkey.clone(), &socket_file_path, &modes, &mut mode_stack);
+                send_command(hotkey.clone(), &modes, &mut mode_stack, tx.clone()).await;
                 hotkey_repeat_timer.as_mut().reset(Instant::now() + Duration::from_millis(repeat_cooldown_duration));
             }
+
+
 
             Some(signal) = signals.next() => {
                 match signal {
@@ -319,7 +467,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     0 => {
                         if last_hotkey.is_some() && pending_release {
                             pending_release = false;
-                            send_command(last_hotkey.clone().unwrap(), &socket_file_path, &modes, &mut mode_stack);
+                            send_command(last_hotkey.clone().unwrap(), &modes, &mut mode_stack, tx.clone()).await;
                             last_hotkey = None;
                         }
                         if let Some(modifier) = modifiers_map.get(&key) {
@@ -382,39 +530,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
                             pending_release = true;
                             break;
                         }
-                        send_command(hotkey.clone(), &socket_file_path, &modes, &mut mode_stack);
+                        send_command(hotkey.clone(), &modes, &mut mode_stack, tx.clone()).await;
                         hotkey_repeat_timer.as_mut().reset(Instant::now() + Duration::from_millis(repeat_cooldown_duration));
                         continue;
                     }
                 }
             }
         }
-    }
-}
-
-fn socket_write(command: &str, socket_path: PathBuf) -> Result<(), Box<dyn Error>> {
-    let mut stream = UnixStream::connect(socket_path)?;
-    stream.write_all(command.as_bytes())?;
-    Ok(())
-}
-
-pub fn check_input_group() -> Result<(), Box<dyn Error>> {
-    if !Uid::current().is_root() {
-        let groups = nix::unistd::getgroups();
-        for groups in groups.iter() {
-            for group in groups {
-                let group = Group::from_gid(*group);
-                if group.unwrap().unwrap().name == "input" {
-                    log::error!("Note: INVOKING USER IS IN INPUT GROUP!!!!");
-                    log::error!("THIS IS A HUGE SECURITY RISK!!!!");
-                }
-            }
-        }
-        log::error!("Consider using `pkexec swhkd ...`");
-        exit(1);
-    } else {
-        log::warn!("Running swhkd as root!");
-        Ok(())
     }
 }
 
@@ -431,7 +553,7 @@ pub fn check_device_is_keyboard(device: &Device) -> bool {
     }
 }
 
-pub fn setup_swhkd(invoking_uid: u32, runtime_path: String) {
+pub fn setup_swhkd(invoking_uid: u32, runtime_path: PathBuf) {
     // Set a sane process umask.
     log::trace!("Setting process umask.");
     umask(Mode::S_IWGRP | Mode::S_IWOTH);
@@ -451,7 +573,7 @@ pub fn setup_swhkd(invoking_uid: u32, runtime_path: String) {
     }
 
     // Get the PID file path for instance tracking.
-    let pidfile: String = format!("{}swhkd_{}.pid", runtime_path, invoking_uid);
+    let pidfile: String = format!("{}/swhkd_{}.pid", runtime_path.to_string_lossy(), invoking_uid);
     if Path::new(&pidfile).exists() {
         log::trace!("Reading {} file and checking for running instances.", pidfile);
         let swhkd_pid = match fs::read_to_string(&pidfile) {
@@ -484,21 +606,16 @@ pub fn setup_swhkd(invoking_uid: u32, runtime_path: String) {
             exit(1);
         }
     }
-
-    // Check if the user is in input group.
-    if check_input_group().is_err() {
-        exit(1);
-    }
 }
 
-pub fn send_command(
+pub async fn send_command(
     hotkey: Hotkey,
-    socket_path: &Path,
     modes: &[config::Mode],
     mode_stack: &mut Vec<usize>,
+    tx: mpsc::Sender<String>,
 ) {
     log::info!("Hotkey pressed: {:#?}", hotkey);
-    let command = hotkey.command;
+    let mut command = hotkey.command;
     if modes[*mode_stack.last().unwrap()].options.oneoff {
         mode_stack.pop();
     }
@@ -515,9 +632,77 @@ pub fn send_command(
             }
         }
     }
-    if let Err(e) = socket_write(&command, socket_path.to_path_buf()) {
-        log::error!("Failed to send command to swhks through IPC.");
-        log::error!("Please make sure that swhks is running.");
-        log::error!("Err: {:#?}", e)
-    };
+    if command.ends_with(" &&") {
+        command = command.strip_suffix(" &&").unwrap().to_string();
+    }
+
+    match tx.send(command).await {
+        Ok(_) => {}
+        Err(e) => {
+            log::error!("Failed to send command: {}", e);
+        }
+    }
+}
+
+/// Get the UID of the user that is not a system user
+fn get_uid() -> Result<u32, Box<dyn Error>> {
+    let status_content = fs::read_to_string(format!("/proc/{}/loginuid", std::process::id()))?;
+    let uid = status_content.trim().parse::<u32>()?;
+    Ok(uid)
+}
+
+fn get_file_paths(runtime_dir: &str) -> (String, String) {
+    let pid_file_path = format!("{}/swhks.pid", runtime_dir);
+    let sock_file_path = format!("{}/swhkd.sock", runtime_dir);
+
+    (pid_file_path, sock_file_path)
+}
+
+/// Refreshes the environment variables from the server
+pub fn refresh_env(
+    invoking_uid: u32,
+    prev_hash: u64,
+) -> Result<(Option<environ::Env>, u64), Box<dyn Error>> {
+    // A simple placeholder for the env that is to be refreshed
+    let env = environ::Env::construct(None);
+
+    let (_pid_path, sock_path) =
+        get_file_paths(env.xdg_runtime_dir(invoking_uid).to_str().unwrap());
+
+    let mut buff: String = String::new();
+
+    // Follows a two part process to recieve the env hash and the env itself
+    // First part: Send a "1" as a byte to the socket to request the hash
+    if let Ok(mut stream) = UnixStream::connect(&sock_path) {
+        let n = stream.write(&[1])?;
+        if n != 1 {
+            log::error!("Failed to write to socket.");
+            return Ok((None, prev_hash));
+        }
+        stream.read_to_string(&mut buff)?;
+    }
+
+    let env_hash = buff.parse().unwrap_or_default();
+
+    // If the hash is the same as the previous hash, return early
+    // no need to refresh the env
+    if env_hash == prev_hash {
+        return Ok((None, prev_hash));
+    }
+
+    // Now that we know the env hash is different, we can request the env
+    // Second part: Send a "2" as a byte to the socket to request the env
+    if let Ok(mut stream) = UnixStream::connect(&sock_path) {
+        let n = stream.write(&[2])?;
+        if n != 1 {
+            log::error!("Failed to write to socket.");
+            return Ok((None, prev_hash));
+        }
+        stream.read_to_string(&mut buff)?;
+    }
+
+    log::info!("Env refreshed");
+
+    // Construct the env from the recieved env and return it
+    Ok((Some(environ::Env::construct(Some(&buff))), env_hash))
 }
