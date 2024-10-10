@@ -49,6 +49,7 @@ After opening `swhkd`, you can control the program through signals:
 
 `swhkd` closely follows `sxhkd` syntax, so most existing `sxhkd` configs should
 be functional with `swhkd`.
+More information about the sxhkd syntax can be found in the official man pages from the [arch wiki](https://man.archlinux.org/man/sxhkd.1).
 
 The default configuration file is in `~/.config/swhkd/swhkdrc` with a fallback to `etc/swhkd/swhkdrc`.
 
@@ -57,6 +58,16 @@ If you use Vim, you can get `swhkd` config syntax highlighting with the
 vim-plug with `Plug 'waycrate/swhkd-vim'`.
 
 All supported key and modifier names are listed in `man 5 swhkd-keys`.
+
+## Environment Variables
+
+The environment variables are now sourced using the SWHKS binary, running in the background which are then supplemented
+to the command that is to be run, thus emulating the environment variables in the default shell.
+
+The commands are executed via *SHELL -c 'command'*, hence the environment is sourced from the default shell.
+If the user wants to use a different set of environment variables, they can set the environment variables
+in the default shell or export the environment variables within a logged in instance of their shell before
+running the SWHKS binary.
 
 ## Autostart
 
@@ -79,7 +90,7 @@ environment variables and sending them to the daemon. The daemon
 uses these environment variables while running the shell commands.
 The daemon only runs shell commands that have been parsed from the config file and there is no way to
 run arbitrary shell commands. The server is responsible for only sending the environment variables to the daemon and nothing else.
-This seperation of responsibilities ensures security.
+This separation of responsibilities ensures security.
 
 So yes, you're safe!
 
