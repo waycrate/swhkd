@@ -9,8 +9,23 @@ swhkd	- Hotkey daemon inspired by sxhkd written in Rust
 	- A global config can be defined in *~/.config/swhkd/swhkdrc*, with a
 	fallback to  */etc/swhkd/swhkdrc*. Swhkd attempts to look in your *$XDG_CONFIG_HOME*, failing which it defaults to *~/.config*.
 	- A local config overrides the global one. Local configs should be placed in the root of the project.
+    - The config file can also be specified with the *-c* flag.
+
+# ENVIRONMENT
+
+    - The environment variables are now sourced using the SWHKS binary, running in the background.
+    - The environment variables are then supplemented to the command that is to be run, thus emulating the
+    environment variables in the default shell.
+    - The commands are executed via *SHELL -c 'command'*, hence the environment is sourced from the default shell.
+    - If the user wants to use a different set of environment variables, they can set the environment variables
+    in the default shell or export the environment variables within a logged in instance of their shell before
+    running the SWHKS binary.
 
 # SYNTAX
+
+The syntax of the configuration file is identical to sxhkd and builds upon it.
+More information about the syntax can be found from the official sxhkd documentation:
+https://man.archlinux.org/man/sxhkd.1, however a brief summary of it is provided below.
 
 Each line of the configuration file is interpreted as so:
 	- If it is empty or starts with #, it is ignored.
