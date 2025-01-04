@@ -2,7 +2,7 @@ swhks(1) "github.com/shinyzenith/swhkd" "General Commands Manual"
 
 # NAME
 
-swhks - Server for swhkd, used to run user level commands over IPC.
+swhks - Server for swhkd, used to source environment variables from the default shell to supply to swhkd.
 
 # SYNOPSIS
 
