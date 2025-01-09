@@ -1,4 +1,4 @@
-use std::{collections::HashMap, error::Error, path::PathBuf, process::Command};
+use std::{collections::HashMap, path::PathBuf};
 
 #[derive(Debug, Clone)]
 pub struct Env {
@@ -6,12 +6,6 @@ pub struct Env {
 }
 
 impl Env {
-    fn get_env() -> Result<String, Box<dyn Error>> {
-        let cmd = Command::new("env").output()?;
-        let stdout = String::from_utf8(cmd.stdout)?;
-        Ok(stdout)
-    }
-
     fn parse_env(env: &str) -> HashMap<String, String> {
         let mut pairs = HashMap::new();
         for line in env.lines() {
@@ -27,7 +21,7 @@ impl Env {
     pub fn construct(env: Option<&str>) -> Self {
         let env = match env {
             Some(env) => env.to_string(),
-            None => Self::get_env().unwrap(),
+            None => "".to_string(),
         };
         let pairs = Self::parse_env(&env);
         Self { pairs }
