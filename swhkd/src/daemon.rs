@@ -247,6 +247,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
         match config::load(&config_file_path) {
             Err(e) => {
                 log::error!("Config Error: {}", e);
+                if let Some(error_source) = e.source() {
+                    log::error!("{}", error_source);
+                }
                 exit(1)
             }
             Ok(out) => out,
