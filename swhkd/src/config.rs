@@ -4,7 +4,7 @@ use sweet::{Definition, SwhkdParser};
 use sweet::{ModeInstruction, ParseError};
 
 pub fn load(path: &Path) -> Result<Vec<Mode>, ParseError> {
-    let config_self = sweet::SwhkdParser::from(sweet::ParserInput::Path(path)).unwrap();
+    let config_self = sweet::SwhkdParser::from(sweet::ParserInput::Path(path))?;
     parse_contents(config_self)
 }
 
