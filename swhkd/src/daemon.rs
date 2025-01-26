@@ -91,8 +91,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // Without this request, the environmental variables responsible for the reading for the config
     // file will not be available.
     // Thus, it is important to wait for the server to start before proceeding.
-    let mut env = environ::Env::construct(None);
-    let mut env_hash = 0;
+    let env;
+    let mut env_hash;
     loop {
         match refresh_env(invoking_uid, 0) {
             Ok((Some(new_env), hash)) => {
@@ -100,8 +100,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 env = new_env;
                 break;
             }
-            Ok((None, hash)) => {
-                env_hash = hash;
+            Ok((None, _)) => {
                 log::debug!("Waiting for env...");
                 continue;
             }
