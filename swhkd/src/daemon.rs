@@ -701,6 +701,9 @@ pub fn refresh_env(
             log::error!("Failed to write to socket.");
             return Ok((None, prev_hash));
         }
+
+        // Clear the buffer before reading
+        buff.clear();
         stream.read_to_string(&mut buff)?;
     }
 
