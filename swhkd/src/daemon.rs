@@ -3,6 +3,7 @@ use clap::Parser;
 use config::Hotkey;
 use evdev::{AttributeSet, Device, InputEventKind, Key};
 use nix::{
+    libc,
     sys::stat::{umask, Mode},
     unistd::{setgid, setuid, Gid, Uid},
 };
@@ -14,7 +15,7 @@ use std::{
     error::Error,
     fs::{self, File, OpenOptions, Permissions},
     io::{Read, Write},
-    os::unix::{fs::PermissionsExt, net::UnixStream},
+    os::unix::{fs::PermissionsExt, net::UnixStream, process::CommandExt},
     path::{Path, PathBuf},
     process::{exit, id, Command, Stdio},
     sync::{Arc, Mutex},
@@ -219,6 +220,14 @@ async fn main() -> Result<(), Box<dyn Error>> {
                         exit(1);
                     }
                 });
+
+            // Daemonize the process completely
+            unsafe {
+                cmd.pre_exec(|| {
+                    libc::setsid();
+                    Ok(())
+                });
+            }
 
             // Set the environment variables for the command
             for (key, value) in pairs.lock().unwrap().iter() {
