@@ -31,7 +31,4 @@ We have packaged `swhkd-git`. `swhkd-bin` has been packaged separately by a user
 
 # Running:
 
-```
-swhks &
-swhkd
-```
+Refer [Running section](https://github.com/waycrate/swhkd#running)
