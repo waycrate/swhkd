@@ -20,8 +20,8 @@ install:
 	@find ./docs -type f -iname "*.5.gz" \
 		-exec install -Dm 644 {} -t $(DESTDIR)/$(MAN5_DIR) \;
 	@install -Dm 755 ./target/release/$(DAEMON_BINARY) -t $(DESTDIR)/$(TARGET_DIR)
-	@sudo chown root:root $(DESTDIR)/$(TARGET_DIR)/$(DAEMON_BINARY)
-	@sudo chmod u+s $(DESTDIR)/$(TARGET_DIR)/$(DAEMON_BINARY)
+	chown root:root $(DESTDIR)/$(TARGET_DIR)/$(DAEMON_BINARY)
+	chmod u+s $(DESTDIR)/$(TARGET_DIR)/$(DAEMON_BINARY)
 	@install -Dm 755 ./target/release/$(SERVER_BINARY) -t $(DESTDIR)/$(TARGET_DIR)
 	# Ideally, we would have a default config file instead of an empty one
 	@if [ ! -f $(DESTDIR)/etc/$(DAEMON_BINARY)/$(DAEMON_BINARY)rc ]; then \
