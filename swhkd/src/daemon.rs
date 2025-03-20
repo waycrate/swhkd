@@ -262,10 +262,53 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let keyboard_devices: Vec<_> = {
         if arg_devices.is_empty() {
             log::trace!("Attempting to find all keyboard file descriptors.");
-            evdev::enumerate().filter(|(_, dev)| check_device_is_keyboard(dev)).collect()
+            evdev::enumerate()
+                .filter(|(path, dev)| {
+                    // First, check if the device exists and is accessible
+                    let path_str = match path.to_str() {
+                        Some(p) => p,
+                        None => return false,
+                    };
+                    
+                    let device_path = std::path::Path::new(path_str);
+                    if !device_path.exists() {
+                        log::debug!("Skipping non-existent device '{}'", path_str);
+                        return false;
+                    }
+                    
+                    // Skip any mouse devices (more general approach)
+                    if path_str.contains("mouse") {
+                        log::debug!("Skipping mouse device '{}' as it's not suitable for keyboard events", path_str);
+                        return false;
+                    }
+                    
+                    // Continue with the normal keyboard check
+                    check_device_is_keyboard(dev)
+                })
+                .collect()
         } else {
             evdev::enumerate()
-                .filter(|(_, dev)| arg_devices.contains(&dev.name().unwrap_or("").to_string()))
+                .filter(|(path, dev)| {
+                    // First, check if the device exists and is accessible
+                    let path_str = match path.to_str() {
+                        Some(p) => p,
+                        None => return false,
+                    };
+                    
+                    let device_path = std::path::Path::new(path_str);
+                    if !device_path.exists() {
+                        log::debug!("Skipping non-existent device '{}'", path_str);
+                        return false;
+                    }
+                    
+                    // Skip any mouse devices (more general approach)
+                    if path_str.contains("mouse") {
+                        log::debug!("Skipping mouse device '{}' as it's not suitable for keyboard events", path_str);
+                        return false;
+                    }
+                    
+                    arg_devices.contains(&dev.name().unwrap_or("").to_string())
+                })
                 .collect()
         }
     };
@@ -351,8 +394,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 hotkey_repeat_timer.as_mut().reset(Instant::now() + Duration::from_millis(repeat_cooldown_duration));
             }
 
-
-
             Some(signal) = signals.next() => {
                 match signal {
                     SIGUSR1 => {
@@ -404,7 +445,22 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     Some(node) => {
                         match node.to_str() {
                             None => { continue; },
-                            Some(node) => node,
+                            Some(node) => {
+                                // Check if device exists before proceeding
+                                let device_path = std::path::Path::new(node);
+                                if !device_path.exists() {
+                                    log::debug!("Skipping non-existent device '{}'", node);
+                                    continue;
+                                }
+                                
+                                // Skip mouse devices in a more general way
+                                if node.contains("mouse") {
+                                    log::debug!("Skipping mouse device '{}' as it's not suitable for keyboard events", node);
+                                    continue;
+                                }
+                                
+                                node
+                            },
                         }
                     },
                 };
@@ -413,7 +469,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     EventType::Add => {
                         let mut device = match Device::open(node) {
                             Err(e) => {
-                                log::error!("Could not open evdev device at {}: {}", node, e);
+                                // Improve error message to be more descriptive
+                                log::warn!("Could not open input device at {}: {} (This device may not exist or may not be suitable for input handling)", node, e);
                                 continue;
                             },
                             Ok(device) => device
@@ -543,10 +600,22 @@ async fn main() -> Result<(), Box<dyn Error>> {
 }
 
 pub fn check_device_is_keyboard(device: &Device) -> bool {
+    // Fix for issue #301: Improved device filtering to properly handle various input devices
+    // This addresses the broader issue of device enumeration rather than filtering specific device names
+    
     if device.supported_keys().map_or(false, |keys| keys.contains(Key::KEY_ENTER)) {
         if device.name() == Some("swhkd virtual output") {
             return false;
         }
+        
+        // Additional check to filter out mouse devices by capabilities
+        if let Some(name) = device.name() {
+            if name.to_lowercase().contains("mouse") {
+                log::debug!("Filtering out mouse device: {}", name);
+                return false;
+            }
+        }
+        
         log::debug!("Keyboard: {}", device.name().unwrap(),);
         true
     } else {
