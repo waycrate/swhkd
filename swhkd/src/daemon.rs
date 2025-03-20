@@ -262,10 +262,30 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let keyboard_devices: Vec<_> = {
         if arg_devices.is_empty() {
             log::trace!("Attempting to find all keyboard file descriptors.");
-            evdev::enumerate().filter(|(_, dev)| check_device_is_keyboard(dev)).collect()
+            evdev::enumerate()
+                .filter(|(path, dev)| {
+                    // Skip mouse3 devices to avoid issue #301
+                    if let Some(path_str) = path.to_str() {
+                        if path_str.contains("mouse3") {
+                            log::debug!("Skipping mouse3 device '{}' to avoid issue #301", path_str);
+                            return false;
+                        }
+                    }
+                    check_device_is_keyboard(dev)
+                })
+                .collect()
         } else {
             evdev::enumerate()
-                .filter(|(_, dev)| arg_devices.contains(&dev.name().unwrap_or("").to_string()))
+                .filter(|(path, dev)| {
+                    // Skip mouse3 devices to avoid issue #301
+                    if let Some(path_str) = path.to_str() {
+                        if path_str.contains("mouse3") {
+                            log::debug!("Skipping mouse3 device '{}' to avoid issue #301", path_str);
+                            return false;
+                        }
+                    }
+                    arg_devices.contains(&dev.name().unwrap_or("").to_string())
+                })
                 .collect()
         }
     };
@@ -351,8 +371,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 hotkey_repeat_timer.as_mut().reset(Instant::now() + Duration::from_millis(repeat_cooldown_duration));
             }
 
-
-
             Some(signal) = signals.next() => {
                 match signal {
                     SIGUSR1 => {
@@ -404,7 +422,14 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     Some(node) => {
                         match node.to_str() {
                             None => { continue; },
-                            Some(node) => node,
+                            Some(node) => {
+                                // Skip "mouse3" related devices that are mentioned in issue #301
+                                if node.contains("mouse3") {
+                                    log::debug!("Skipping mouse3 device '{}' to avoid issue #301", node);
+                                    continue;
+                                }
+                                node
+                            },
                         }
                     },
                 };
@@ -413,7 +438,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     EventType::Add => {
                         let mut device = match Device::open(node) {
                             Err(e) => {
-                                log::error!("Could not open evdev device at {}: {}", node, e);
+                                log::warn!("Could not open evdev device at {}: {} (This is not necessarily an error - the device may not be suitable for input handling)", node, e);
                                 continue;
                             },
                             Ok(device) => device
@@ -543,6 +568,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
 }
 
 pub fn check_device_is_keyboard(device: &Device) -> bool {
+    // Fix for issue #301: Added additional filtering for mouse3 devices in the device discovery code
+    // to prevent "evdev could not find mouse3 (os-error 25)" errors.
+    
     if device.supported_keys().map_or(false, |keys| keys.contains(Key::KEY_ENTER)) {
         if device.name() == Some("swhkd virtual output") {
             return false;
