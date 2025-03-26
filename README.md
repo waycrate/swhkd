@@ -33,6 +33,19 @@ Xorg or Wayland desktops, and you can even use `swhkd` in a TTY.
 ## Running
 
 ```bash
+./swhks && doas ./swhkd
+```
+
+The doas or sudo can be skipped by making the swhkd binary a setuid binary.
+This can be done by running the following command:
+
+```bash
+sudo chown root:root swhkd
+sudo chmod u+s swhkd
+```
+
+then to start,
+```bash
 swhks &
 swhkd
 ```
