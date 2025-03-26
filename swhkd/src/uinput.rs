@@ -4,62 +4,10 @@ use evdev::{
 };
 
 use nix::ioctl_none;
-use nix::ioctl_readwrite;
-use std::fs::OpenOptions;
-use std::io::Read;
-use std::os::unix::io::AsRawFd;
 use std::fs::File;
-
-#[repr(C)]
-#[derive(Debug)]
-/// A simple representation of rfkill event
-///
-/// Contains the following:
-///
-/// 1. index of the radio device
-/// 2. type of radio device (wifi, bt, etc.)
-/// 3. Operation type: status of the device
-/// 4. Soft block status
-/// 5. Hard block status
-struct RfkillEvent {
-    idx: u32,
-    r#type: u32,
-    op: u8,
-    soft: u8,
-    hard: u8,
-}
+use std::os::unix::io::AsRawFd;
 
 ioctl_none!(rfkill_noinput, b'R', 1);
-ioctl_readwrite!(rfkill_query, b'R', 0, RfkillEvent); // queries rfkill status
-ioctl_readwrite!(rfkill_change, b'R', 2, RfkillEvent); // modifies rfkill settings
-
-/// Unblocks any soft-blocked rfkill events
-fn unblock_rfkill() -> Result<(), Box<dyn std::error::Error>> {
-    let mut file = OpenOptions::new().read(true).write(true).open("/dev/rfkill")?;
-
-    let mut buf = [0u8; std::mem::size_of::<RfkillEvent>()];
-
-    // Read all rfkill events to identify devices
-    while file.read_exact(&mut buf).is_ok() {
-        let mut event: RfkillEvent = unsafe { std::ptr::read(buf.as_ptr() as *const _) };
-        log::debug!("Checking rfkill event: {:?}", event);
-
-        // If device is soft-blocked, unblock it
-        if event.soft == 1 {
-            log::debug!("Unblocking rfkill device idx: {}", event.idx);
-            event.op = 2; // RFKILL_OP_CHANGE
-            event.soft = 0;
-            unsafe { rfkill_change(file.as_raw_fd(), &mut event)?; }
-        }
-    }
-
-    // Read one more time to verify unblock
-    file.read_exact(&mut buf)?;
-    let event_after: RfkillEvent = unsafe { std::ptr::read(buf.as_ptr() as *const _) };
-    log::debug!("AFTER Unblock - Parsed rfkill event: {:?}", event_after);
-
-    Ok(())
-}
 
 pub fn create_uinput_device() -> Result<VirtualDevice, Box<dyn std::error::Error>> {
     let keys: AttributeSet<Key> = get_all_keys().iter().copied().collect();
@@ -92,17 +40,12 @@ pub fn create_uinput_switches_device() -> Result<VirtualDevice, Box<dyn std::err
     unsafe {
         rfkill_noinput(rfkill_file.as_raw_fd())?;
     }
-
-    // Ensure that rfkill is UNBLOCKED if it is soft-blocked
-    unblock_rfkill()?;
-
     let device = VirtualDeviceBuilder::new()?
         .name("swhkd switches virtual output")
         .with_switches(&switches)?
         .build()?;
     Ok(device)
 }
-
 pub fn get_all_keys() -> &'static [Key] {
     &[
         evdev::Key::KEY_RESERVED,
