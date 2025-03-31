@@ -3,14 +3,14 @@ use evdev::{
     AttributeSet, Key, RelativeAxisType, SwitchType,
 };
 
-#[cfg(feature = "rfkill")]
+#[cfg(not(feature = "no_rfkill"))]
 use nix::ioctl_none;
-#[cfg(feature = "rfkill")]
+#[cfg(not(feature = "no_rfkill"))]
 use std::fs::File;
-#[cfg(feature = "rfkill")]
+#[cfg(not(feature = "no_rfkill"))]
 use std::os::unix::io::AsRawFd;
 
-#[cfg(feature = "rfkill")]
+#[cfg(not(feature = "no_rfkill"))]
 ioctl_none!(rfkill_noinput, b'R', 1);
 
 pub fn create_uinput_device() -> Result<VirtualDevice, Box<dyn std::error::Error>> {
@@ -41,7 +41,7 @@ pub fn create_uinput_switches_device() -> Result<VirtualDevice, Box<dyn std::err
     // fast enough that it won't impact anyone. rfkill-input will be enabled
     // again when the file gets closed.
     // Implemented as feature for it causes issues with radio on some platforms.
-    #[cfg(feature = "rfkill")]
+    #[cfg(not(feature = "no_rfkill"))]
     {
         let rfkill_file = File::open("/dev/rfkill")?;
         unsafe {
@@ -631,7 +631,7 @@ pub fn get_all_switches() -> &'static [SwitchType] {
         SwitchType::SW_LID,
         SwitchType::SW_TABLET_MODE,
         SwitchType::SW_HEADPHONE_INSERT,
-        #[cfg(feature = "rfkill")]
+        #[cfg(not(feature = "no_rfkill"))]
         SwitchType::SW_RFKILL_ALL,
         SwitchType::SW_MICROPHONE_INSERT,
         SwitchType::SW_DOCK,

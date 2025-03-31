@@ -4,7 +4,7 @@
 
 _pkgname="swhkd"
 pkgname="${_pkgname}-git"
-pkgver=1.2.1.r91.gde8d627
+pkgver=1.2.1.r92.ge972f55
 pkgrel=1
 arch=("x86_64")
 url="https://github.com/waycrate/swhkd"
@@ -21,7 +21,7 @@ sha256sums=("SKIP"
 build(){
 	cd "$_pkgname"
 	make setup
-	make NO_DEFAULT_FEATURES=1
+	make NO_RFKILL_SW_SUPPORT=1
 }
 
 package() {

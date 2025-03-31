@@ -13,8 +13,7 @@ authors = [
 flate2 = "1.0.24"
 
 [features]
-rfkill = []
-default = ["rfkill"]
+no_rfkill = []
 
 [dependencies]
 clap = { version = "4.1.0", features = ["derive"] }
