@@ -6,7 +6,7 @@ We have packaged `swhkd-git`. `swhkd-bin` has been packaged separately by a user
 
 `swhkd` and `swhks` install to `/usr/local/bin/` by default. You can change this behaviour by editing the [Makefile](../Makefile) variable, `DESTDIR`, which acts as a prefix for all installed files. You can also specify it in the make command line, e.g. to install everything in `subdir`: `make DESTDIR="subdir" install`.
 
-Note: On some systems swhkd daemon might disable wifi due to issues with rfkill, you could pass `make NO_DEFAULT_FEATURES=1` while buliding to disable rfkill support.
+Note: On some systems swhkd daemon might disable wifi due to issues with rfkill, you could pass `make NO_RFKILL_SW_SUPPORT=1` while buliding to disable rfkill support.
 
 # Dependencies:
 
