@@ -1,4 +1,4 @@
-use std::{collections::HashMap, path::PathBuf};
+use std::{borrow::Cow, collections::HashMap, env, path::PathBuf};
 
 #[derive(Debug, Clone)]
 pub struct Env {
@@ -6,62 +6,63 @@ pub struct Env {
 }
 
 impl Env {
+    /// Parses an environment string into key-value pairs.
     fn parse_env(env: &str) -> HashMap<String, String> {
-        let mut pairs = HashMap::new();
-        for line in env.lines() {
-            let mut parts = line.splitn(2, '=');
-            if let (Some(key), Some(value)) = (parts.next(), parts.next()) {
-                pairs.insert(key.to_string(), value.to_string());
-            }
-        }
-        pairs
+        env.lines()
+            .filter_map(|line| {
+                let mut parts = line.splitn(2, '=');
+                Some((parts.next()?.to_string(), parts.next()?.to_string()))
+            })
+            .collect()
     }
 
-    /// Construct the env from the environment variables
+    /// Constructs an environment structure from the given string or system environment variables.
     pub fn construct(env: Option<&str>) -> Self {
-        let env = match env {
-            Some(env) => env.to_string(),
-            None => "".to_string(),
-        };
-        let pairs = Self::parse_env(&env);
+        let pairs = env.map(Self::parse_env).unwrap_or_else(|| env::vars().collect());
         Self { pairs }
     }
 
+    /// Fetches the HOME directory path.
     pub fn fetch_home(&self) -> Option<PathBuf> {
-        let home = match self.pairs.get("HOME") {
-            Some(it) => it,
-            None => return None,
-        };
-        Some(PathBuf::from(home))
+        self.pairs.get("HOME").map(PathBuf::from)
     }
 
+    /// Fetches the XDG config path.
     pub fn fetch_xdg_config_path(&self) -> PathBuf {
-        let default = match self.fetch_home() {
-            Some(x) => x.join(".config"),
-            None => PathBuf::from("/etc"),
-        }
-        .to_string_lossy()
-        .to_string();
-        let xdg_config_home = self.pairs.get("XDG_CONFIG_HOME").unwrap_or(&default);
+        let default = self
+            .fetch_home()
+            .map(|home| home.join(".config"))
+            .unwrap_or_else(|| PathBuf::from("/etc"))
+            .to_string_lossy() // Convert PathBuf -> Cow<'_, str>
+            .into_owned();
+
+        let xdg_config_home =
+            self.pairs.get("XDG_CONFIG_HOME").map(String::as_str).unwrap_or(&default);
 
         PathBuf::from(xdg_config_home).join("swhkd").join("swhkdrc")
     }
 
+    /// Fetches the XDG data path.
     pub fn fetch_xdg_data_path(&self) -> PathBuf {
-        let default = match self.fetch_home() {
-            Some(x) => x.join(".local").join("share"),
-            None => PathBuf::from("/etc"),
-        }
-        .to_string_lossy()
-        .to_string();
-        let xdg_config_home = self.pairs.get("XDG_DATA_HOME").unwrap_or(&default);
+        let default = self
+            .fetch_home()
+            .map(|home| home.join(".local/share"))
+            .unwrap_or_else(|| PathBuf::from("/etc"))
+            .to_string_lossy()
+            .into_owned();
 
-        PathBuf::from(xdg_config_home)
+        let xdg_data_home = self.pairs.get("XDG_DATA_HOME").map(String::as_str).unwrap_or(&default);
+
+        PathBuf::from(xdg_data_home)
     }
 
+    /// Fetches the XDG runtime directory path for the given user ID.
     pub fn xdg_runtime_dir(&self, uid: u32) -> PathBuf {
         let default = format!("/run/user/{}", uid);
-        let xdg_runtime_dir = self.pairs.get("XDG_RUNTIME_DIR").unwrap_or(&default);
+
+        let xdg_runtime_dir =
+            self.pairs.get("XDG_RUNTIME_DIR").map(String::as_str).unwrap_or(&default);
+
         PathBuf::from(xdg_runtime_dir)
     }
 }

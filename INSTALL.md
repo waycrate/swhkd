@@ -33,7 +33,4 @@ Note: On some systems swhkd daemon might disable wifi due to issues with rfkill,
 
 # Running:
 
-```
-swhks &
-swhkd
-```
+Refer [Running section](https://github.com/waycrate/swhkd#running)

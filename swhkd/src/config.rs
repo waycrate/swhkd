@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::path::Path;
 use sweet::KeyAttribute;
 use sweet::{Definition, SwhkdParser};
@@ -11,7 +12,7 @@ pub fn load(path: &Path) -> Result<Vec<Mode>, ParseError> {
 #[derive(Debug, Clone)]
 pub struct KeyBinding {
     pub keysym: evdev::Key,
-    pub modifiers: Vec<Modifier>,
+    pub modifiers: HashSet<Modifier>,
     pub send: bool,
     pub on_release: bool,
 }
@@ -19,8 +20,8 @@ pub struct KeyBinding {
 impl PartialEq for KeyBinding {
     fn eq(&self, other: &Self) -> bool {
         self.keysym == other.keysym
-            && self.modifiers.iter().all(|modifier| other.modifiers.contains(modifier))
-            && self.modifiers.len() == other.modifiers.len()
+            // Comparisons are order independent without manual iterations
+            && self.modifiers == other.modifiers
             && self.send == other.send
             && self.on_release == other.on_release
     }
@@ -33,15 +34,16 @@ pub trait Prefix {
 
 pub trait Value {
     fn keysym(&self) -> evdev::Key;
-    fn modifiers(&self) -> Vec<Modifier>;
+    fn modifiers(&self) -> &HashSet<Modifier>;
     fn is_send(&self) -> bool;
     fn is_on_release(&self) -> bool;
 }
 
 impl KeyBinding {
-    pub fn new(keysym: evdev::Key, modifiers: Vec<Modifier>) -> Self {
+    pub fn new(keysym: evdev::Key, modifiers: HashSet<Modifier>) -> Self {
         KeyBinding { keysym, modifiers, send: false, on_release: false }
     }
+
     pub fn on_release(mut self) -> Self {
         self.on_release = true;
         self
@@ -63,8 +65,8 @@ impl Value for KeyBinding {
     fn keysym(&self) -> evdev::Key {
         self.keysym
     }
-    fn modifiers(&self) -> Vec<Modifier> {
-        self.clone().modifiers
+    fn modifiers(&self) -> &HashSet<Modifier> {
+        &self.modifiers
     }
     fn is_send(&self) -> bool {
         self.send
@@ -95,10 +97,16 @@ impl Hotkey {
     pub fn from_keybinding(keybinding: KeyBinding, command: String) -> Self {
         Hotkey { keybinding, command, mode_instructions: vec![] }
     }
+
+    /// Accepts both Vec<Modifier> and HashSet<Modifier> and stored as HashSet<Modifier>
     #[cfg(test)]
-    pub fn new(keysym: evdev::Key, modifiers: Vec<Modifier>, command: String) -> Self {
+    pub fn new(
+        keysym: evdev::Key,
+        modifiers: impl IntoIterator<Item = Modifier>,
+        command: String,
+    ) -> Self {
         Hotkey {
-            keybinding: KeyBinding::new(keysym, modifiers),
+            keybinding: KeyBinding::new(keysym, modifiers.into_iter().collect()),
             command,
             mode_instructions: vec![],
         }
@@ -120,8 +128,8 @@ impl Value for &Hotkey {
     fn keysym(&self) -> evdev::Key {
         self.keybinding.keysym
     }
-    fn modifiers(&self) -> Vec<Modifier> {
-        self.keybinding.clone().modifiers
+    fn modifiers(&self) -> &HashSet<Modifier> {
+        &self.keybinding.modifiers
     }
     fn is_send(&self) -> bool {
         self.keybinding.send
@@ -166,35 +174,34 @@ pub fn parse_contents(contents: SwhkdParser) -> Result<Vec<Mode>, ParseError> {
             mode_instructions: binding.mode_instructions.clone(),
         });
     }
-    for unbind in contents.unbinds {
-        default_mode.unbinds.push(sweet_def_to_kb(&unbind));
-    }
+    default_mode.unbinds.extend(contents.unbinds.iter().map(sweet_def_to_kb));
 
     let mut modes = vec![default_mode];
 
     for sweet::Mode { name, oneoff, swallow, bindings, unbinds } in contents.modes {
         let mut pushmode =
             Mode { name, options: ModeOptions { swallow, oneoff }, ..Default::default() };
+
         for binding in bindings {
             let hotkey = Hotkey {
                 keybinding: sweet_def_to_kb(&binding.definition),
                 command: binding.command,
                 mode_instructions: binding.mode_instructions.clone(),
             };
-            pushmode.hotkeys.retain(|h| h.keybinding != hotkey.keybinding);
+            // Replace existing hotkeys with same keybinding
+            pushmode.hotkeys.retain(|h| h.keybinding.keysym != hotkey.keybinding.keysym);
             pushmode.hotkeys.push(hotkey);
         }
-        for unbind in unbinds {
-            pushmode.unbinds.push(sweet_def_to_kb(&unbind));
-        }
+        pushmode.unbinds.extend(unbinds.iter().map(sweet_def_to_kb));
+
         modes.push(pushmode);
     }
     Ok(modes)
 }
 
-/// A small function to convert a `sweet::Modifier` into the local `Modifier` enum
+/// Convert sweet::Definition to KeyBinding
 fn sweet_def_to_kb(def: &Definition) -> KeyBinding {
-    let modifiers = def
+    let modifiers: HashSet<Modifier> = def
         .modifiers
         .iter()
         .filter_map(|m| match m {
@@ -208,7 +215,10 @@ fn sweet_def_to_kb(def: &Definition) -> KeyBinding {
         })
         .collect();
 
-    let send = def.key.attribute == KeyAttribute::Send;
-    let on_release = def.key.attribute == KeyAttribute::OnRelease;
-    KeyBinding { keysym: def.key.key, modifiers, send, on_release }
+    KeyBinding {
+        keysym: def.key.key,
+        modifiers,
+        send: def.key.attribute == KeyAttribute::Send,
+        on_release: def.key.attribute == KeyAttribute::OnRelease,
+    }
 }

@@ -284,7 +284,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let mut uinput_device = match uinput::create_uinput_device() {
         Ok(dev) => dev,
         Err(e) => {
-            log::error!("Err: {:#?}", e);
+            log::error!("Failed to create uinput device: \nErr: {:#?}", e);
             exit(1);
         }
     };
@@ -292,7 +292,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let mut uinput_switches_device = match uinput::create_uinput_switches_device() {
         Ok(dev) => dev,
         Err(e) => {
-            log::error!("Err: {:#?}", e);
+            log::error!("Failed to create uinput switches device: \nErr: {:#?}", e);
             exit(1);
         }
     };
