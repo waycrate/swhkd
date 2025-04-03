@@ -9,6 +9,10 @@ MAN1_DIR := /usr/share/man/man1
 MAN5_DIR := /usr/share/man/man5
 VERSION = $(shell awk -F ' = ' '$$1 ~ /version/ { gsub(/["]/, "", $$2); printf("%s",$$2) }' Cargo.toml)
 
+ifneq ($(NO_RFKILL_SW_SUPPORT),)
+	BUILDFLAGS += --features "no_rfkill"
+endif
+
 all: build
 
 build:
