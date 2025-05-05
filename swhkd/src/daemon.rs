@@ -503,6 +503,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
                         .all(|x| hotkey.modifiers().contains(x)) &&
                     keyboard_state.state_modifiers.len() == hotkey.modifiers().len())
                     && !hotkey.is_send()
+                    && ((hotkey.is_on_release() && event.value() == 0)
+                        || (!hotkey.is_on_release() && event.value() == 1))
                         });
 
                 // Only emit event to virtual device when swallow option is off
