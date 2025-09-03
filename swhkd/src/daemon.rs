@@ -675,13 +675,20 @@ pub fn refresh_env(
 
     // Follows a two part process to recieve the env hash and the env itself
     // First part: Send a "1" as a byte to the socket to request the hash
-    if let Ok(mut stream) = UnixStream::connect(&sock_path) {
-        let n = stream.write(&[1])?;
-        if n != 1 {
-            log::error!("Failed to write to socket.");
+    log::debug!("reading from socket {}", sock_path);
+    match UnixStream::connect(&sock_path) {
+        Ok(mut stream) => {
+            let n = stream.write(&[1])?;
+            if n != 1 {
+                log::error!("Failed to write to socket {}", sock_path);
+                return Ok((None, prev_hash));
+            }
+            stream.read_to_string(&mut buff)?;
+        }
+        Err(e) => {
+            log::warn!("Failed to connect to socket {}: {}", sock_path, e);
             return Ok((None, prev_hash));
         }
-        stream.read_to_string(&mut buff)?;
     }
 
     let env_hash = buff.parse().unwrap_or_default();
