@@ -195,8 +195,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
             let log = log.clone();
 
             // Set the user and group id to the invoking user for the thread
-            setgid(Gid::from_raw(invoking_uid)).unwrap();
-            setuid(Uid::from_raw(invoking_uid)).unwrap();
+            setuid(Uid::from_raw(invoking_uid)).expect(&format!("Failed to set group-id to {}", invoking_uid));
+            setgid(Gid::from_raw(invoking_uid)).expect(&format!("Failed to set user-id to {}", invoking_uid));
 
             // Command execution
             let mut cmd = Command::new("sh");
@@ -650,6 +650,11 @@ pub async fn send_command(
 fn get_uid() -> Result<u32, Box<dyn Error>> {
     let status_content = fs::read_to_string(format!("/proc/{}/loginuid", std::process::id()))?;
     let uid = status_content.trim().parse::<u32>()?;
+    if uid == u32::MAX {
+        return Err("got invalid loginuid value 4294967295 ('-1' in unsigned long), meaning loginuid is unset. \
+        This can happen e.g. if you run the application as a service but don't explicitly configure a user to run it as".into());
+    }
+
     Ok(uid)
 }
 
