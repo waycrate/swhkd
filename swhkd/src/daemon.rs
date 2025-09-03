@@ -86,7 +86,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // Get the UID of the user that is not a system user
     let invoking_uid = get_uid()?;
 
-    log::debug!("Wating for server to start...");
+    // Calculate a server cooldown at which the server will be pinged to check for env changes.
+    let cooldown = args.cooldown;
+    let delta = (cooldown as f64 * 0.1) as u64;
+    let server_cooldown = std::cmp::max(0, cooldown - delta);
+
+    log::debug!("Waiting for swhks socket...");
     // The first and the most important request for the env
     // Without this request, the environmental variables responsible for the reading for the config
     // file will not be available.
@@ -101,7 +106,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 break;
             }
             Ok((None, _)) => {
-                log::debug!("Waiting for env...");
+                sleep(Duration::from_millis(server_cooldown)).await;
                 continue;
             }
             Err(_) => {}
@@ -141,11 +146,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
         }
         fs::set_permissions(&log_path, Permissions::from_mode(0o666)).unwrap();
     }
-
-    // Calculate a server cooldown at which the server will be pinged to check for env changes.
-    let cooldown = args.cooldown;
-    let delta = (cooldown as f64 * 0.1) as u64;
-    let server_cooldown = std::cmp::max(0, cooldown - delta);
 
     // Set up a channel to communicate with the server
     // The channel can have upto 100 commands in the queue
