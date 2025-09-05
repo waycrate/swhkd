@@ -195,8 +195,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
             let log = log.clone();
 
             // Set the user and group id to the invoking user for the thread
-            setgid(Gid::from_raw(invoking_uid)).expect(&format!("Failed to set group-id to {}", invoking_uid));
-            setuid(Uid::from_raw(invoking_uid)).expect(&format!("Failed to set user-id to {}", invoking_uid));
+            setgid(Gid::from_raw(invoking_uid))
+                .expect(&format!("Failed to set group-id to {}", invoking_uid));
+            setuid(Uid::from_raw(invoking_uid))
+                .expect(&format!("Failed to set user-id to {}", invoking_uid));
 
             // Command execution
             let mut cmd = Command::new("sh");
