@@ -1,44 +1,44 @@
 {
-  description = "Swhkd devel";
+  description = "wayshot devel and build";
 
-  inputs = { nixpkgs.url = "github:nixos/nixpkgs/nixpkgs-unstable"; };
+  inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.11";
+
+  # shell.nix compatibility
+  inputs.flake-compat.url = "https://flakehub.com/f/edolstra/flake-compat/1.tar.gz";
 
   outputs = { self, nixpkgs, ... }:
     let
-      pkgsFor = system:
-        import nixpkgs {
-          inherit system;
-          overlays = [ ];
-        };
+      # System types to support.
+      targetSystems = [ "x86_64-linux" "aarch64-linux" "x86_64-darwin" "aarch64-darwin" ];
 
-      targetSystems = [ "aarch64-linux" "x86_64-linux" ];
+      # Helper function to generate an attrset '{ x86_64-linux = f "x86_64-linux"; ... }'.
+      forAllSystems = nixpkgs.lib.genAttrs targetSystems;
     in {
-      devShells = nixpkgs.lib.genAttrs targetSystems (system:
-        let pkgs = pkgsFor system;
-        in {
+      devShells = forAllSystems (system:
+        let
+          pkgs = nixpkgs.legacyPackages.${system};
+        in
+        {
           default = pkgs.mkShell {
-            name = "Swhkd-devel";
+            strictDeps = true;
+            RUST_SRC_PATH = "${pkgs.rustPlatform.rustLibSrc}";
             nativeBuildInputs = with pkgs; [
-              # Compilers
               cargo
               rustc
-              scdoc
-
-              # libs
-              udev
-
-              # Tools
               pkg-config
-              clippy
-              gdb
-              gnumake
-              rust-analyzer
+
               rustfmt
-              strace
-              valgrind
-              zip
+              clippy
+              rust-analyzer
+
+              scdoc
+            ];
+
+            buildInputs = with pkgs; [
+              udev # libudev-sys
             ];
           };
-        });
+        }
+      );
     };
 }
