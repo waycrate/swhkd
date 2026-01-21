@@ -1,7 +1,7 @@
 use crate::config::Value;
 use clap::Parser;
 use config::Hotkey;
-use evdev::{AttributeSet, Device, InputEventKind, Key};
+use evdev::{AttributeSet, Device, InputEventKind, Key, RelativeAxisType};
 use nix::{
     sys::stat::{umask, Mode},
     unistd::{setgid, setuid, Gid, Uid, User},
@@ -552,6 +552,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
 pub fn check_device_is_keyboard(device: &Device) -> bool {
     if device.supported_keys().is_some_and(|keys| keys.contains(Key::KEY_ENTER)) {
         if device.name() == Some("swhkd virtual output") {
+            return false;
+        }
+        // Exclude devices with relative axes (mice)
+        if device.supported_relative_axes().is_some_and(|axes| axes.contains(RelativeAxisType::REL_X) && axes.contains(RelativeAxisType::REL_Y)) {
+            log::trace!("Mouse: {}", device.name().unwrap(),);
             return false;
         }
         log::debug!("Keyboard: {}", device.name().unwrap(),);
