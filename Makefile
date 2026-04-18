@@ -55,6 +55,7 @@ test:
 clean:
 	@cargo clean
 	@$(RM) -f ./docs/*.gz
+	@$(RM) -f ./docs/*.out
 	@$(RM) -f $(DAEMON_BINARY)rc
 
 setup:
