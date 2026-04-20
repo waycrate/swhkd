@@ -236,7 +236,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 .uid(invoking_uid)
                 .gid(user.gid.as_raw())
                 .stdin(Stdio::null())
-                .stdout(match File::open(&log) {
+                .stdout(match File::options().append(true).open(&log) {
                     Ok(file) => file,
                     Err(e) => {
                         println!("Error: {}", e);
@@ -244,7 +244,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                         exit(1);
                     }
                 })
-                .stderr(match File::open(&log) {
+                .stderr(match File::options().append(true).open(&log) {
                     Ok(file) => file,
                     Err(e) => {
                         println!("Error: {}", e);
