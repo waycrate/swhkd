@@ -5,7 +5,7 @@ use evdev::{AttributeSet, Device, InputEventKind, Key};
 use futures::stream::FuturesUnordered;
 use nix::{
     sys::stat::{umask, Mode},
-    unistd::{setgid, setuid, Gid, Uid, User},
+    unistd::{Uid, User},
 };
 use signal_hook::consts::signal::*;
 use signal_hook_tokio::Signals;
@@ -15,14 +15,14 @@ use std::{
     error::Error,
     fs::{self, File, OpenOptions, Permissions},
     io::{Read, Write},
-    os::unix::{fs::PermissionsExt, net::UnixStream, process::CommandExt},
+    os::unix::{fs::PermissionsExt, net::UnixStream},
     path::{Path, PathBuf},
     process::{exit, id, Stdio},
     sync::{Arc, Mutex},
     time::{SystemTime, UNIX_EPOCH},
 };
 use sysinfo::{ProcessExt, System, SystemExt};
-use tokio::process::{Child, Command};
+use tokio::process::Command;
 use tokio::time::Duration;
 use tokio::time::{sleep, Instant};
 use tokio::{select, sync::mpsc};
@@ -225,10 +225,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             let user_uid = Uid::from_raw(invoking_uid);
             let user = User::from_uid(user_uid)
                 .expect("Failed to get user info")
-                .expect(&format!("User with UID {} not found", invoking_uid));
-
-            let username =
-                CString::new(user.name.as_str()).expect("Failed to convert username to CString");
+                .unwrap_or_else(|| panic!("User with UID {} not found", invoking_uid));
 
             let mut cmd = Command::new("sh");
             cmd.arg("-c")
