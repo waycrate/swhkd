@@ -2,7 +2,7 @@ use crate::config::Value;
 use clap::Parser;
 use config::Hotkey;
 use evdev::{AttributeSet, Device, InputEventKind, Key};
-use futures::stream::FuturesUnordered;
+use futures_util::stream::FuturesUnordered;
 use nix::{
     sys::stat::{umask, Mode},
     unistd::{Uid, User},
