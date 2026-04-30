@@ -34,8 +34,10 @@ install:
 	fi
 
 uninstall:
-	@$(RM) -f /usr/share/man/**/swhkd.*
-	@$(RM) -f /usr/share/man/**/swhks.*
+	@$(RM) -f $(MAN1_DIR)/swhkd.1*
+	@$(RM) -f $(MAN1_DIR)/swhks.1*
+	@$(RM) -f $(MAN5_DIR)/swhkd.5*
+	@$(RM) -f $(MAN5_DIR)/swhkd-keys.5*
 	@$(RM) $(TARGET_DIR)/$(SERVER_BINARY)
 	@$(RM) $(TARGET_DIR)/$(DAEMON_BINARY)
 
